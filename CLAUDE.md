@@ -2,44 +2,40 @@
 
 ## What this project is
 
-A fork of [ivnvxd/mcp-server-odoo](https://github.com/ivnvxd/mcp-server-odoo) (MPL-2.0).
+**odoo-mcp-pro** — an MCP server connecting AI assistants (Claude) to Odoo ERP via the
+Odoo 19 JSON/2 API. Works on Claude.ai, Claude Code, and Claude Desktop. Runs locally
+(stdio) or in the cloud (streamable-http + OAuth 2.1 via Zitadel).
 
-Goal: add support for the **Odoo 19 JSON/2 API** alongside the existing XML-RPC client,
-then decide whether to PR upstream or publish as a standalone project.
+Originally forked from [ivnvxd/mcp-server-odoo](https://github.com/ivnvxd/mcp-server-odoo) (MPL-2.0),
+now a standalone project with JSON/2 client, OAuth 2.1, and cloud deployment.
 
 ## Current state
 
-- Cloned from upstream on 2026-02-22
-- Working branch: `feature/json2-client`
-- JSON/2 client implemented and integrated
-- OAuth 2.1 authentication for HTTP transport (via Zitadel)
-- Deployed on Hetzner VPS behind Caddy
+- JSON/2 client fully implemented (Odoo 19+, ready for Odoo 20)
+- XML-RPC still supported for backwards compatibility (Odoo 14-18)
+- OAuth 2.1 via Zitadel for cloud deployments
+- Cloud deployment: Docker + Caddy reverse proxy, multi-instance
+- Both stdio and streamable-http transports working
+- 34 test files, all mocked
 
 ## Architecture
 
-The connection layer is abstracted behind `OdooConnectionProtocol` (Protocol class).
-`server.py` uses a factory pattern to pick the right implementation at startup:
+Connection layer abstracted behind `OdooConnectionProtocol`. Factory in `server.py`:
 
 ```
-ODOO_API_VERSION=xmlrpc  →  OdooConnection       (XML-RPC, Odoo 14-19)
-ODOO_API_VERSION=json2   →  OdooJSON2Connection   (JSON/2, Odoo 19+ only)
+ODOO_API_VERSION=json2   →  OdooJSON2Connection   (Odoo 19+)
+ODOO_API_VERSION=xmlrpc  →  OdooConnection        (Odoo 14-18)
 ```
 
-### Authentication (HTTP transport)
-
+OAuth flow (cloud):
 ```
 Claude.ai / Claude Code
     │  OAuth 2.1 (Bearer token)
     ▼
-Caddy (TLS) → MCP container → Odoo (via server-side API key)
+Caddy (TLS) → MCP container → Odoo (server-side API key)
     │
     └── Token introspection → Zitadel
 ```
-
-- FastMCP handles OAuth middleware (401 responses, token validation, metadata endpoints)
-- `ZitadelTokenVerifier` validates tokens via RFC 7662 introspection
-- Odoo credentials (`ODOO_API_KEY`) are server-side env vars, never exposed to clients
-- OAuth is optional — omit `OAUTH_ISSUER_URL` to run without auth (stdio/local)
 
 See [architecture.md](architecture.md) for the full breakdown.
 
@@ -47,15 +43,15 @@ See [architecture.md](architecture.md) for the full breakdown.
 
 | File | Role |
 |------|------|
+| `mcp_server_odoo/server.py` | Factory pattern, OAuth wiring, FastMCP setup |
 | `mcp_server_odoo/connection_protocol.py` | Protocol class defining the connection interface |
 | `mcp_server_odoo/odoo_json2_connection.py` | JSON/2 client using httpx |
-| `mcp_server_odoo/odoo_connection.py` | Existing XML-RPC client (unchanged) |
-| `mcp_server_odoo/oauth.py` | `ZitadelTokenVerifier` — OAuth token validation via introspection |
-| `mcp_server_odoo/server.py` | Factory pattern, OAuth wiring, FastMCP setup |
+| `mcp_server_odoo/odoo_connection.py` | XML-RPC client (Odoo 14-18) |
+| `mcp_server_odoo/oauth.py` | `ZitadelTokenVerifier` — token validation via introspection |
 | `mcp_server_odoo/config.py` | OdooConfig with `api_version` field |
-| `mcp_server_odoo/tools.py` | MCP tool definitions |
-| `mcp_server_odoo/resources.py` | MCP resource definitions |
-| `mcp_server_odoo/access_control.py` | JSON/2 mode delegates security to Odoo |
+| `mcp_server_odoo/tools.py` | 6 MCP tools with smart field selection |
+| `mcp_server_odoo/resources.py` | 4 MCP resources (URI-based) |
+| `mcp_server_odoo/access_control.py` | YOLO / standard / JSON/2 access control |
 
 ## JSON/2 API key points
 
@@ -108,61 +104,30 @@ pytest tests/               # unit tests (mocked)
 pytest tests/ -x -q         # quick run, stop on first failure
 ```
 
-Integration test against live Odoo 19:
-```bash
-ODOO_URL=http://localhost:8069 ODOO_DB=test ODOO_API_KEY=... ODOO_API_VERSION=json2 \
-  python -m mcp_server_odoo
-```
-
 ## Conventions
 
 - Follow existing code style (ruff configured in pyproject.toml)
 - Keep JSON/2 client in separate file — do not modify odoo_connection.py
 - Both connection classes must satisfy OdooConnectionProtocol
-- No new dependencies (httpx is already available)
+- No new dependencies without discussion (httpx already available)
 
-## Deployment (Hetzner VPS)
+## Deployment (cloud)
 
-Multi-instance deployment: each Odoo instance runs as a separate MCP server container behind Caddy.
-OAuth protects access — users authenticate via Zitadel (browser login).
+Multi-instance: each Odoo instance = separate MCP container behind Caddy.
 
 ```
 deploy/
 ├── instances.example.yml   # template — copy to instances.yml
 ├── generate.py             # generates docker-compose + Caddyfile
 └── generated/              # output (.gitignored)
-    ├── docker-compose.yml
-    └── Caddyfile
 ```
 
-Quick start:
 ```bash
 cd deploy
-cp instances.example.yml instances.yml   # edit with your Odoo credentials + OAuth config
-python generate.py                        # generates deployment files
-cd generated
-docker compose up -d --build              # start all instances
+cp instances.example.yml instances.yml
+python generate.py
+cd generated && docker compose up -d --build
 ```
 
-Each instance is accessible at `https://<domain>/<instance-name>/`.
-Users connect via Claude.ai or Claude Code — OAuth login happens automatically.
-
-### Admin setup (one-time)
-
-1. Configure Zitadel project with MCP server application
-2. Create service user for token introspection → get `client_id` + `client_secret`
-3. Register Claude.ai as OAuth client (redirect URI from Anthropic)
-4. Set env vars in Coolify / `instances.yml`
-5. Deploy with `docker compose up -d --build`
-
-### User flow
-
-1. Add MCP server URL in Claude.ai → `https://mcp.example.com/production/mcp`
-2. Claude.ai triggers OAuth flow → browser redirect to Zitadel login
-3. User authenticates → token returned to Claude.ai
-4. All subsequent MCP requests use Bearer token automatically
-
-## Next steps
-
-1. Test OAuth flow end-to-end with Claude.ai
-2. Decide: PR to ivnvxd or publish as separate package
+Each instance at `https://<domain>/<instance-name>/`.
+Users connect via Claude.ai → OAuth login via Zitadel → done.
