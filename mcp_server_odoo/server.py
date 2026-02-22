@@ -4,13 +4,17 @@ This module provides the FastMCP server that exposes Odoo data
 and functionality through the Model Context Protocol.
 """
 
+import threading
 from typing import Any, Dict, Optional
+from urllib.parse import parse_qs
 
 from mcp.server import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from .access_control import AccessController
 from .config import OdooConfig, get_config
+from .connection_context import current_connection
 from .error_handling import (
     ConfigurationError,
     ErrorContext,
@@ -29,6 +33,65 @@ logger = get_logger(__name__)
 
 # Server version
 SERVER_VERSION = "0.4.0"
+
+class ConnectionPool:
+    """Cache Odoo connections by (url, api_key) tuple."""
+
+    def __init__(self):
+        self._connections: dict[tuple[str, str], Any] = {}
+        self._lock = threading.Lock()
+
+    def get_or_create(self, odoo_url: str, api_key: str) -> Any:
+        key = (odoo_url, api_key)
+        with self._lock:
+            if key not in self._connections:
+                logger.info(f"Creating new connection for {odoo_url}")
+                config = OdooConfig(url=odoo_url, api_key=api_key, api_version="json2")
+                conn = OdooJSON2Connection(config)
+                conn.connect()
+                conn.authenticate()
+                self._connections[key] = conn
+                logger.info(f"Connected to {odoo_url}")
+            return self._connections[key]
+
+
+class OdooConnectionMiddleware:
+    """ASGI middleware that sets per-request Odoo connection from query params.
+
+    Reads odoo_url and api_key from URL query parameters and sets the
+    current_connection context variable for the duration of the request.
+    Falls back to the default connection if no query params are provided.
+    """
+
+    def __init__(self, app: ASGIApp, pool: ConnectionPool, default_connection: Any = None):
+        self.app = app
+        self.pool = pool
+        self.default_connection = default_connection
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] == "http":
+            query_string = scope.get("query_string", b"").decode()
+            params = parse_qs(query_string)
+
+            odoo_url = params.get("odoo_url", [None])[0]
+            api_key = params.get("api_key", [None])[0]
+
+            conn = self.default_connection
+            if odoo_url and api_key:
+                try:
+                    conn = self.pool.get_or_create(odoo_url, api_key)
+                except Exception as e:
+                    logger.error(f"Failed to connect to {odoo_url}: {e}")
+
+            if conn:
+                token = current_connection.set(conn)
+                try:
+                    await self.app(scope, receive, send)
+                finally:
+                    current_connection.reset(token)
+                return
+
+        await self.app(scope, receive, send)
 
 
 class OdooMCPServer:
@@ -122,19 +185,23 @@ class OdooMCPServer:
 
     def _register_resources(self):
         """Register resource handlers after connection is established."""
-        if self.connection and self.access_controller:
-            self.resource_handler = register_resources(
-                self.app, self.connection, self.access_controller, self.config
-            )
-            logger.info("Registered MCP resources")
+        if not self.access_controller:
+            self.access_controller = AccessController(self.config)
+        # Pass connection (may be None in multi-tenant mode; handlers use context var)
+        self.resource_handler = register_resources(
+            self.app, self.connection, self.access_controller, self.config
+        )
+        logger.info("Registered MCP resources")
 
     def _register_tools(self):
         """Register tool handlers after connection is established."""
-        if self.connection and self.access_controller:
-            self.tool_handler = register_tools(
-                self.app, self.connection, self.access_controller, self.config
-            )
-            logger.info("Registered MCP tools")
+        if not self.access_controller:
+            self.access_controller = AccessController(self.config)
+        # Pass connection (may be None in multi-tenant mode; handlers use context var)
+        self.tool_handler = register_tools(
+            self.app, self.connection, self.access_controller, self.config
+        )
+        logger.info("Registered MCP tools")
 
     async def run_stdio(self):
         """Run the server using stdio transport.
@@ -181,16 +248,27 @@ class OdooMCPServer:
     async def run_http(self, host: str = "localhost", port: int = 8000):
         """Run the server using streamable HTTP transport.
 
+        Supports multi-tenant mode: if odoo_url and api_key are provided as
+        URL query parameters, a per-request connection is created. Otherwise
+        falls back to the env-var-configured connection.
+
         Args:
             host: Host to bind to
             port: Port to bind to
         """
         try:
-            # Establish connection before starting server
-            with perf_logger.track_operation("server_startup"):
-                self._ensure_connection()
+            # Try to establish default connection from env vars (optional in multi-tenant mode)
+            try:
+                with perf_logger.track_operation("server_startup"):
+                    self._ensure_connection()
+            except Exception as e:
+                logger.warning(
+                    f"No default connection configured: {e}. "
+                    "Running in multi-tenant mode (credentials via query params only)."
+                )
 
-                # Register resources after connection is established
+            # Register tools/resources (they'll use current_connection context var)
+            with perf_logger.track_operation("server_startup"):
                 self._register_resources()
                 self._register_tools()
 
@@ -201,14 +279,29 @@ class OdooMCPServer:
             self.app.settings.port = port
 
             # Disable DNS rebinding protection when binding to all interfaces
-            # (remote deployment behind reverse proxy)
             if host == "0.0.0.0":
                 self.app.settings.transport_security = TransportSecuritySettings(
                     enable_dns_rebinding_protection=False
                 )
 
-            # Use the specific streamable HTTP async method
-            await self.app.run_streamable_http_async()
+            # Create connection pool and wrap ASGI app with middleware
+            self._connection_pool = ConnectionPool()
+            starlette_app = self.app.streamable_http_app()
+            wrapped_app = OdooConnectionMiddleware(
+                starlette_app, self._connection_pool, self.connection
+            )
+
+            # Run with uvicorn (same as FastMCP.run_streamable_http_async but with middleware)
+            import uvicorn
+
+            config = uvicorn.Config(
+                wrapped_app,
+                host=host,
+                port=port,
+                log_level=self.app.settings.log_level.lower(),
+            )
+            server = uvicorn.Server(config)
+            await server.serve()
 
         except KeyboardInterrupt:
             logger.info("Server interrupted by user")

@@ -20,6 +20,7 @@ from .error_handling import (
 )
 from .error_sanitizer import ErrorSanitizer
 from .logging_config import get_logger, perf_logger
+from .connection_context import current_connection
 from .connection_protocol import OdooConnectionProtocol
 from .odoo_connection import OdooConnectionError
 from .schemas import (
@@ -55,12 +56,17 @@ class OdooToolHandler:
             config: Odoo configuration instance
         """
         self.app = app
-        self.connection = connection
+        self._default_connection = connection
         self.access_controller = access_controller
         self.config = config
 
         # Register tools
         self._register_tools()
+
+    @property
+    def connection(self):
+        """Return per-request connection (from context var) or default."""
+        return current_connection.get(None) or self._default_connection
 
     def _format_datetime(self, value: str) -> str:
         """Format datetime values to ISO 8601 with timezone."""
