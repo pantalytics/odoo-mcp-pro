@@ -95,8 +95,8 @@ def generate_compose(config: dict) -> str:
                 ],
                 "interval": "10s",
                 "timeout": "5s",
-                "retries": 15,
-                "start_period": "30s",
+                "retries": 30,
+                "start_period": "120s",
             },
         }
 
