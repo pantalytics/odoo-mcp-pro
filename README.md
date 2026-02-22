@@ -1,7 +1,7 @@
 <p align="center">
-  <a href="https://www.odoo.com"><img src="assets/odoo-logo.png" alt="Odoo" height="60"/></a>
+  <a href="https://www.odoo.com"><img src="assets/odoo-logo.svg" alt="Odoo" height="60"/></a>
   &nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://modelcontextprotocol.io"><img src="assets/mcp-logo.png" alt="Model Context Protocol" height="60"/></a>
+  <a href="https://modelcontextprotocol.io"><img src="assets/mcp-logo.svg" alt="Model Context Protocol" height="60"/></a>
 </p>
 
 <h1 align="center">odoo-mcp-pro</h1>
