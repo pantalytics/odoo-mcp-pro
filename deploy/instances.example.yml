@@ -11,32 +11,30 @@
 
 domain: mcp.example.com
 
+# Zitadel auth server (optional — remove to skip deploying Zitadel)
+# Deploys Zitadel + PostgreSQL alongside the MCP servers.
+zitadel:
+  domain: auth.example.com
+
 # OAuth 2.1 authentication (optional — remove to disable)
 # Requires a Zitadel instance (or compatible OIDC provider).
-# Set ZITADEL_CLIENT_SECRET as an env var on the host (e.g. via Coolify).
+# Set ZITADEL_CLIENT_ID and ZITADEL_CLIENT_SECRET as env vars on the host.
 oauth:
   issuer_url: https://auth.example.com
   introspection_url: https://auth.example.com/oauth/v2/introspect
-  client_id: "mcp-server@your-zitadel-project"
+  resource_server_url: https://mcp.example.com
 
 instances:
   # Odoo.sh hosted instance
   production:
     odoo_url: https://mycompany.odoo.com
     odoo_db: mycompany-main-12345678
-    odoo_api_key: "odoo_sh_api_key_here"
+    odoo_api_key: "${ODOO_API_KEY}"
     api_version: json2
 
   # Self-hosted Odoo Community
   staging:
     odoo_url: https://staging.mycompany.com
     odoo_db: staging
-    odoo_api_key: "staging_api_key_here"
-    api_version: json2
-
-  # Local development (use host.docker.internal to reach host machine)
-  local:
-    odoo_url: http://host.docker.internal:8069
-    odoo_db: local_dev
-    odoo_api_key: "local_api_key_here"
+    odoo_api_key: "${STAGING_ODOO_API_KEY}"
     api_version: json2
