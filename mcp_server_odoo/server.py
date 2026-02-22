@@ -7,6 +7,7 @@ and functionality through the Model Context Protocol.
 from typing import Any, Dict, Optional
 
 from mcp.server import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 from .access_control import AccessController
 from .config import OdooConfig, get_config
@@ -198,6 +199,13 @@ class OdooMCPServer:
             # Update FastMCP settings for host and port
             self.app.settings.host = host
             self.app.settings.port = port
+
+            # Disable DNS rebinding protection when binding to all interfaces
+            # (remote deployment behind reverse proxy)
+            if host == "0.0.0.0":
+                self.app.settings.transport_security = TransportSecuritySettings(
+                    enable_dns_rebinding_protection=False
+                )
 
             # Use the specific streamable HTTP async method
             await self.app.run_streamable_http_async()
