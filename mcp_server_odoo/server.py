@@ -186,7 +186,7 @@ class OdooMCPServer:
     def _register_resources(self):
         """Register resource handlers after connection is established."""
         if not self.access_controller:
-            self.access_controller = AccessController(self.config)
+            self.access_controller = self._create_access_controller()
         # Pass connection (may be None in multi-tenant mode; handlers use context var)
         self.resource_handler = register_resources(
             self.app, self.connection, self.access_controller, self.config
@@ -196,12 +196,23 @@ class OdooMCPServer:
     def _register_tools(self):
         """Register tool handlers after connection is established."""
         if not self.access_controller:
-            self.access_controller = AccessController(self.config)
+            self.access_controller = self._create_access_controller()
         # Pass connection (may be None in multi-tenant mode; handlers use context var)
         self.tool_handler = register_tools(
             self.app, self.connection, self.access_controller, self.config
         )
         logger.info("Registered MCP tools")
+
+    def _create_access_controller(self) -> AccessController:
+        """Create an AccessController, handling multi-tenant mode gracefully."""
+        if self.connection:
+            return AccessController(self.config)
+        # Multi-tenant mode: no default connection. Create a JSON/2-style config
+        # so AccessController allows everything (Odoo enforces ACLs server-side).
+        from dataclasses import replace
+
+        mt_config = replace(self.config, api_version="json2", url="https://placeholder")
+        return AccessController(mt_config)
 
     async def run_stdio(self):
         """Run the server using stdio transport.
