@@ -94,14 +94,20 @@ FastMCP
                       httpx, Odoo 19+, ODOO_API_VERSION=json2
 ```
 
-### What changes
+### What changed
 
 | File | Change |
 |------|--------|
-| `mcp_server_odoo/odoo_json2_connection.py` | **New** — JSON/2 client |
-| `mcp_server_odoo/config.py` | Add `ODOO_API_VERSION: str = "xmlrpc"` |
-| `mcp_server_odoo/server.py` | Factory: pick connection class based on config |
-| Everything else | **Unchanged** |
+| `mcp_server_odoo/connection_protocol.py` | **New** — Protocol class defining connection interface |
+| `mcp_server_odoo/odoo_json2_connection.py` | **New** — JSON/2 client using httpx |
+| `mcp_server_odoo/config.py` | Added `api_version: Literal["xmlrpc", "json2"]` field |
+| `mcp_server_odoo/server.py` | Factory pattern: picks connection based on `api_version` |
+| `mcp_server_odoo/tools.py` | Type hint: `OdooConnection` → `OdooConnectionProtocol` |
+| `mcp_server_odoo/resources.py` | Type hint: `OdooConnection` → `OdooConnectionProtocol` |
+| `mcp_server_odoo/access_control.py` | JSON/2 mode: delegates security to Odoo server |
+| `mcp_server_odoo/odoo_connection.py` | **Unchanged** |
+| `mcp_server_odoo/schemas.py` | **Unchanged** |
+| `mcp_server_odoo/formatters.py` | **Unchanged** |
 
 ### OdooJSON2Connection public interface (must match OdooConnection)
 
@@ -180,3 +186,48 @@ Pydantic output models: `SearchResult`, `RecordResult`, `CreateResult`,
 | BACON-AI-CLOUD fork | — | XML-RPC | 17 tools, enterprise focus |
 
 **This fork's unique position**: active community base (ivnvxd) + modern API (JSON/2) + forward-compatible (Odoo 20 ready).
+
+---
+
+## Deployment architecture
+
+### Local (Claude Desktop)
+
+stdio transport, no hosting required. Claude Desktop spawns the MCP server as a subprocess.
+
+```
+Claude Desktop ──stdio──▶ MCP server (local process)
+                              │
+                              ▼
+                        Odoo instance
+```
+
+### Remote (Claude.ai / multi-user)
+
+For web-based Claude or sharing access with team members, the MCP server needs a public
+HTTPS endpoint using `streamable-http` transport.
+
+```
+Claude.ai (user A, user B, ...)
+        │
+        ▼ HTTPS
+Hetzner VPS (mcp.example.com)
+   Caddy :443 → MCP server :8000
+        │
+        ▼ HTTPS
+   Odoo instance (odoo.sh)
+```
+
+**Why a separate VPS (not Odoo.sh)?**
+Odoo.sh is a managed platform — no root access, no custom processes, no arbitrary open ports.
+The MCP server is a lightweight Python process that proxies API calls; a CX22 (~€4/m) is sufficient.
+
+**Key config for remote mode:**
+```bash
+ODOO_MCP_TRANSPORT=streamable-http
+ODOO_MCP_HOST=0.0.0.0
+ODOO_MCP_PORT=8000
+ODOO_URL=https://your-odoo.odoo.sh
+```
+
+Caddy handles TLS termination automatically via Let's Encrypt.

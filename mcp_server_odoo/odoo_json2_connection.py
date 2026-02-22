@@ -440,9 +440,12 @@ class OdooJSON2Connection:
         Returns:
             ID of the created record
         """
-        record_id = self._call(model, "create", vals=values)
+        # Odoo 19 JSON/2 expects vals_list (list of dicts) for create
+        result = self._call(model, "create", vals_list=[values])
         # Invalidate field cache for this model (in case of computed fields)
         self._fields_cache.pop(model, None)
+        # create returns a list of IDs; extract the single ID
+        record_id = result[0] if isinstance(result, list) else result
         logger.info(f"Created {model} record with ID {record_id}")
         return record_id
 

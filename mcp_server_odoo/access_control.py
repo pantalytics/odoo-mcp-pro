@@ -82,6 +82,14 @@ class AccessController:
         # Parse base URL
         self.base_url = config.url.rstrip("/")
 
+        # In JSON/2 mode, Odoo enforces security via Bearer token ACLs
+        if config.api_version == "json2":
+            logger.info(
+                "JSON/2 mode: Access control delegated to Odoo server. "
+                "Odoo enforces ACLs, record rules, and field access on the API key's user."
+            )
+            return  # No client-side access control needed
+
         # In YOLO mode, skip API key validation and MCP checks
         if config.is_yolo_enabled:
             mode_desc = "READ-ONLY" if config.yolo_mode == "read" else "FULL ACCESS"
@@ -179,6 +187,11 @@ class AccessController:
         Raises:
             AccessControlError: If request fails
         """
+        # In JSON/2 mode, all models are accessible (Odoo handles ACLs)
+        if self.config.api_version == "json2":
+            logger.debug("JSON/2 mode: All models are accessible")
+            return []
+
         # In YOLO mode, return empty list (all models are allowed)
         if self.config.is_yolo_enabled:
             logger.debug("YOLO mode: All models are accessible")
@@ -210,6 +223,10 @@ class AccessController:
         Returns:
             True if model is enabled, False otherwise
         """
+        # In JSON/2 mode, Odoo handles access control server-side
+        if self.config.api_version == "json2":
+            return True
+
         # In YOLO mode, all models are enabled
         if self.config.is_yolo_enabled:
             logger.debug(f"YOLO mode: Model '{model}' is accessible")
@@ -234,6 +251,17 @@ class AccessController:
         Raises:
             AccessControlError: If request fails
         """
+        # In JSON/2 mode, allow all operations (Odoo enforces ACLs server-side)
+        if self.config.api_version == "json2":
+            return ModelPermissions(
+                model=model,
+                enabled=True,
+                can_read=True,
+                can_write=True,
+                can_create=True,
+                can_unlink=True,
+            )
+
         # In YOLO mode, return permissions based on mode level
         if self.config.is_yolo_enabled:
             if self.config.yolo_mode == "read":
@@ -295,6 +323,10 @@ class AccessController:
         Returns:
             Tuple of (allowed, error_message)
         """
+        # In JSON/2 mode, allow all (Odoo enforces server-side)
+        if self.config.api_version == "json2":
+            return True, None
+
         # In YOLO mode, check based on mode level
         if self.config.is_yolo_enabled:
             # Define read operations
@@ -362,6 +394,10 @@ class AccessController:
         Returns:
             List of enabled model names
         """
+        # In JSON/2 mode, all models are accessible
+        if self.config.api_version == "json2":
+            return models
+
         # In YOLO mode, all models are enabled
         if self.config.is_yolo_enabled:
             logger.debug(f"YOLO mode: All {len(models)} models are accessible")

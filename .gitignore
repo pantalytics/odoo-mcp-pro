@@ -80,6 +80,9 @@ $RECYCLE.BIN/
 !.aider.conf.yml
 !.aiderignore
 
+# Claude Code
+.mcp.json
+
 # Cursor
 .cursor/
 .cursorrules

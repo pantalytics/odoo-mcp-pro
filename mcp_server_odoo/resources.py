@@ -21,7 +21,8 @@ from .error_handling import (
 )
 from .formatters import DatasetFormatter, RecordFormatter
 from .logging_config import get_logger, perf_logger
-from .odoo_connection import OdooConnection, OdooConnectionError
+from .connection_protocol import OdooConnectionProtocol
+from .odoo_connection import OdooConnectionError
 from .uri_schema import (
     build_search_uri,
 )
@@ -35,7 +36,7 @@ class OdooResourceHandler:
     def __init__(
         self,
         app: FastMCP,
-        connection: OdooConnection,
+        connection: OdooConnectionProtocol,
         access_controller: AccessController,
         config: OdooConfig,
     ):
@@ -43,7 +44,7 @@ class OdooResourceHandler:
 
         Args:
             app: FastMCP application instance
-            connection: Odoo connection instance
+            connection: Odoo connection (XML-RPC or JSON/2)
             access_controller: Access control instance
             config: Odoo configuration instance
         """
@@ -861,7 +862,7 @@ class OdooResourceHandler:
 
 def register_resources(
     app: FastMCP,
-    connection: OdooConnection,
+    connection: OdooConnectionProtocol,
     access_controller: AccessController,
     config: OdooConfig,
 ) -> OdooResourceHandler:

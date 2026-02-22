@@ -39,6 +39,9 @@ class OdooConfig:
     # YOLO mode configuration
     yolo_mode: str = "off"  # "off", "read", or "true"
 
+    # API version: "xmlrpc" (Odoo 14-19) or "json2" (Odoo 19+ only)
+    api_version: Literal["xmlrpc", "json2"] = "xmlrpc"
+
     def __post_init__(self):
         """Validate configuration after initialization."""
         # Validate URL
@@ -57,12 +60,18 @@ class OdooConfig:
                 f"Must be one of: {', '.join(valid_yolo_modes)}"
             )
 
-        # Validate authentication (relaxed for YOLO mode)
+        # Validate authentication (relaxed for YOLO mode and JSON/2)
         has_api_key = bool(self.api_key)
         has_credentials = bool(self.username and self.password)
 
-        # In YOLO mode, we might need username even with API key for standard auth
-        if self.is_yolo_enabled:
+        if self.api_version == "json2":
+            # JSON/2 only needs an API key (Bearer token auth)
+            if not has_api_key:
+                raise ValueError(
+                    "JSON/2 API requires ODOO_API_KEY for Bearer token authentication"
+                )
+        elif self.is_yolo_enabled:
+            # In YOLO mode, we might need username even with API key for standard auth
             if not has_credentials and not (has_api_key and self.username):
                 raise ValueError("YOLO mode requires either username/password or username/API key")
         else:
@@ -101,6 +110,14 @@ class OdooConfig:
         # Validate port
         if self.port <= 0 or self.port > 65535:
             raise ValueError("Port must be between 1 and 65535")
+
+        # Validate API version
+        valid_api_versions = {"xmlrpc", "json2"}
+        if self.api_version not in valid_api_versions:
+            raise ValueError(
+                f"Invalid API version: {self.api_version}. "
+                f"Must be one of: {', '.join(valid_api_versions)}"
+            )
 
     @property
     def uses_api_key(self) -> bool:
@@ -228,6 +245,7 @@ def load_config(env_file: Optional[Path] = None) -> OdooConfig:
         host=os.getenv("ODOO_MCP_HOST", "localhost").strip(),
         port=get_int_env("ODOO_MCP_PORT", 8000),
         yolo_mode=get_yolo_mode(),
+        api_version=os.getenv("ODOO_API_VERSION", "xmlrpc").strip().lower(),
     )
 
     return config

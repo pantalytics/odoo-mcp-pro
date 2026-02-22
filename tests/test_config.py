@@ -128,6 +128,7 @@ class TestLoadConfig:
             "ODOO_PASSWORD",
             "ODOO_MCP_DEFAULT_LIMIT",
             "ODOO_MCP_MAX_LIMIT",
+            "ODOO_API_VERSION",
         ]:
             monkeypatch.delenv(key, raising=False)
 
@@ -177,6 +178,7 @@ class TestLoadConfig:
         monkeypatch.setenv("ODOO_USER", "user")
         monkeypatch.setenv("ODOO_PASSWORD", "pass")
         monkeypatch.setenv("ODOO_DB", "")  # Empty string
+        monkeypatch.setenv("ODOO_API_VERSION", "xmlrpc")
 
         config = load_config()
 

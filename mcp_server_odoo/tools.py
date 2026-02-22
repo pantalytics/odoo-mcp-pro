@@ -20,7 +20,8 @@ from .error_handling import (
 )
 from .error_sanitizer import ErrorSanitizer
 from .logging_config import get_logger, perf_logger
-from .odoo_connection import OdooConnection, OdooConnectionError
+from .connection_protocol import OdooConnectionProtocol
+from .odoo_connection import OdooConnectionError
 from .schemas import (
     CreateResult,
     DeleteResult,
@@ -41,7 +42,7 @@ class OdooToolHandler:
     def __init__(
         self,
         app: FastMCP,
-        connection: OdooConnection,
+        connection: OdooConnectionProtocol,
         access_controller: AccessController,
         config: OdooConfig,
     ):
@@ -49,7 +50,7 @@ class OdooToolHandler:
 
         Args:
             app: FastMCP application instance
-            connection: Odoo connection instance
+            connection: Odoo connection (XML-RPC or JSON/2)
             access_controller: Access control instance
             config: Odoo configuration instance
         """
@@ -1184,7 +1185,7 @@ class OdooToolHandler:
 
 def register_tools(
     app: FastMCP,
-    connection: OdooConnection,
+    connection: OdooConnectionProtocol,
     access_controller: AccessController,
     config: OdooConfig,
 ) -> OdooToolHandler:

@@ -25,6 +25,31 @@ This fork adds a JSON/2 client while keeping the existing XML-RPC client for old
 **Experimental.** JSON/2 client is under active development. Not yet published to PyPI.
 The existing XML-RPC path is unchanged from upstream and works today.
 
+## Deployment
+
+The MCP server supports two transports:
+
+| Transport | Use case | Config |
+|-----------|----------|--------|
+| `stdio` (default) | Claude Desktop (local) | No hosting needed |
+| `streamable-http` | Claude.ai (web), multi-user | Requires a server with HTTPS |
+
+For **Claude.ai / multi-user access**, the server needs to run on a public endpoint.
+Planned setup: Hetzner VPS (CX22, ~€4/m) with Caddy for automatic HTTPS.
+
+```
+Claude.ai ──HTTPS──▶ Caddy (mcp.example.com:443)
+                        │
+                        ▼
+                  MCP server (:8000, streamable-http)
+                        │
+                        ▼
+                  Odoo instance (odoo.sh / self-hosted)
+```
+
+Odoo.sh cannot host the MCP server (managed platform, no custom processes or open ports).
+A separate lightweight VPS is the right approach — it only proxies API calls to Odoo.
+
 ## Tools
 
 | Tool | Description |

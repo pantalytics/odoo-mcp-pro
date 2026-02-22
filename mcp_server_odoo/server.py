@@ -17,6 +17,8 @@ from .error_handling import (
 )
 from .logging_config import get_logger, logging_config, perf_logger
 from .odoo_connection import OdooConnection, OdooConnectionError
+from .odoo_json2_connection import OdooConnectionError as JSON2ConnectionError
+from .odoo_json2_connection import OdooJSON2Connection
 from .performance import PerformanceManager
 from .resources import register_resources
 from .tools import register_tools
@@ -50,7 +52,7 @@ class OdooMCPServer:
         logging_config.setup()
 
         # Initialize connection and access controller (will be created on startup)
-        self.connection: Optional[OdooConnection] = None
+        self.connection = None  # OdooConnection or OdooJSON2Connection
         self.access_controller: Optional[AccessController] = None
         self.performance_manager: Optional[PerformanceManager] = None
         self.resource_handler = None
@@ -75,13 +77,16 @@ class OdooMCPServer:
             try:
                 logger.info("Establishing connection to Odoo...")
                 with perf_logger.track_operation("connection_setup"):
-                    # Create performance manager (shared across components)
-                    self.performance_manager = PerformanceManager(self.config)
-
-                    # Create connection with performance manager
-                    self.connection = OdooConnection(
-                        self.config, performance_manager=self.performance_manager
-                    )
+                    if self.config.api_version == "json2":
+                        # JSON/2 API (Odoo 19+)
+                        logger.info("Using JSON/2 API for Odoo connection")
+                        self.connection = OdooJSON2Connection(self.config)
+                    else:
+                        # XML-RPC (Odoo 14-19)
+                        self.performance_manager = PerformanceManager(self.config)
+                        self.connection = OdooConnection(
+                            self.config, performance_manager=self.performance_manager
+                        )
 
                     # Connect and authenticate
                     self.connection.connect()
@@ -94,7 +99,7 @@ class OdooMCPServer:
             except Exception as e:
                 context = ErrorContext(operation="connection_setup")
                 # Let specific errors propagate as-is
-                if isinstance(e, (OdooConnectionError, ConfigurationError)):
+                if isinstance(e, (OdooConnectionError, JSON2ConnectionError, ConfigurationError)):
                     raise
                 # Handle other unexpected errors
                 error_handler.handle_error(e, context=context)
@@ -150,7 +155,7 @@ class OdooMCPServer:
 
         except KeyboardInterrupt:
             logger.info("Server interrupted by user")
-        except (OdooConnectionError, ConfigurationError):
+        except (OdooConnectionError, JSON2ConnectionError, ConfigurationError):
             # Let these specific errors propagate
             raise
         except Exception as e:
@@ -199,7 +204,7 @@ class OdooMCPServer:
 
         except KeyboardInterrupt:
             logger.info("Server interrupted by user")
-        except (OdooConnectionError, ConfigurationError):
+        except (OdooConnectionError, JSON2ConnectionError, ConfigurationError):
             # Let these specific errors propagate
             raise
         except Exception as e:
