@@ -6,7 +6,21 @@ import pytest
 
 from mcp_server_odoo.config import get_config
 from mcp_server_odoo.formatters import DatasetFormatter, RecordFormatter
-from mcp_server_odoo.odoo_connection import OdooConnection, OdooConnectionError
+from mcp_server_odoo.odoo_connection import OdooConnection
+from mcp_server_odoo.odoo_connection import OdooConnectionError as XMLRPCConnectionError
+from mcp_server_odoo.odoo_json2_connection import OdooConnectionError as JSON2ConnectionError
+
+# Catch either connection error type
+ConnectionError_ = (XMLRPCConnectionError, JSON2ConnectionError)
+
+
+def _create_connection(config):
+    """Create the appropriate connection based on api_version."""
+    if config.api_version == "json2":
+        from mcp_server_odoo.odoo_json2_connection import OdooJSON2Connection
+
+        return OdooJSON2Connection(config)
+    return OdooConnection(config)
 
 
 class TestRecordFormatter:
@@ -321,7 +335,7 @@ class TestFormattingIntegration:
     def test_format_real_partner_record(self):
         """Test formatting real partner records from Odoo."""
         config = get_config()
-        connection = OdooConnection(config)
+        connection = _create_connection(config)
 
         try:
             connection.connect()
@@ -330,7 +344,7 @@ class TestFormattingIntegration:
             # Get a partner record with fields metadata
             try:
                 partner_ids = connection.search("res.partner", [], limit=1)
-            except OdooConnectionError as e:
+            except ConnectionError_ as e:
                 if "429" in str(e) or "Too many requests" in str(e):
                     pytest.skip("Rate limited by server")
                 raise
@@ -372,7 +386,7 @@ class TestFormattingIntegration:
     def test_format_real_search_results(self):
         """Test formatting real search results from Odoo."""
         config = get_config()
-        connection = OdooConnection(config)
+        connection = _create_connection(config)
 
         try:
             connection.connect()
@@ -424,7 +438,7 @@ class TestFormattingIntegration:
     def test_format_record_with_relationships(self):
         """Test formatting records with relationship fields."""
         config = get_config()
-        connection = OdooConnection(config)
+        connection = _create_connection(config)
 
         try:
             connection.connect()
@@ -477,13 +491,13 @@ class TestFormattingIntegration:
     def test_format_various_field_types(self):
         """Test formatting various Odoo field types."""
         config = get_config()
-        connection = OdooConnection(config)
+        connection = _create_connection(config)
 
         try:
             connection.connect()
             try:
                 connection.authenticate()
-            except OdooConnectionError as e:
+            except ConnectionError_ as e:
                 if "429" in str(e) or "Too many requests" in str(e).lower():
                     pytest.skip("Rate limited by server")
                 raise
@@ -492,14 +506,14 @@ class TestFormattingIntegration:
             try:
                 product_ids = connection.search("product.product", [], limit=1)
                 model = "product.product"
-            except OdooConnectionError as e:
+            except ConnectionError_ as e:
                 if "429" in str(e) or "Too many requests" in str(e):
                     pytest.skip("Rate limited by server")
                 # Fallback to res.partner which we know is enabled
                 try:
                     product_ids = connection.search("res.partner", [], limit=1)
                     model = "res.partner"
-                except OdooConnectionError as e:
+                except ConnectionError_ as e:
                     if "429" in str(e) or "Too many requests" in str(e):
                         pytest.skip("Rate limited by server")
                     raise

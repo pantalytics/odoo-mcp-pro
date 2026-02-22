@@ -523,5 +523,9 @@ def real_config():
 
 @pytest.fixture
 def real_connection(real_config):
-    """Create a real Odoo connection."""
+    """Create a real Odoo connection using the appropriate backend."""
+    if real_config.api_version == "json2":
+        from mcp_server_odoo.odoo_json2_connection import OdooJSON2Connection
+
+        return OdooJSON2Connection(real_config)
     return OdooConnection(real_config)

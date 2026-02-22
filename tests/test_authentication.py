@@ -214,6 +214,7 @@ class TestAuthentication:
 
 
 @pytest.mark.skipif(not ODOO_SERVER_AVAILABLE, reason="Odoo server not available")
+@pytest.mark.xmlrpc_only
 class TestAuthenticationIntegration:
     """Integration tests with real Odoo server."""
 

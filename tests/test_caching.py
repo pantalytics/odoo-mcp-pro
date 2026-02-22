@@ -144,6 +144,7 @@ class TestOdooConnectionCaching:
             assert mock_execute.call_count == 2
 
 
+@pytest.mark.xmlrpc_only
 class TestCachingIntegration:
     """Integration tests for caching with real Odoo connection."""
 

@@ -20,11 +20,14 @@ try:
 except ImportError:
     MODEL_DISCOVERY_AVAILABLE = False
 
+# Detect configured API version
+ODOO_API_VERSION = os.getenv("ODOO_API_VERSION", "xmlrpc").strip().lower()
+
 
 def is_odoo_server_available(host: str = "localhost", port: int = 8069) -> bool:
     """Check if Odoo server is available at the given host and port."""
     try:
-        # Try to connect to the server
+        # TCP socket probe (transport-agnostic)
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(1)
         result = sock.connect_ex((host, port))
@@ -33,13 +36,25 @@ def is_odoo_server_available(host: str = "localhost", port: int = 8069) -> bool:
         if result != 0:
             return False
 
-        # Try to access the XML-RPC endpoint
-        try:
-            proxy = xmlrpc.client.ServerProxy(f"http://{host}:{port}/xmlrpc/2/common")
-            proxy.version()
-            return True
-        except Exception:
-            return False
+        base_url = f"http://{host}:{port}"
+
+        if ODOO_API_VERSION == "json2":
+            # Probe /web/version — available without auth on any Odoo 19 instance
+            try:
+                import httpx
+
+                response = httpx.get(f"{base_url}/web/version", timeout=3)
+                return response.status_code == 200
+            except Exception:
+                return False
+        else:
+            # Original XML-RPC probe
+            try:
+                proxy = xmlrpc.client.ServerProxy(f"{base_url}/xmlrpc/2/common")
+                proxy.version()
+                return True
+            except Exception:
+                return False
 
     except Exception:
         return False
@@ -66,29 +81,48 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "e2e: mark test as end-to-end requiring a running Odoo server"
     )
+    config.addinivalue_line(
+        "markers", "xmlrpc_only: mark test as requiring XML-RPC / MCP module (skip in json2 mode)"
+    )
+    config.addinivalue_line(
+        "markers", "json2_only: mark test as requiring JSON/2 API (skip in xmlrpc mode)"
+    )
 
 
 def pytest_collection_modifyitems(config, items):
-    """Modify test collection to skip tests that require Odoo when it's not available."""
-    if ODOO_SERVER_AVAILABLE:
-        # Server is available, don't skip anything
-        return
+    """Modify test collection to skip tests based on server availability and API version."""
+    if not ODOO_SERVER_AVAILABLE:
+        skip_odoo = pytest.mark.skip(reason=f"Odoo server not available at {_host}:{_port}")
 
-    skip_odoo = pytest.mark.skip(reason=f"Odoo server not available at {_host}:{_port}")
+        for item in items:
+            # Skip tests marked with 'integration' or 'e2e' when server is not available
+            if "integration" in item.keywords or "e2e" in item.keywords:
+                item.add_marker(skip_odoo)
 
-    for item in items:
-        # Skip tests marked with 'integration' or 'e2e' when server is not available
-        if "integration" in item.keywords or "e2e" in item.keywords:
-            item.add_marker(skip_odoo)
+            # Skip tests marked with 'odoo_required' when server is not available
+            if "odoo_required" in item.keywords:
+                item.add_marker(skip_odoo)
 
-        # Skip tests marked with 'odoo_required' when server is not available
-        if "odoo_required" in item.keywords:
-            item.add_marker(skip_odoo)
+            # Also check for specific test names that indicate they need a real server
+            test_name = item.name.lower()
+            if any(keyword in test_name for keyword in ["real_server", "integration"]):
+                item.add_marker(skip_odoo)
 
-        # Also check for specific test names that indicate they need a real server
-        test_name = item.name.lower()
-        if any(keyword in test_name for keyword in ["real_server", "integration"]):
-            item.add_marker(skip_odoo)
+    # Skip xmlrpc_only tests when running in json2 mode
+    if ODOO_API_VERSION == "json2":
+        skip_xmlrpc = pytest.mark.skip(
+            reason="Test requires XML-RPC/MCP module, skipping in json2 mode"
+        )
+        for item in items:
+            if "xmlrpc_only" in item.keywords:
+                item.add_marker(skip_xmlrpc)
+
+    # Skip json2_only tests when running in xmlrpc mode
+    if ODOO_API_VERSION != "json2":
+        skip_json2 = pytest.mark.skip(reason="Test requires JSON/2 API mode")
+        for item in items:
+            if "json2_only" in item.keywords:
+                item.add_marker(skip_json2)
 
 
 @pytest.fixture(autouse=True)
@@ -155,7 +189,32 @@ def test_config_with_server_check(odoo_server_required) -> OdooConfig:
         log_level=os.getenv("ODOO_MCP_LOG_LEVEL", "INFO"),
         default_limit=int(os.getenv("ODOO_MCP_DEFAULT_LIMIT", "10")),
         max_limit=int(os.getenv("ODOO_MCP_MAX_LIMIT", "100")),
+        api_version=ODOO_API_VERSION,
     )
+
+
+@pytest.fixture
+def odoo_connection(test_config_with_server_check):
+    """Create a connection using the appropriate backend for the current API version.
+
+    Factory fixture: creates OdooJSON2Connection or OdooConnection based on
+    ODOO_API_VERSION env var. Connects and authenticates before yielding.
+    """
+    config = test_config_with_server_check
+
+    if config.api_version == "json2":
+        from mcp_server_odoo.odoo_json2_connection import OdooJSON2Connection
+
+        conn = OdooJSON2Connection(config)
+    else:
+        from mcp_server_odoo.odoo_connection import OdooConnection
+
+        conn = OdooConnection(config)
+
+    conn.connect()
+    conn.authenticate()
+    yield conn
+    conn.disconnect()
 
 
 # MCP Model Discovery Fixtures

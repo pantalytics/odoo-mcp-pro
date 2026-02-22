@@ -20,6 +20,7 @@ from .conftest import ODOO_SERVER_AVAILABLE
 
 @pytest.mark.skipif(not ODOO_SERVER_AVAILABLE, reason="Odoo server not available")
 @pytest.mark.e2e
+@pytest.mark.xmlrpc_only
 class TestYoloModeE2E:
     """End-to-end tests for YOLO mode with real Odoo."""
 

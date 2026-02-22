@@ -18,6 +18,15 @@ from mcp_server_odoo.odoo_connection import OdooConnection, OdooConnectionError
 from mcp_server_odoo.resources import OdooResourceHandler, register_resources
 
 
+def _create_connection(config):
+    """Create the appropriate connection based on api_version."""
+    if config.api_version == "json2":
+        from mcp_server_odoo.odoo_json2_connection import OdooJSON2Connection
+
+        return OdooJSON2Connection(config)
+    return OdooConnection(config)
+
+
 @pytest.fixture
 def test_config():
     """Create test configuration."""
@@ -229,7 +238,7 @@ class TestResourceIntegration:
     async def test_real_record_retrieval(self, test_config):
         """Test record retrieval with real server."""
         # Create real connection
-        connection = OdooConnection(test_config)
+        connection = _create_connection(test_config)
         connection.connect()
         connection.authenticate()
 
@@ -263,7 +272,7 @@ class TestResourceIntegration:
     async def test_real_record_not_found(self, test_config):
         """Test record not found with real server."""
         # Create real connection
-        connection = OdooConnection(test_config)
+        connection = _create_connection(test_config)
         connection.connect()
         connection.authenticate()
 
@@ -289,7 +298,7 @@ class TestResourceIntegration:
     async def test_real_permission_denied(self, test_config):
         """Test permission denied with real server."""
         # Create real connection
-        connection = OdooConnection(test_config)
+        connection = _create_connection(test_config)
         connection.connect()
         connection.authenticate()
 

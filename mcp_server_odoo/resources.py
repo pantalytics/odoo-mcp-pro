@@ -21,7 +21,6 @@ from .error_handling import (
 )
 from .formatters import DatasetFormatter, RecordFormatter
 from .logging_config import get_logger, perf_logger
-from .connection_context import current_connection
 from .connection_protocol import OdooConnectionProtocol
 from .odoo_connection import OdooConnectionError
 from .uri_schema import (
@@ -50,17 +49,12 @@ class OdooResourceHandler:
             config: Odoo configuration instance
         """
         self.app = app
-        self._default_connection = connection
+        self.connection = connection
         self.access_controller = access_controller
         self.config = config
 
         # Register resources
         self._register_resources()
-
-    @property
-    def connection(self):
-        """Return per-request connection (from context var) or default."""
-        return current_connection.get(None) or self._default_connection
 
     def _register_resources(self):
         """Register all resource handlers with FastMCP."""

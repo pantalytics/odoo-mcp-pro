@@ -31,7 +31,7 @@ from tests.helpers.server_testing import (
 )
 
 # Mark all tests in this module as integration tests requiring Odoo
-pytestmark = [pytest.mark.integration, pytest.mark.odoo_required]
+pytestmark = [pytest.mark.integration, pytest.mark.odoo_required, pytest.mark.xmlrpc_only]
 
 
 class TestServerLifecycle:

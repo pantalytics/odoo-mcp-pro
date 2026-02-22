@@ -11,6 +11,14 @@
 
 domain: mcp.example.com
 
+# OAuth 2.1 authentication (optional — remove to disable)
+# Requires a Zitadel instance (or compatible OIDC provider).
+# Set ZITADEL_CLIENT_SECRET as an env var on the host (e.g. via Coolify).
+oauth:
+  issuer_url: https://auth.example.com
+  introspection_url: https://auth.example.com/oauth/v2/introspect
+  client_id: "mcp-server@your-zitadel-project"
+
 instances:
   # Odoo.sh hosted instance
   production:

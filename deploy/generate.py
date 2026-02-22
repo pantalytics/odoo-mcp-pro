@@ -39,6 +39,17 @@ def generate_compose(config: dict) -> str:
                 "ODOO_MCP_TRANSPORT": "streamable-http",
                 "ODOO_MCP_HOST": "0.0.0.0",
                 "ODOO_MCP_PORT": "8000",
+                # OAuth (optional — omit OAUTH_ISSUER_URL to disable)
+                **(
+                    {
+                        "OAUTH_ISSUER_URL": config["oauth"]["issuer_url"],
+                        "ZITADEL_INTROSPECTION_URL": config["oauth"]["introspection_url"],
+                        "ZITADEL_CLIENT_ID": config["oauth"]["client_id"],
+                        "ZITADEL_CLIENT_SECRET": "${ZITADEL_CLIENT_SECRET}",
+                    }
+                    if "oauth" in config
+                    else {}
+                ),
             },
             "networks": ["mcp-net"],
         }

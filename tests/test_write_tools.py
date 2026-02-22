@@ -233,10 +233,15 @@ class TestWriteToolsIntegration:
 
     @pytest.fixture
     def real_connection(self, real_config):
-        """Create real connection."""
-        from mcp_server_odoo.odoo_connection import OdooConnection
+        """Create real connection using the appropriate backend."""
+        if real_config.api_version == "json2":
+            from mcp_server_odoo.odoo_json2_connection import OdooJSON2Connection
 
-        conn = OdooConnection(real_config)
+            conn = OdooJSON2Connection(real_config)
+        else:
+            from mcp_server_odoo.odoo_connection import OdooConnection
+
+            conn = OdooConnection(real_config)
         conn.connect()
         conn.authenticate()
         yield conn
@@ -265,8 +270,8 @@ class TestWriteToolsIntegration:
     @pytest.mark.asyncio
     async def test_create_update_delete_cycle(self, real_config, real_tool_handler):
         """Test full create, update, delete cycle with real Odoo."""
-        if real_config.yolo_mode != "true":
-            pytest.skip("Write integration test requires ODOO_YOLO=true")
+        if real_config.api_version != "json2" and real_config.yolo_mode != "true":
+            pytest.skip("Write integration test requires ODOO_YOLO=true or json2 mode")
         handler = real_tool_handler
 
         # Create a test partner

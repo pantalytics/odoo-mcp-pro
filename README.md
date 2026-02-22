@@ -29,26 +29,70 @@ The existing XML-RPC path is unchanged from upstream and works today.
 
 The MCP server supports two transports:
 
-| Transport | Use case | Config |
-|-----------|----------|--------|
-| `stdio` (default) | Claude Desktop (local) | No hosting needed |
-| `streamable-http` | Claude.ai (web), multi-user | Requires a server with HTTPS |
+| Transport | Use case | Auth |
+|-----------|----------|------|
+| `stdio` (default) | Claude Desktop / Claude Code (local) | None needed (local process) |
+| `streamable-http` | Claude.ai (web), multi-user | OAuth 2.1 (recommended) |
 
-For **Claude.ai / multi-user access**, the server needs to run on a public endpoint.
-Planned setup: Hetzner VPS (CX22, ~€4/m) with Caddy for automatic HTTPS.
+### Local (stdio)
+
+Claude Desktop or Claude Code spawns the MCP server as a subprocess. No hosting, no OAuth.
+
+### Remote (streamable-http)
+
+Each Odoo instance runs as a separate MCP server container behind Caddy on a VPS.
+OAuth 2.1 protects access — users authenticate via Zitadel (or any OIDC provider).
 
 ```
-Claude.ai ──HTTPS──▶ Caddy (mcp.example.com:443)
-                        │
-                        ▼
-                  MCP server (:8000, streamable-http)
-                        │
-                        ▼
-                  Odoo instance (odoo.sh / self-hosted)
+Claude.ai / Claude Code
+        │
+        │  OAuth 2.1 (Bearer token)
+        │
+        ▼ HTTPS
+Hetzner VPS (mcp.example.com)
+   Caddy :443
+        │
+        ├── /production/  →  mcp-production:8000  →  Odoo (odoo.sh)
+        ├── /staging/     →  mcp-staging:8000     →  Odoo (staging)
+        └── /local/       →  mcp-local:8000       →  Odoo (self-hosted)
+                                    │
+                                    │ Token introspection (RFC 7662)
+                                    ▼
+                              Zitadel (auth.example.com)
 ```
 
 Odoo.sh cannot host the MCP server (managed platform, no custom processes or open ports).
-A separate lightweight VPS is the right approach — it only proxies API calls to Odoo.
+A separate lightweight VPS (CX22, ~€4/m) is sufficient — it only proxies API calls to Odoo.
+
+## Authentication
+
+### How it works
+
+1. Claude.ai sends a request → MCP server responds **401** with `WWW-Authenticate` header
+2. Claude.ai opens a browser window → user logs in via Zitadel (PKCE flow)
+3. Claude.ai receives a Bearer token → sends it with all subsequent requests
+4. MCP server validates the token via Zitadel's introspection endpoint
+5. If valid, the request proceeds to Odoo using the server-side API key
+
+**Key security properties:**
+- Client tokens authenticate to the MCP server only
+- Odoo API key stays server-side (`ODOO_API_KEY` env var), never exposed to clients
+- Token validation via Zitadel introspection (not local JWT parsing)
+- OAuth is optional — omit `OAUTH_ISSUER_URL` for stdio/local use
+
+### Admin setup (one-time)
+
+1. **Deploy Zitadel** (self-hosted, free) or use Zitadel Cloud
+2. **Create a project** in Zitadel
+3. **Add an application** (type: Web, auth method: PKCE)
+   - Redirect URI: `https://claude.ai/oauth/callback` (or your client's callback)
+4. **Create a service user** for token introspection (client credentials)
+5. **Set environment variables** on the MCP server (see Configuration below)
+
+### User flow
+
+Users just click "Connect" in Claude.ai → log in via Zitadel → done.
+No API keys, no URLs to configure. The admin handles all setup.
 
 ## Tools
 
@@ -94,6 +138,8 @@ claude mcp add -s user \
 
 ## Configuration
 
+### Odoo connection
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ODOO_URL` | required | Your Odoo instance URL |
@@ -104,6 +150,23 @@ claude mcp add -s user \
 | `ODOO_YOLO` | `false` | `true` = all models, `read` = read-only |
 | `ODOO_MCP_DEFAULT_LIMIT` | `10` | Default result limit |
 | `ODOO_MCP_MAX_LIMIT` | `100` | Maximum result limit |
+
+### OAuth 2.1 (optional — for HTTP transport)
+
+| Variable | Description |
+|----------|-------------|
+| `OAUTH_ISSUER_URL` | Zitadel instance URL (enables OAuth when set) |
+| `ZITADEL_INTROSPECTION_URL` | Token introspection endpoint |
+| `ZITADEL_CLIENT_ID` | Service user client ID |
+| `ZITADEL_CLIENT_SECRET` | Service user client secret |
+
+### Transport
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ODOO_MCP_TRANSPORT` | `stdio` | `stdio` or `streamable-http` |
+| `ODOO_MCP_HOST` | `localhost` | Bind host (HTTP transport) |
+| `ODOO_MCP_PORT` | `8000` | Bind port (HTTP transport) |
 
 ## Generating an Odoo API key
 
@@ -128,8 +191,19 @@ uv pip install -e ".[dev]"
 pytest tests/
 ```
 
-See [architecture.md](architecture.md) for a full breakdown of the codebase and the JSON/2
-implementation plan.
+### Multi-instance deployment
+
+For deploying multiple Odoo instances on a single VPS:
+
+```bash
+cd deploy
+cp instances.example.yml instances.yml   # edit with your Odoo credentials
+python generate.py                        # generates docker-compose + Caddyfile
+cd generated
+docker compose up -d --build
+```
+
+See [architecture.md](architecture.md) for the full architecture breakdown.
 
 ## License
 

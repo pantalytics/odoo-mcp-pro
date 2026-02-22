@@ -10,6 +10,7 @@ from mcp_server_odoo.odoo_connection import OdooConnection
 
 
 @pytest.mark.integration
+@pytest.mark.xmlrpc_only
 class TestModelAgnosticApproach:
     """Examples of model-agnostic test patterns."""
 
