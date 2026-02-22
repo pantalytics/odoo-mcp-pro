@@ -279,12 +279,8 @@ class OdooJSON2Connection:
                 "API key required for JSON/2 authentication. Set ODOO_API_KEY."
             )
 
-        # Resolve database
+        # Resolve database (optional for single-db instances like odoo.sh)
         self._database = database or self.config.database
-        if not self._database:
-            raise OdooConnectionError(
-                "Database name required for JSON/2. Set ODOO_DB."
-            )
 
         # Update client headers now that we have the database
         self._client.headers.update(self._build_headers())
