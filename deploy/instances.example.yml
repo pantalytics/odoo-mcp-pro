@@ -1,0 +1,34 @@
+# Odoo MCP Server — Instance Configuration
+#
+# Copy this file to instances.yml and fill in your values:
+#   cp instances.example.yml instances.yml
+#
+# Then generate the deployment files:
+#   python generate.py
+#
+# Each instance becomes a separate MCP endpoint:
+#   https://<domain>/<instance-name>/
+
+domain: mcp.example.com
+
+instances:
+  # Odoo.sh hosted instance
+  production:
+    odoo_url: https://mycompany.odoo.com
+    odoo_db: mycompany-main-12345678
+    odoo_api_key: "odoo_sh_api_key_here"
+    api_version: json2
+
+  # Self-hosted Odoo Community
+  staging:
+    odoo_url: https://staging.mycompany.com
+    odoo_db: staging
+    odoo_api_key: "staging_api_key_here"
+    api_version: json2
+
+  # Local development (use host.docker.internal to reach host machine)
+  local:
+    odoo_url: http://host.docker.internal:8069
+    odoo_db: local_dev
+    odoo_api_key: "local_api_key_here"
+    api_version: json2

@@ -240,3 +240,7 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+# Deployment
+deploy/instances.yml
+deploy/generated/

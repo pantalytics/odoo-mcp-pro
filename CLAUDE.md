@@ -88,11 +88,33 @@ ODOO_URL=http://localhost:8069 ODOO_DB=test ODOO_API_KEY=... ODOO_API_VERSION=js
 - Both connection classes must satisfy OdooConnectionProtocol
 - No new dependencies (httpx is already available)
 
+## Deployment (Hetzner VPS)
+
+Multi-instance deployment: each Odoo instance runs as a separate MCP server container behind Caddy.
+
+```
+deploy/
+├── instances.example.yml   # template — copy to instances.yml
+├── generate.py             # generates docker-compose + Caddyfile
+└── generated/              # output (.gitignored)
+    ├── docker-compose.yml
+    └── Caddyfile
+```
+
+Quick start:
+```bash
+cd deploy
+cp instances.example.yml instances.yml   # edit with your Odoo credentials
+python generate.py                        # generates deployment files
+cd generated
+docker compose up -d --build              # start all instances
+```
+
+Each instance is accessible at `https://<domain>/<instance-name>/`.
+Configure as a custom MCP connector in Claude.ai or Claude Code.
+
 ## Next steps
 
 1. Test against live Odoo 19 instance
-2. Remote deployment: Hetzner VPS + Caddy + `streamable-http` transport for Claude.ai access
-   - Odoo.sh can't host the MCP server (managed platform, no custom processes)
-   - Need: Dockerfile, docker-compose.yml, Caddyfile
-   - Target: production Odoo instance URL (set via env var)
+2. Deploy to Hetzner VPS (deployment files ready in `deploy/`)
 3. Decide: PR to ivnvxd or publish as separate package
