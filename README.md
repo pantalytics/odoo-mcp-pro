@@ -1,15 +1,29 @@
 <p align="center">
-  <h1 align="center">odoo-mcp-pro</h1>
-  <p align="center">
-    Connect Claude to your Odoo ERP — search, create, update, and manage records<br/>
-    using natural language. Powered by the Odoo 19 JSON/2 API.
-  </p>
-  <p align="center">
-    <a href="#quick-start--local">Quick Start</a> ·
-    <a href="#cloud-deployment">Cloud Deploy</a> ·
-    <a href="architecture.md">Architecture</a> ·
-    <a href="#configuration">Config</a>
-  </p>
+  <a href="https://www.odoo.com"><img src="assets/odoo-logo.svg" alt="Odoo" height="60"/></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://modelcontextprotocol.io"><img src="assets/mcp-logo.svg" alt="Model Context Protocol" height="60"/></a>
+</p>
+
+<h1 align="center">odoo-mcp-pro</h1>
+
+<p align="center">
+  Connect Claude to your Odoo ERP — search, create, update, and manage records<br/>
+  using natural language. Powered by the Odoo 19 JSON/2 API.
+</p>
+
+<p align="center">
+  <a href="https://github.com/rutgerhofste/odoo-mcp-pro/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MPL%202.0-blue.svg" alt="License: MPL 2.0"/></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python 3.10+"/></a>
+  <a href="https://modelcontextprotocol.io"><img src="https://img.shields.io/badge/MCP-compatible-green.svg" alt="MCP Compatible"/></a>
+  <a href="https://www.odoo.com/documentation/19.0/developer/reference/external_api.html"><img src="https://img.shields.io/badge/Odoo-19%2B%20JSON%2F2-714b67.svg" alt="Odoo 19+ JSON/2"/></a>
+  <a href="https://oauth.net/2.1/"><img src="https://img.shields.io/badge/OAuth-2.1-orange.svg" alt="OAuth 2.1"/></a>
+</p>
+
+<p align="center">
+  <a href="#quick-start--local">Quick Start</a> ·
+  <a href="#cloud-deployment">Cloud Deploy</a> ·
+  <a href="architecture.md">Architecture</a> ·
+  <a href="#configuration">Config</a>
 </p>
 
 ---
@@ -287,3 +301,5 @@ JSON/2 API reference: [Odoo 19 External API docs](https://www.odoo.com/documenta
 <p align="center">
   If odoo-mcp-pro is useful to you, consider giving it a ⭐ — it helps others find the project.
 </p>
+
+<sub>Odoo is a registered trademark of [Odoo S.A.](https://www.odoo.com) The MCP logo is used under the [MIT License](https://github.com/modelcontextprotocol/modelcontextprotocol). This project is not affiliated with or endorsed by Odoo S.A. or Anthropic.</sub>
