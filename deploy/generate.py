@@ -82,13 +82,17 @@ def generate_compose(config: dict) -> str:
             },
             "volumes": [
                 "./machinekey:/machinekey",
+                "./zitadel-ready.yaml:/zitadel-ready.yaml:ro",
             ],
             "depends_on": {
                 "zitadel-db": {"condition": "service_healthy"},
             },
             "networks": ["mcp-net"],
             "healthcheck": {
-                "test": ["CMD", "/app/zitadel", "ready"],
+                "test": [
+                    "CMD", "/app/zitadel", "ready",
+                    "--config", "/zitadel-ready.yaml",
+                ],
                 "interval": "10s",
                 "timeout": "5s",
                 "retries": 15,
@@ -220,6 +224,20 @@ def main():
     caddyfile_path = OUTPUT_DIR / "Caddyfile"
     caddyfile_content = generate_caddyfile(config)
     caddyfile_path.write_text(caddyfile_content)
+
+    # Generate Zitadel ready-check config if needed
+    zitadel_cfg = config.get("zitadel")
+    if zitadel_cfg:
+        ready_yaml = OUTPUT_DIR / "zitadel-ready.yaml"
+        ready_yaml.write_text(
+            "# Healthcheck config for 'zitadel ready' behind TLS proxy\n"
+            "TLS:\n"
+            "  Enabled: false\n"
+            "ExternalSecure: false\n"
+            "ExternalPort: 8080\n"
+            f"ExternalDomain: {zitadel_cfg['domain']}\n"
+        )
+        (OUTPUT_DIR / "machinekey").mkdir(exist_ok=True)
 
     print(f"Generated {compose_path}")
     print(f"Generated {caddyfile_path}")
