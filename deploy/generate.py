@@ -57,7 +57,7 @@ def generate_compose(config: dict) -> str:
             "image": "ghcr.io/zitadel/zitadel:latest",
             "container_name": "zitadel",
             "restart": "unless-stopped",
-            "command": "start-from-init --masterkeyFromEnv --tlsMode external",
+            "command": "start-from-init --masterkeyFromEnv --tlsMode disabled",
             "environment": {
                 "ZITADEL_MASTERKEY": "${ZITADEL_MASTERKEY}",
                 "ZITADEL_DATABASE_POSTGRES_HOST": "zitadel-db",
@@ -193,6 +193,19 @@ def generate_caddyfile(config: dict) -> str:
     # --- MCP domain ---
     domain = config["domain"]
     lines.append(f"{domain} {{")
+
+    # OAuth metadata at domain root — proxy to first MCP instance
+    # Claude.ai looks for these at the domain root (RFC 8414)
+    if "oauth" in config:
+        first_svc = f"mcp-{list(config['instances'].keys())[0]}:8000"
+        lines.append("  handle /.well-known/oauth-authorization-server {")
+        lines.append(f"    reverse_proxy {first_svc}")
+        lines.append("  }")
+        lines.append("")
+        lines.append("  handle /.well-known/oauth-protected-resource {")
+        lines.append(f"    reverse_proxy {first_svc}")
+        lines.append("  }")
+        lines.append("")
 
     for name in config["instances"]:
         lines.append(f"  handle_path /{name}/* {{")
