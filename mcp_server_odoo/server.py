@@ -73,8 +73,37 @@ class OdooMCPServer:
 
         if auth_settings:
             logger.info(f"OAuth enabled (issuer: {auth_settings.issuer_url})")
+            self._register_oauth_metadata_route(str(auth_settings.issuer_url))
 
         logger.info(f"Initialized Odoo MCP Server v{SERVER_VERSION}")
+
+    def _register_oauth_metadata_route(self, issuer_url: str):
+        """Register /.well-known/oauth-authorization-server endpoint.
+
+        Claude.ai expects this endpoint on the MCP server to discover
+        the authorization and token endpoints. We proxy to the external
+        Zitadel OIDC configuration.
+        """
+        from starlette.requests import Request
+        from starlette.responses import JSONResponse
+
+        @self.app.custom_route(
+            "/.well-known/oauth-authorization-server",
+            methods=["GET"],
+        )
+        async def oauth_metadata(request: Request) -> JSONResponse:
+            issuer = issuer_url.rstrip("/")
+            return JSONResponse({
+                "issuer": issuer,
+                "authorization_endpoint": f"{issuer}/oauth/v2/authorize",
+                "token_endpoint": f"{issuer}/oauth/v2/token",
+                "registration_endpoint": None,
+                "scopes_supported": ["openid", "profile", "email"],
+                "response_types_supported": ["code"],
+                "grant_types_supported": ["authorization_code", "refresh_token"],
+                "token_endpoint_auth_methods_supported": ["none"],
+                "code_challenge_methods_supported": ["S256"],
+            })
 
     @staticmethod
     def _build_oauth_settings():
