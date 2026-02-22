@@ -291,9 +291,16 @@ Contributions are welcome! Please:
 
 [Mozilla Public License 2.0](LICENSE)
 
+## Built by Pantalytics
+
+**odoo-mcp-pro** is built and maintained by [Pantalytics](https://pantalytics.com) — an Odoo implementation partner based in Utrecht, Netherlands. We help businesses connect their sales, support, and operations on a single platform, using AI to make ERP work smarter.
+
+Need help connecting Claude to your Odoo instance? [Get in touch](https://pantalytics.com).
+
 ## Acknowledgments
 
-Originally built on [mcp-server-odoo](https://github.com/ivnvxd/mcp-server-odoo) by Andrey Ivanov.
+Originally forked from [mcp-server-odoo](https://github.com/ivnvxd/mcp-server-odoo) by Andrey Ivanov (MPL-2.0). Since then, odoo-mcp-pro has been significantly expanded with the Odoo 19 JSON/2 client, OAuth 2.1 authentication, multi-instance cloud deployment, and a comprehensive test suite.
+
 JSON/2 API reference: [Odoo 19 External API docs](https://www.odoo.com/documentation/19.0/developer/reference/external_api.html).
 
 ---
