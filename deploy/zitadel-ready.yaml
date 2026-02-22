@@ -1,0 +1,5 @@
+TLS:
+  Enabled: false
+ExternalSecure: false
+ExternalPort: 8080
+ExternalDomain: localhost

@@ -244,3 +244,5 @@ cython_debug/
 # Deployment
 deploy/instances.yml
 deploy/generated/
+deploy/machinekey/
+deploy/.env.local-test

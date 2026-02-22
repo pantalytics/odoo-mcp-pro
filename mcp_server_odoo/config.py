@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 class OdooConfig:
     """Configuration for Odoo connection and MCP server settings."""
 
-    # Odoo URL (optional in multi-tenant streamable-http mode)
+    # Odoo URL (required)
     url: str = ""
 
     # Authentication (one method required)
@@ -44,10 +44,6 @@ class OdooConfig:
 
     def __post_init__(self):
         """Validate configuration after initialization."""
-        # In multi-tenant mode (streamable-http without URL), skip connection validation
-        if self.transport == "streamable-http" and not self.url:
-            return
-
         # Validate URL
         if not self.url:
             raise ValueError("ODOO_URL is required")
@@ -204,14 +200,11 @@ def load_config(env_file: Optional[Path] = None) -> OdooConfig:
             env_loaded = True
 
         # If no .env file found and no ODOO_URL in environment, raise error
-        # (unless running streamable-http transport where credentials come via query params)
         if not env_loaded and not os.getenv("ODOO_URL"):
-            transport = os.getenv("ODOO_MCP_TRANSPORT", "stdio").strip()
-            if transport != "streamable-http":
-                raise ValueError(
-                    "No .env file found and ODOO_URL not set in environment.\n"
-                    "Please create a .env file based on .env.example or set environment variables."
-                )
+            raise ValueError(
+                "No .env file found and ODOO_URL not set in environment.\n"
+                "Please create a .env file based on .env.example or set environment variables."
+            )
 
     # Helper function to get int with default
     def get_int_env(key: str, default: int) -> int:

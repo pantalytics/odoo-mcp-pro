@@ -1,0 +1,107 @@
+# Local test stack: Zitadel + MCP server
+# Usage:
+#   cd deploy
+#   mkdir -p machinekey
+#   docker compose -f docker-compose.local-test.yml up -d zitadel-db zitadel
+#   # Wait for Zitadel to init (~30s), then run: bash setup-zitadel.sh
+
+services:
+  zitadel-db:
+    image: postgres:16-alpine
+    container_name: zitadel-db
+    environment:
+      POSTGRES_USER: zitadel
+      POSTGRES_PASSWORD: zitadel
+      POSTGRES_DB: zitadel
+    volumes:
+      - zitadel-db-data:/var/lib/postgresql/data
+    networks:
+      - mcp-test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zitadel"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  zitadel:
+    image: ghcr.io/zitadel/zitadel:latest
+    container_name: zitadel
+    command: start-from-init --masterkeyFromEnv --tlsMode disabled
+    environment:
+      ZITADEL_MASTERKEY: "MustBe32CharactersLong1234567890"
+      ZITADEL_DATABASE_POSTGRES_HOST: zitadel-db
+      ZITADEL_DATABASE_POSTGRES_PORT: 5432
+      ZITADEL_DATABASE_POSTGRES_DATABASE: zitadel
+      ZITADEL_DATABASE_POSTGRES_USER_USERNAME: zitadel
+      ZITADEL_DATABASE_POSTGRES_USER_PASSWORD: zitadel
+      ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE: disable
+      ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME: zitadel
+      ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD: zitadel
+      ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE: disable
+      ZITADEL_EXTERNALSECURE: "false"
+      ZITADEL_EXTERNALPORT: 8085
+      ZITADEL_EXTERNALDOMAIN: localhost
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_USERNAME: admin@zitadel.localhost
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD: "Password1!"
+      # Bootstrap: create machine user with PAT on first init
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_USERNAME: zitadel-admin-sa
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_NAME: "Admin Service Account"
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_PAT_EXPIRATIONDATE: "2030-01-01T00:00:00Z"
+      ZITADEL_FIRSTINSTANCE_PATPATH: /machinekey/admin.pat
+    ports:
+      - "8085:8080"
+    volumes:
+      - ./machinekey:/machinekey
+      - ./zitadel-ready.yaml:/ready.yaml:ro
+    depends_on:
+      zitadel-db:
+        condition: service_healthy
+    networks:
+      - mcp-test
+    healthcheck:
+      # Zitadel image is distroless (no shell). 'zitadel ready' needs
+      # TLS config override since we run with --tlsMode disabled.
+      test: ["CMD", "/app/zitadel", "ready", "--config", "/ready.yaml"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+  mcp-server:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: mcp-test-server
+    environment:
+      ODOO_URL: http://host.docker.internal:8069
+      ODOO_DB: test_db
+      ODOO_API_KEY: "${ODOO_API_KEY}"
+      ODOO_API_VERSION: json2
+      ODOO_MCP_TRANSPORT: streamable-http
+      ODOO_MCP_HOST: "0.0.0.0"
+      ODOO_MCP_PORT: "8000"
+      # OAuth — env vars from .env.local-test, introspection uses internal network
+      OAUTH_ISSUER_URL: "${OAUTH_ISSUER_URL:-}"
+      OAUTH_RESOURCE_SERVER_URL: "${OAUTH_RESOURCE_SERVER_URL:-}"
+      ZITADEL_INTROSPECTION_URL: "http://localhost:8085/oauth/v2/introspect"
+      ZITADEL_CLIENT_ID: "${ZITADEL_CLIENT_ID:-}"
+      ZITADEL_CLIENT_SECRET: "${ZITADEL_CLIENT_SECRET:-}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+      # Resolve 'localhost' to the Docker host so Zitadel's virtual
+      # hosting matches its EXTERNALDOMAIN when called from this container
+      - "localhost:host-gateway"
+    ports:
+      - "8000:8000"
+    networks:
+      - mcp-test
+    depends_on:
+      zitadel:
+        condition: service_healthy
+
+networks:
+  mcp-test:
+    driver: bridge
+
+volumes:
+  zitadel-db-data:
