@@ -211,7 +211,9 @@ class OdooMCPServer:
         # so AccessController allows everything (Odoo enforces ACLs server-side).
         from dataclasses import replace
 
-        mt_config = replace(self.config, api_version="json2", url="https://placeholder")
+        mt_config = replace(
+            self.config, api_version="json2", url="https://placeholder", api_key="multi-tenant"
+        )
         return AccessController(mt_config)
 
     async def run_stdio(self):
