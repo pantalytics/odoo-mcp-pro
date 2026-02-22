@@ -16,8 +16,8 @@ from dotenv import load_dotenv
 class OdooConfig:
     """Configuration for Odoo connection and MCP server settings."""
 
-    # Required fields
-    url: str
+    # Odoo URL (optional in multi-tenant streamable-http mode)
+    url: str = ""
 
     # Authentication (one method required)
     api_key: Optional[str] = None
@@ -44,6 +44,10 @@ class OdooConfig:
 
     def __post_init__(self):
         """Validate configuration after initialization."""
+        # In multi-tenant mode (streamable-http without URL), skip connection validation
+        if self.transport == "streamable-http" and not self.url:
+            return
+
         # Validate URL
         if not self.url:
             raise ValueError("ODOO_URL is required")
