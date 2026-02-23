@@ -66,18 +66,26 @@ PROJECT_ID=$(echo "$PROJECT_RESPONSE" | python3 -c "import sys,json; print(json.
 echo "  Project ID: $PROJECT_ID"
 
 # 4. Create OIDC application (PKCE, for Claude.ai / Claude Code)
+#
+# Security notes:
+# - authMethodType=NONE means this is a public client (no client_secret).
+#   This is correct per OAuth 2.1 — Claude.ai is a browser app that cannot
+#   store secrets. Security relies on PKCE (S256) instead.
+# - devMode=false enforces strict redirect URI validation in production.
+#   Set DEV_MODE=true in your environment for local development only.
 echo ""
 echo "Creating OIDC application 'mcp-client'..."
-APP_RESPONSE=$(api POST "/management/v1/projects/$PROJECT_ID/apps/oidc" -d '{
-  "name": "mcp-client",
-  "redirectUris": ["https://claude.ai/oauth/callback", "http://localhost:8000/oauth/callback"],
-  "responseTypes": ["OIDC_RESPONSE_TYPE_CODE"],
-  "grantTypes": ["OIDC_GRANT_TYPE_AUTHORIZATION_CODE"],
-  "appType": "OIDC_APP_TYPE_WEB",
-  "authMethodType": "OIDC_AUTH_METHOD_TYPE_NONE",
-  "postLogoutRedirectUris": ["https://claude.ai"],
-  "devMode": true
-}')
+DEV_MODE="${DEV_MODE:-false}"
+APP_RESPONSE=$(api POST "/management/v1/projects/$PROJECT_ID/apps/oidc" -d "{
+  \"name\": \"mcp-client\",
+  \"redirectUris\": [\"https://claude.ai/oauth/callback\", \"http://localhost:8000/oauth/callback\"],
+  \"responseTypes\": [\"OIDC_RESPONSE_TYPE_CODE\"],
+  \"grantTypes\": [\"OIDC_GRANT_TYPE_AUTHORIZATION_CODE\"],
+  \"appType\": \"OIDC_APP_TYPE_WEB\",
+  \"authMethodType\": \"OIDC_AUTH_METHOD_TYPE_NONE\",
+  \"postLogoutRedirectUris\": [\"https://claude.ai\"],
+  \"devMode\": $DEV_MODE
+}")
 CLIENT_ID=$(echo "$APP_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['clientId'])")
 echo "  Client ID: $CLIENT_ID"
 
