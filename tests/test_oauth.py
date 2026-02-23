@@ -416,6 +416,7 @@ class TestOAuthServerSetup:
             "ZITADEL_CLIENT_ID": "test-client",
             "ZITADEL_CLIENT_SECRET": "test-secret",
             "OAUTH_RESOURCE_SERVER_URL": "https://mcp.example.com",
+            "OAUTH_EXPECTED_AUDIENCE": "",
         }
         with patch.dict(os.environ, env, clear=False):
             from mcp_server_odoo.server import OdooMCPServer
@@ -425,10 +426,10 @@ class TestOAuthServerSetup:
             assert auth_settings is not None
             assert auth_settings.required_scopes == ["openid"]
             assert token_verifier is not None
-            assert token_verifier._expected_audience == "https://mcp.example.com"
+            assert token_verifier._expected_audience is None
 
-    def test_oauth_settings_audience_from_resource_url(self):
-        """Test that expected_audience is set from OAUTH_RESOURCE_SERVER_URL."""
+    def test_oauth_settings_audience_from_env_var(self):
+        """Test that expected_audience is set from OAUTH_EXPECTED_AUDIENCE."""
         import os
 
         env = {
@@ -437,15 +438,16 @@ class TestOAuthServerSetup:
             "ZITADEL_CLIENT_ID": "test-client",
             "ZITADEL_CLIENT_SECRET": "test-secret",
             "OAUTH_RESOURCE_SERVER_URL": "https://mcp.example.com",
+            "OAUTH_EXPECTED_AUDIENCE": "361206622304868762",
         }
         with patch.dict(os.environ, env, clear=False):
             from mcp_server_odoo.server import OdooMCPServer
 
             _, token_verifier = OdooMCPServer._build_oauth_settings()
-            assert token_verifier._expected_audience == "https://mcp.example.com"
+            assert token_verifier._expected_audience == "361206622304868762"
 
-    def test_oauth_no_audience_without_resource_url(self):
-        """Test that expected_audience is None when resource URL is not set."""
+    def test_oauth_no_audience_without_env_var(self):
+        """Test that expected_audience is None when OAUTH_EXPECTED_AUDIENCE is not set."""
         import os
 
         env = {
@@ -454,6 +456,7 @@ class TestOAuthServerSetup:
             "ZITADEL_CLIENT_ID": "test-client",
             "ZITADEL_CLIENT_SECRET": "test-secret",
             "OAUTH_RESOURCE_SERVER_URL": "",
+            "OAUTH_EXPECTED_AUDIENCE": "",
         }
         with patch.dict(os.environ, env, clear=False):
             from mcp_server_odoo.server import OdooMCPServer

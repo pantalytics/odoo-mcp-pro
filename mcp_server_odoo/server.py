@@ -192,11 +192,17 @@ class OdooMCPServer:
             required_scopes=required_scopes,
         )
 
+        # Audience validation: Zitadel uses project/app IDs as audience,
+        # not the resource server URL. Use OAUTH_EXPECTED_AUDIENCE if set,
+        # otherwise skip audience validation (Zitadel introspection already
+        # confirms the token is valid for this project).
+        expected_audience = os.getenv("OAUTH_EXPECTED_AUDIENCE", "").strip() or None
+
         token_verifier = ZitadelTokenVerifier(
             introspection_url=introspection_url,
             client_id=client_id,
             client_secret=client_secret,
-            expected_audience=resource_server_url,
+            expected_audience=expected_audience,
             required_scopes=required_scopes,
         )
 
