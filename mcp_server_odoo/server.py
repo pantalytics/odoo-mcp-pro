@@ -18,8 +18,8 @@ from .error_handling import (
     error_handler,
 )
 from .logging_config import get_logger, logging_config, perf_logger
-from .odoo_connection import OdooConnection, OdooConnectionError
-from .odoo_json2_connection import OdooConnectionError as JSON2ConnectionError
+from .exceptions import OdooConnectionError
+from .odoo_connection import OdooConnection
 from .odoo_json2_connection import OdooJSON2Connection
 from .performance import PerformanceManager
 from .resources import register_resources
@@ -241,7 +241,7 @@ class OdooMCPServer:
             except Exception as e:
                 context = ErrorContext(operation="connection_setup")
                 # Let specific errors propagate as-is
-                if isinstance(e, (OdooConnectionError, JSON2ConnectionError, ConfigurationError)):
+                if isinstance(e, (OdooConnectionError, ConfigurationError)):
                     raise
                 # Handle other unexpected errors
                 error_handler.handle_error(e, context=context)
@@ -299,7 +299,7 @@ class OdooMCPServer:
 
         except KeyboardInterrupt:
             logger.info("Server interrupted by user")
-        except (OdooConnectionError, JSON2ConnectionError, ConfigurationError):
+        except (OdooConnectionError, ConfigurationError):
             # Let these specific errors propagate
             raise
         except Exception as e:
@@ -355,7 +355,7 @@ class OdooMCPServer:
 
         except KeyboardInterrupt:
             logger.info("Server interrupted by user")
-        except (OdooConnectionError, JSON2ConnectionError, ConfigurationError):
+        except (OdooConnectionError, ConfigurationError):
             # Let these specific errors propagate
             raise
         except Exception as e:

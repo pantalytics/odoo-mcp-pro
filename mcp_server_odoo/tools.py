@@ -637,15 +637,9 @@ class OdooToolHandler:
                                 )
                                 parsed_domain = json.loads(json_domain)
                             except json.JSONDecodeError as e:
-                                # If both attempts fail, try evaluating as Python literal
-                                try:
-                                    import ast
-
-                                    parsed_domain = ast.literal_eval(domain)
-                                except (ValueError, SyntaxError):
-                                    raise ValidationError(
-                                        f"Invalid domain parameter. Expected JSON array or Python list, got: {domain[:100]}..."
-                                    ) from e
+                                raise ValidationError(
+                                    f"Invalid domain parameter. Expected JSON array, got: {domain[:100]}..."
+                                ) from e
 
                         if not isinstance(parsed_domain, list):
                             raise ValidationError(
@@ -666,20 +660,10 @@ class OdooToolHandler:
                             raise ValidationError(
                                 f"Fields must be a list, got {type(parsed_fields).__name__}"
                             )
-                    except json.JSONDecodeError:
-                        # Try Python literal eval as fallback
-                        try:
-                            import ast
-
-                            parsed_fields = ast.literal_eval(fields)
-                            if not isinstance(parsed_fields, list):
-                                raise ValidationError(
-                                    f"Fields must be a list, got {type(parsed_fields).__name__}"
-                                )
-                        except (ValueError, SyntaxError) as e:
-                            raise ValidationError(
-                                f"Invalid fields parameter. Expected JSON array or Python list, got: {fields[:100]}..."
-                            ) from e
+                    except json.JSONDecodeError as e:
+                        raise ValidationError(
+                            f"Invalid fields parameter. Expected JSON array, got: {fields[:100]}..."
+                        ) from e
 
                 # Set defaults
                 if limit <= 0 or limit > self.config.max_limit:

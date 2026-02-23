@@ -1,4 +1,9 @@
-# Local test stack: Zitadel + MCP server
+# Local E2E test stack: self-hosted Zitadel + MCP server
+#
+# This file is for LOCAL DEVELOPMENT AND TESTING ONLY.
+# It spins up a self-hosted Zitadel instance for end-to-end OAuth testing.
+# For production, use Zitadel Cloud — see instances.example.yml (Option B).
+#
 # Usage:
 #   cd deploy
 #   mkdir -p machinekey

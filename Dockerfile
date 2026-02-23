@@ -11,6 +11,8 @@ RUN uv sync --frozen --no-dev
 
 FROM python:3.12-slim
 
+RUN useradd -r -u 1000 -s /usr/sbin/nologin appuser
+
 WORKDIR /app
 COPY --from=builder /app /app
 
@@ -21,4 +23,5 @@ ENV ODOO_MCP_PORT=8000
 
 EXPOSE 8000
 
+USER appuser
 CMD ["python", "-m", "mcp_server_odoo"]

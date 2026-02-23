@@ -1,53 +1,60 @@
 # Odoo MCP Server — Instance Configuration
 #
-# Copy this file to instances.yml and fill in your values:
-#   cp instances.example.yml instances.yml
-#
-# Then generate the deployment files:
-#   python generate.py
+# 1. Copy this file:  cp instances.example.yml instances.yml
+# 2. Edit your values below
+# 3. Generate files:  python generate.py
 #
 # Each instance becomes a separate MCP endpoint:
-#   https://<domain>/<instance-name>/
+#   https://<domain>/<instance-name>/mcp
 
 domain: mcp.example.com
 
-# === Option A: Self-hosted Zitadel ===
-# Deploys Zitadel + PostgreSQL alongside MCP servers.
-# Remove this section to skip deploying Zitadel (e.g., when using Zitadel Cloud).
+# ─── Authentication ────────────────────────────────────────────
+# Choose ONE of the following options:
+#
+# Option A: Self-hosted Zitadel (include this section)
+# Option B: Zitadel Cloud (remove this section, update oauth URLs)
+#
+# See SETUP.md for details on each option.
+
 zitadel:
   domain: auth.example.com
 
-# === Option B: Zitadel Cloud ===
-# Use Zitadel Cloud (https://zitadel.cloud) instead of self-hosted.
-# Remove the 'zitadel:' section above and set the oauth URLs to your
-# Zitadel Cloud instance, e.g.:
-#   issuer_url: https://your-instance.zitadel.cloud
-#   introspection_url: https://your-instance.zitadel.cloud/oauth/v2/introspect
-
-# OAuth 2.1 authentication (optional — remove to disable)
+# OAuth 2.1 (optional — remove to disable authentication)
 # Set ZITADEL_CLIENT_ID and ZITADEL_CLIENT_SECRET in .env
 oauth:
   issuer_url: https://auth.example.com
   introspection_url: https://auth.example.com/oauth/v2/introspect
   resource_server_url: https://mcp.example.com
 
+# ─── Odoo Instances ───────────────────────────────────────────
+
 instances:
-  # Odoo.sh hosted instance
+
+  # Odoo.sh (JSON/2 API, Odoo 19+)
   production:
     odoo_url: https://mycompany.odoo.com
     odoo_db: ""                              # empty for Odoo.sh (hostname selects DB)
-    odoo_api_key: "${ODOO_API_KEY}"
+    odoo_api_key: "${ODOO_API_KEY}"          # set actual value in .env, not here
     api_version: json2
-    yolo: "true"                             # "off" | "read" | "true"
-    # yolo controls which MCP operations are allowed:
-    #   "off"  — only models listed in Odoo's /mcp/models/ endpoint (requires module)
-    #   "read" — allow read operations on all models, block writes
-    #   "true" — allow all operations (recommended for JSON/2, Odoo handles ACLs)
+    yolo: "true"
+    # yolo controls which operations Claude can perform:
+    #   "off"  — only models in Odoo's /mcp/models/ endpoint (requires module)
+    #   "read" — read-only access to all models
+    #   "true" — full access (recommended for JSON/2: Odoo handles ACLs server-side)
 
-  # Self-hosted Odoo Community (example)
+  # Self-hosted Odoo (example — uncomment to use)
   # staging:
   #   odoo_url: https://staging.mycompany.com
-  #   odoo_db: staging
+  #   odoo_db: staging                       # required for self-hosted
   #   odoo_api_key: "${STAGING_ODOO_API_KEY}"
   #   api_version: json2
   #   yolo: "read"
+
+  # Legacy Odoo 14-18 (XML-RPC, example — uncomment to use)
+  # legacy:
+  #   odoo_url: https://old.mycompany.com
+  #   odoo_db: production
+  #   odoo_api_key: "${LEGACY_ODOO_API_KEY}"
+  #   api_version: xmlrpc
+  #   yolo: "off"

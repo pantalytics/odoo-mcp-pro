@@ -15,13 +15,16 @@ that exposes Odoo ERP data to AI assistants. It supports two deployment modes an
 | **Clients** | Claude Code, Claude Desktop | Claude.ai, Claude Code |
 | **Hosting** | Your machine | VPS + Caddy + Docker |
 
-| | JSON/2 (default) | XML-RPC (legacy) |
+**Which API protocol?** Use JSON/2 if your Odoo is 19+. Use XML-RPC only for older versions.
+
+| | JSON/2 (recommended) | XML-RPC (legacy) |
 |--|-------------------|-------------------|
 | **Odoo versions** | 19+ | 14-18 |
 | **Odoo 20 ready** | Yes | No (XML-RPC removed) |
 | **Transport** | JSON over HTTP | XML over HTTP |
 | **Auth** | Bearer token header | uid + password as args |
 | **Module required** | No | Optional (for ACLs) |
+| **Performance** | Faster (~2x) | Slower (XML overhead) |
 
 ---
 

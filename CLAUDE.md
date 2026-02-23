@@ -44,6 +44,7 @@ See [architecture.md](architecture.md) for the full breakdown.
 | File | Role |
 |------|------|
 | `mcp_server_odoo/server.py` | Factory pattern, OAuth wiring, FastMCP setup |
+| `mcp_server_odoo/exceptions.py` | Shared `OdooConnectionError` exception |
 | `mcp_server_odoo/connection_protocol.py` | Protocol class defining the connection interface |
 | `mcp_server_odoo/odoo_json2_connection.py` | JSON/2 client using httpx |
 | `mcp_server_odoo/odoo_connection.py` | XML-RPC client (Odoo 14-18) |
@@ -105,11 +106,20 @@ pytest tests/               # unit tests (mocked)
 pytest tests/ -x -q         # quick run, stop on first failure
 ```
 
+## Common mistakes
+
+- Forgetting `ODOO_DB` for JSON/2 on self-hosted Odoo → connection fails
+- Setting `ODOO_DB` for Odoo.sh → should be empty string (hostname selects DB)
+- Using XML-RPC for Odoo 19+ → works but slower, use JSON/2 instead
+- Not setting `OAUTH_ISSUER_URL` for cloud → OAuth disabled silently
+- Running tests with system Python → use project venv (`source .venv/bin/activate`)
+
 ## Conventions
 
 - Follow existing code style (ruff configured in pyproject.toml)
 - Keep JSON/2 client in separate file — do not modify odoo_connection.py
 - Both connection classes must satisfy OdooConnectionProtocol
+- Shared exceptions live in `exceptions.py` — don't define new ones in connection files
 - No new dependencies without discussion (httpx already available)
 
 ## Deployment (cloud)

@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
-# Setup Zitadel for MCP OAuth
+# Setup Zitadel for MCP OAuth — creates project, OIDC app, and introspection app.
+#
+# This script is for SELF-HOSTED Zitadel only (local dev or self-hosted production).
+# For Zitadel Cloud, configure these manually in the Zitadel Cloud console instead.
+# See SETUP.md for details on both options.
 #
 # Usage:
-#   bash setup-zitadel.sh                           # default: http://localhost:8085
-#   bash setup-zitadel.sh https://auth.example.com  # production
+#   bash setup-zitadel.sh                           # local dev (default: http://localhost:8085)
+#   bash setup-zitadel.sh https://auth.example.com  # self-hosted production
 #
 set -euo pipefail
 

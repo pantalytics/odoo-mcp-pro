@@ -18,13 +18,9 @@ import httpx
 from .config import OdooConfig
 from .error_sanitizer import ErrorSanitizer
 
+from .exceptions import OdooConnectionError  # noqa: F401
+
 logger = logging.getLogger(__name__)
-
-
-class OdooConnectionError(Exception):
-    """Exception for Odoo connection errors."""
-
-    pass
 
 
 class OdooJSON2Connection:

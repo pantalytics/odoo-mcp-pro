@@ -1,9 +1,23 @@
 # Setup Guide — odoo-mcp-pro
 
-Complete step-by-step guide to connect Claude to your Odoo ERP. Covers local
-development and cloud production on a Hetzner VPS with OAuth 2.1.
+Step-by-step guide to connect Claude to your Odoo ERP.
 
-**Reading time**: ~15 minutes | **Local setup**: ~10 minutes | **Cloud setup**: ~1-2 hours
+## Choose your path
+
+```
+Do you want Claude.ai (web) or team access?
+│
+├── No → Option A: Local Setup (5 min)
+│        Works with Claude Code and Claude Desktop.
+│
+└── Yes → Do you want to manage your own auth server?
+          │
+          ├── Yes → Option B: Self-hosted Zitadel (2-3 hrs first time)
+          │         Full control. Requires VPS + Docker + DNS.
+          │
+          └── No  → Option C: Zitadel Cloud (1-2 hrs first time)
+                    Managed auth. Simpler setup and maintenance.
+```
 
 ---
 
@@ -11,27 +25,10 @@ development and cloud production on a Hetzner VPS with OAuth 2.1.
 
 1. [What You'll Need](#1-what-youll-need)
 2. [Option A: Local Setup (fastest)](#2-option-a-local-setup)
-   - [A1: Claude Code (one command)](#a1-claude-code-one-command)
-   - [A2: Claude Desktop](#a2-claude-desktop)
-   - [A3: Run from source](#a3-run-from-source)
-3. [Option B: Cloud Deployment on Hetzner VPS](#3-option-b-cloud-deployment-on-hetzner-vps)
-   - [3.1 Create a Hetzner Account](#31-create-a-hetzner-account)
-   - [3.2 Create an SSH Key](#32-create-an-ssh-key)
-   - [3.3 Provision a VPS](#33-provision-a-vps)
-   - [3.4 First Login & Server Setup](#34-first-login--server-setup)
-   - [3.5 Set Up DNS](#35-set-up-dns)
-   - [3.6 Clone the Repository](#36-clone-the-repository)
-   - [3.7 Configure Your Odoo Instance(s)](#37-configure-your-odoo-instances)
-   - [3.8 Generate Deployment Files](#38-generate-deployment-files)
-   - [3.9 Create Secrets](#39-create-secrets)
-   - [3.10 Deploy Phase 1 — Start Zitadel + Caddy](#310-deploy-phase-1--start-zitadel--caddy)
-   - [3.11 Deploy Phase 2 — Configure OAuth](#311-deploy-phase-2--configure-oauth)
-   - [3.12 Deploy Phase 3 — Start MCP Servers](#312-deploy-phase-3--start-mcp-servers)
-   - [3.13 Verify Everything Works](#313-verify-everything-works)
-   - [3.14 Connect from Claude.ai](#314-connect-from-claudeai)
+3. [Option B: Cloud with Self-hosted Zitadel](#3-option-b-cloud-deployment-on-hetzner-vps)
 4. [Option C: Cloud with Zitadel Cloud (simpler)](#4-option-c-cloud-with-zitadel-cloud)
 5. [Microsoft Entra ID Federation (optional)](#5-microsoft-entra-id-federation)
-6. [How to Generate an Odoo API Key](#6-how-to-generate-an-odoo-api-key)
+6. [Generating an Odoo API Key](#6-how-to-generate-an-odoo-api-key)
 7. [Day-to-Day Operations](#7-day-to-day-operations)
 8. [Troubleshooting](#8-troubleshooting)
 
@@ -52,7 +49,7 @@ Before you begin, make sure you have:
 - [ ] **A domain name** you control (e.g., `example.com`) with access to DNS settings
 - [ ] **A credit card** for Hetzner (~€4.50/month)
 
-> **Don't have an Odoo API key yet?** Jump to [Section 4](#4-how-to-generate-an-odoo-api-key) first, then come back here.
+> **Don't have an Odoo API key yet?** Jump to [Section 6](#6-how-to-generate-an-odoo-api-key) first, then come back here.
 
 ---
 
@@ -508,6 +505,11 @@ docker compose logs caddy | grep "certificate obtained"
 
 You should see successful certificate messages for both domains.
 
+> **Phase 1 checkpoint:**
+> - `curl -sf https://auth.example.com/debug/ready` returns OK
+> - `docker compose ps` shows zitadel-db, zitadel, and caddy as `Up`
+> - Zitadel login page loads at `https://auth.example.com`
+
 ### 3.11 Deploy Phase 2 — Configure OAuth
 
 Run the automated setup script. It creates the OAuth applications in Zitadel:
@@ -566,6 +568,11 @@ ZITADEL_CLIENT_SECRET=abc123xyz789...
 
 Save and close.
 
+> **Phase 2 checkpoint:**
+> - The setup script completed without errors
+> - `.env` contains real `ZITADEL_CLIENT_ID` and `ZITADEL_CLIENT_SECRET` values
+> - `curl -sf https://auth.example.com/oauth/v2/introspect --user "${ZITADEL_CLIENT_ID}:${ZITADEL_CLIENT_SECRET}" -d "token=test"` returns `{"active":false}` (not an error)
+
 > **Troubleshooting**: If the script says "admin.pat not found", make sure:
 > 1. The `machinekey/` directory exists in `deploy/generated/`
 > 2. Zitadel has fully started (check logs)
@@ -585,6 +592,10 @@ docker compose up -d --build
 
 > **Why `--build`?** This builds the MCP server Docker image from the local
 > source code. On subsequent deploys after code changes, always include `--build`.
+
+> **Phase 3 checkpoint:**
+> - `docker compose ps` shows all containers as `Up`
+> - `curl -s -o /dev/null -w "%{http_code}" https://mcp.example.com/production/mcp/` returns `401` (OAuth protecting — correct!)
 
 ### 3.13 Verify Everything Works
 

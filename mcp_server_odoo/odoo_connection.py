@@ -18,13 +18,9 @@ from .config import OdooConfig
 from .error_sanitizer import ErrorSanitizer
 from .performance import PerformanceManager
 
+from .exceptions import OdooConnectionError  # noqa: F401
+
 logger = logging.getLogger(__name__)
-
-
-class OdooConnectionError(Exception):
-    """Base exception for Odoo connection errors."""
-
-    pass
 
 
 class OdooConnection:
