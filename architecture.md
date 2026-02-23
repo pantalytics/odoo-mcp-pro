@@ -166,12 +166,46 @@ OdooJSON2Connection → Odoo 19
 
 | Property | Implementation |
 |----------|---------------|
-| Client ↔ MCP auth | OAuth 2.1 Bearer tokens |
-| MCP ↔ Odoo auth | Server-side API key (env var) |
+| Client ↔ MCP auth | OAuth 2.1 Bearer tokens (PKCE for public clients) |
+| MCP ↔ Odoo auth | Server-side API key (env var, never exposed to clients) |
 | Token validation | Zitadel introspection (RFC 7662) |
+| Audience validation | Optional — `OAUTH_EXPECTED_AUDIENCE` env var |
+| Scope enforcement | Required scopes checked at introspection (`openid`) |
 | Key exposure | Odoo API key never leaves the server |
 | User isolation | Per-user tokens, audit via Zitadel |
 | Optional | Omit `OAUTH_ISSUER_URL` for local/stdio use |
+
+### Identity federation (Microsoft Entra ID)
+
+Zitadel supports external Identity Providers. When configured, users can log in
+with their corporate Microsoft account instead of a Zitadel-local password.
+
+```
+Claude.ai → OAuth login → Zitadel login page
+                              │
+                              ├── Local user/password
+                              └── "Sign in with Microsoft" → Entra ID
+                                      │
+                                      └── Returns to Zitadel → issues token
+                                              │
+                                              └── MCP server validates via introspection
+```
+
+The MCP server does not need any code changes for federation — it always validates
+tokens against Zitadel's introspection endpoint. The token is a Zitadel token
+regardless of how the user authenticated (local or federated).
+
+**Setup**: Configure Microsoft as an external IDP in Zitadel settings. Requires
+an App Registration in Azure Entra ID with redirect URI pointing to Zitadel's
+callback URL. See the [Setup Guide](SETUP.md) for step-by-step instructions.
+
+### Audience validation
+
+Zitadel uses project and application IDs as the token `aud` claim — **not** the
+resource server URL. If you set `OAUTH_EXPECTED_AUDIENCE`, it should match one of
+the Zitadel app/project IDs (visible in the token introspection response).
+
+To find the correct value, introspect an active token and check the `aud` array.
 
 ---
 
@@ -206,7 +240,10 @@ VPS (mcp.example.com)
                                     │
                                     │ Token introspection
                                     ▼
-                              Zitadel (auth.example.com)
+                              Zitadel (Cloud or self-hosted)
+                                    │
+                                    ├── Local users
+                                    └── Microsoft Entra ID (optional)
 ```
 
 **Why a separate VPS?** Odoo.sh is a managed platform — no custom processes, no open ports.
@@ -223,12 +260,17 @@ deploy/
     └── Caddyfile
 ```
 
+**Zitadel**: Can be self-hosted (in the same Docker stack) or Zitadel Cloud
+(managed SaaS at `*.zitadel.cloud`). Zitadel Cloud is simpler — no database
+or container to manage.
+
 Container config per instance:
 ```bash
 ODOO_URL=https://your-odoo.odoo.sh
 ODOO_API_KEY=...                          # server-side only
 ODOO_DB=...
 ODOO_API_VERSION=json2
+ODOO_YOLO=true                            # allow all operations (JSON/2 delegates ACLs to Odoo)
 ODOO_MCP_TRANSPORT=streamable-http
 ODOO_MCP_HOST=0.0.0.0
 ODOO_MCP_PORT=8000
@@ -236,6 +278,7 @@ OAUTH_ISSUER_URL=https://auth.example.com
 ZITADEL_INTROSPECTION_URL=https://auth.example.com/oauth/v2/introspect
 ZITADEL_CLIENT_ID=mcp-server@project
 ZITADEL_CLIENT_SECRET=...
+OAUTH_EXPECTED_AUDIENCE=...               # optional: Zitadel app/project ID
 ```
 
 ---

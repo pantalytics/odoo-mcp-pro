@@ -16,7 +16,7 @@ now a standalone project with JSON/2 client, OAuth 2.1, and cloud deployment.
 - OAuth 2.1 via Zitadel for cloud deployments
 - Cloud deployment: Docker + Caddy reverse proxy, multi-instance
 - Both stdio and streamable-http transports working
-- 34 test files, all mocked
+- 35 test files (incl. OAuth), 475+ unit tests, all mocked
 
 ## Architecture
 
@@ -85,9 +85,10 @@ See [architecture.md](architecture.md) for the full breakdown.
 |---------|-------------|
 | `OAUTH_ISSUER_URL` | Zitadel instance URL (enables OAuth when set) |
 | `ZITADEL_INTROSPECTION_URL` | Token introspection endpoint |
-| `ZITADEL_CLIENT_ID` | Service user client ID |
+| `ZITADEL_CLIENT_ID` | Service user client ID (for introspection) |
 | `ZITADEL_CLIENT_SECRET` | Service user client secret |
-| `OAUTH_RESOURCE_SERVER_URL` | Public URL of this MCP server (for metadata) |
+| `OAUTH_RESOURCE_SERVER_URL` | Public URL of this MCP server (for RFC 9728 metadata) |
+| `OAUTH_EXPECTED_AUDIENCE` | Optional: Zitadel app/project ID for audience validation |
 
 ## Development setup
 

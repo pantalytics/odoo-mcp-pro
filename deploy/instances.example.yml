@@ -11,14 +11,21 @@
 
 domain: mcp.example.com
 
-# Zitadel auth server (optional — remove to skip deploying Zitadel)
-# Deploys Zitadel + PostgreSQL alongside the MCP servers.
+# === Option A: Self-hosted Zitadel ===
+# Deploys Zitadel + PostgreSQL alongside MCP servers.
+# Remove this section to skip deploying Zitadel (e.g., when using Zitadel Cloud).
 zitadel:
   domain: auth.example.com
 
+# === Option B: Zitadel Cloud ===
+# Use Zitadel Cloud (https://zitadel.cloud) instead of self-hosted.
+# Remove the 'zitadel:' section above and set the oauth URLs to your
+# Zitadel Cloud instance, e.g.:
+#   issuer_url: https://your-instance.zitadel.cloud
+#   introspection_url: https://your-instance.zitadel.cloud/oauth/v2/introspect
+
 # OAuth 2.1 authentication (optional — remove to disable)
-# Requires a Zitadel instance (or compatible OIDC provider).
-# Set ZITADEL_CLIENT_ID and ZITADEL_CLIENT_SECRET as env vars on the host.
+# Set ZITADEL_CLIENT_ID and ZITADEL_CLIENT_SECRET in .env
 oauth:
   issuer_url: https://auth.example.com
   introspection_url: https://auth.example.com/oauth/v2/introspect
@@ -28,13 +35,19 @@ instances:
   # Odoo.sh hosted instance
   production:
     odoo_url: https://mycompany.odoo.com
-    odoo_db: mycompany-main-12345678
+    odoo_db: ""                              # empty for Odoo.sh (hostname selects DB)
     odoo_api_key: "${ODOO_API_KEY}"
     api_version: json2
+    yolo: "true"                             # "off" | "read" | "true"
+    # yolo controls which MCP operations are allowed:
+    #   "off"  — only models listed in Odoo's /mcp/models/ endpoint (requires module)
+    #   "read" — allow read operations on all models, block writes
+    #   "true" — allow all operations (recommended for JSON/2, Odoo handles ACLs)
 
-  # Self-hosted Odoo Community
-  staging:
-    odoo_url: https://staging.mycompany.com
-    odoo_db: staging
-    odoo_api_key: "${STAGING_ODOO_API_KEY}"
-    api_version: json2
+  # Self-hosted Odoo Community (example)
+  # staging:
+  #   odoo_url: https://staging.mycompany.com
+  #   odoo_db: staging
+  #   odoo_api_key: "${STAGING_ODOO_API_KEY}"
+  #   api_version: json2
+  #   yolo: "read"
