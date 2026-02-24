@@ -156,3 +156,16 @@ class DeleteResult(BaseModel):
     deleted_id: int = Field(description="ID of the deleted record")
     deleted_name: str = Field(description="Display name of the deleted record")
     message: str = Field(description="Human-readable success message")
+
+
+# --- Server Info ---
+
+
+class ServerInfoResult(BaseModel):
+    """Server version and connection status."""
+
+    version: str = Field(description="MCP server version")
+    git_commit: str = Field(description="Git commit hash of the running build")
+    api_version: str = Field(description="Odoo API version (json2 or xmlrpc)")
+    odoo_url: str = Field(description="Connected Odoo instance URL")
+    connected: bool = Field(description="Whether the server is connected to Odoo")

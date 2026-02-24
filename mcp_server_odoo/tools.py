@@ -30,6 +30,7 @@ from .schemas import (
     RecordResult,
     ResourceTemplatesResult,
     SearchResult,
+    ServerInfoResult,
     UpdateResult,
 )
 
@@ -519,6 +520,37 @@ class OdooToolHandler:
             """
             result = await self._handle_list_resource_templates_tool()
             return ResourceTemplatesResult(**result)
+
+        @self.app.tool(
+            title="Server Info",
+            annotations=ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=False,
+            ),
+        )
+        async def server_info() -> ServerInfoResult:
+            """Get MCP server version and connection status.
+
+            Returns:
+                Server version, git commit, API version, and Odoo connection status.
+            """
+            from .server import SERVER_VERSION, GIT_COMMIT
+
+            is_connected = (
+                self.connection.is_authenticated
+                if hasattr(self.connection, "is_authenticated")
+                else False
+            )
+
+            return ServerInfoResult(
+                version=SERVER_VERSION,
+                git_commit=GIT_COMMIT,
+                api_version=self.config.api_version,
+                odoo_url=self.config.url,
+                connected=is_connected,
+            )
 
         @self.app.tool(
             title="Create Record",
