@@ -11,6 +11,8 @@ RUN uv sync --frozen --no-dev
 
 FROM python:3.12-slim
 
+ARG GIT_COMMIT=unknown
+
 RUN useradd -r -u 1000 -s /usr/sbin/nologin appuser
 
 WORKDIR /app
@@ -20,6 +22,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 ENV ODOO_MCP_TRANSPORT=streamable-http
 ENV ODOO_MCP_HOST=0.0.0.0
 ENV ODOO_MCP_PORT=8000
+ENV GIT_COMMIT=${GIT_COMMIT}
 
 EXPOSE 8000
 

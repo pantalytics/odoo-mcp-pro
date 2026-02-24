@@ -30,6 +30,7 @@ logger = get_logger(__name__)
 
 # Server version
 SERVER_VERSION = "0.5.0"
+GIT_COMMIT = os.environ.get("GIT_COMMIT", "unknown")
 
 
 class OdooMCPServer:
@@ -399,6 +400,7 @@ class OdooMCPServer:
         return {
             "status": "healthy" if is_connected else "unhealthy",
             "version": SERVER_VERSION,
+            "git_commit": GIT_COMMIT,
             "connection": {
                 "connected": is_connected,
                 "url": self.config.url if self.config else None,

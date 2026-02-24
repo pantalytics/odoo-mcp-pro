@@ -135,7 +135,11 @@ def generate_compose(config: dict) -> str:
             })
 
         service = {
-            "build": {"context": "../..", "dockerfile": "Dockerfile"},
+            "build": {
+                "context": "../..",
+                "dockerfile": "Dockerfile",
+                "args": {"GIT_COMMIT": "${GIT_COMMIT:-unknown}"},
+            },
             "container_name": svc_name,
             "restart": "unless-stopped",
             "environment": env,
