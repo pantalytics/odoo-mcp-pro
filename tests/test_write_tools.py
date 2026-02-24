@@ -25,6 +25,12 @@ class TestWriteTools:
         """Create mock OdooConnection."""
         conn = Mock()
         conn.is_authenticated = True
+        # Default fields_get returns common fields so essential field filtering works
+        conn.fields_get.return_value = {
+            "id": {"string": "ID", "type": "integer"},
+            "name": {"string": "Name", "type": "char"},
+            "display_name": {"string": "Display Name", "type": "char"},
+        }
         return conn
 
     @pytest.fixture

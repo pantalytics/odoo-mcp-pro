@@ -1020,6 +1020,15 @@ class OdooToolHandler:
                 # Users can use get_record if they need more fields
                 essential_fields = ["id", "name", "display_name"]
 
+                # Filter to fields that actually exist on this model
+                try:
+                    model_fields = self.connection.fields_get(model, ["string", "type"])
+                    essential_fields = [f for f in essential_fields if f in model_fields]
+                    if "id" not in essential_fields:
+                        essential_fields.insert(0, "id")
+                except Exception:
+                    essential_fields = ["id"]
+
                 # Read only the essential fields
                 records = self.connection.read(model, [record_id], essential_fields)
                 if not records:
@@ -1083,6 +1092,15 @@ class OdooToolHandler:
                 # Return only essential fields to minimize context usage
                 # Users can use get_record if they need more fields
                 essential_fields = ["id", "name", "display_name"]
+
+                # Filter to fields that actually exist on this model
+                try:
+                    model_fields = self.connection.fields_get(model, ["string", "type"])
+                    essential_fields = [f for f in essential_fields if f in model_fields]
+                    if "id" not in essential_fields:
+                        essential_fields.insert(0, "id")
+                except Exception:
+                    essential_fields = ["id"]
 
                 # Read only the essential fields
                 records = self.connection.read(model, [record_id], essential_fields)
