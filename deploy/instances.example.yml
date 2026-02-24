@@ -22,10 +22,11 @@ zitadel:
 
 # OAuth 2.1 (optional — remove to disable authentication)
 # Set ZITADEL_CLIENT_ID and ZITADEL_CLIENT_SECRET in .env
+# Note: resource_server_url is computed automatically per instance
+#       as https://<domain>/<instance>/mcp (RFC 9728 compliant)
 oauth:
   issuer_url: https://auth.example.com
   introspection_url: https://auth.example.com/oauth/v2/introspect
-  resource_server_url: https://mcp.example.com
 
 # ─── Odoo Instances ───────────────────────────────────────────
 

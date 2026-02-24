@@ -126,9 +126,14 @@ def generate_compose(config: dict) -> str:
                 introspection_url = "http://zitadel:8080/oauth/v2/introspect"
             else:
                 introspection_url = oauth["introspection_url"]
+
+            # RFC 9728: resource_server_url must be the full public MCP endpoint URL
+            # so the SDK registers the PRM route at the correct path-based well-known URI
+            resource_server_url = f"https://{config['domain']}/{name}/mcp"
+
             env.update({
                 "OAUTH_ISSUER_URL": oauth["issuer_url"],
-                "OAUTH_RESOURCE_SERVER_URL": oauth.get("resource_server_url", ""),
+                "OAUTH_RESOURCE_SERVER_URL": resource_server_url,
                 "ZITADEL_INTROSPECTION_URL": introspection_url,
                 "ZITADEL_CLIENT_ID": "${ZITADEL_CLIENT_ID}",
                 "ZITADEL_CLIENT_SECRET": "${ZITADEL_CLIENT_SECRET}",
@@ -199,14 +204,28 @@ def generate_caddyfile(config: dict) -> str:
     domain = config["domain"]
     lines.append(f"{domain} {{")
 
-    # OAuth metadata at domain root — proxy to first MCP instance
-    # Claude.ai looks for these at the domain root (RFC 8414)
+    # OAuth well-known endpoints (RFC 8414 + RFC 9728)
     if "oauth" in config:
         first_svc = f"mcp-{list(config['instances'].keys())[0]}:8000"
+
+        # RFC 8414: authorization server metadata (legacy fallback)
         lines.append("  handle /.well-known/oauth-authorization-server {")
         lines.append(f"    reverse_proxy {first_svc}")
         lines.append("  }")
         lines.append("")
+
+        # RFC 9728: protected resource metadata
+        # MCP clients request path-based URIs like:
+        #   /.well-known/oauth-protected-resource/{instance}/mcp
+        # Route each instance's PRM to the correct container
+        for inst_name in config["instances"]:
+            inst_svc = f"mcp-{inst_name}:8000"
+            lines.append(f"  handle /.well-known/oauth-protected-resource/{inst_name}/* {{")
+            lines.append(f"    reverse_proxy {inst_svc}")
+            lines.append("  }")
+            lines.append("")
+
+        # Root-based fallback for PRM (when client retries without path)
         lines.append("  handle /.well-known/oauth-protected-resource {")
         lines.append(f"    reverse_proxy {first_svc}")
         lines.append("  }")
