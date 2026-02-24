@@ -74,19 +74,29 @@ class OdooMCPServer:
 
         if auth_settings:
             logger.info(f"OAuth enabled (issuer: {auth_settings.issuer_url})")
-            self._register_oauth_metadata_route(str(auth_settings.issuer_url))
+            resource_url = (
+                str(auth_settings.resource_server_url)
+                if auth_settings.resource_server_url
+                else None
+            )
+            self._register_oauth_metadata_route(
+                str(auth_settings.issuer_url),
+                resource_server_url=resource_url,
+            )
 
         logger.info(f"Initialized Odoo MCP Server v{SERVER_VERSION}")
 
-    def _register_oauth_metadata_route(self, issuer_url: str):
-        """Register OAuth authorization server metadata (legacy fallback).
+    def _register_oauth_metadata_route(
+        self, issuer_url: str, resource_server_url: str | None = None
+    ):
+        """Register OAuth discovery endpoints.
 
-        Registers /.well-known/oauth-authorization-server as a fallback for
-        clients that cannot discover the AS via the protected resource metadata
-        (RFC 9728) flow. Points clients to Zitadel endpoints.
-
-        Note: The protected resource metadata (/.well-known/oauth-protected-resource)
-        is handled automatically by the MCP SDK based on OAUTH_RESOURCE_SERVER_URL.
+        Registers two endpoints:
+        1. /.well-known/oauth-authorization-server — tells clients where to
+           authenticate (Zitadel endpoints). Uses PKCE (S256) for public
+           clients like Claude.ai which cannot store a client_secret.
+        2. /.well-known/oauth-protected-resource (RFC 9728) — tells clients
+           what authorization this resource server requires.
         """
         from starlette.requests import Request
         from starlette.responses import JSONResponse
@@ -109,6 +119,26 @@ class OdooMCPServer:
                 "token_endpoint_auth_methods_supported": ["none"],
                 "code_challenge_methods_supported": ["S256"],
             })
+
+        if resource_server_url:
+            @self.app.custom_route(
+                "/.well-known/oauth-protected-resource",
+                methods=["GET"],
+            )
+            async def protected_resource_metadata(request: Request) -> JSONResponse:
+                """RFC 9728 — OAuth Protected Resource Metadata.
+
+                Tells clients what authorization is needed to access this
+                resource server, including the authorization server URL and
+                required scopes.
+                """
+                issuer = issuer_url.rstrip("/")
+                return JSONResponse({
+                    "resource": resource_server_url,
+                    "authorization_servers": [issuer],
+                    "scopes_supported": ["openid", "profile", "email"],
+                    "bearer_methods_supported": ["header"],
+                })
 
     @staticmethod
     def _build_oauth_settings():
