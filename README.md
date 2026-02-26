@@ -24,6 +24,10 @@
 > **"Show me all unpaid invoices over €5,000 from Q4"** — and Claude queries your Odoo instance directly.
 > No copy-pasting, no CSV exports, no switching tabs.
 
+<p align="center">
+  <img src="docs/demo.gif" alt="Demo of odoo-mcp-pro" width="800"/>
+</p>
+
 ## Choose your setup
 
 | You want | Setup | Time | Guide |
