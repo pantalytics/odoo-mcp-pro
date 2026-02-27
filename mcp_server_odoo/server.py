@@ -113,7 +113,7 @@ class OdooMCPServer:
                 "token_endpoint": f"{issuer}/oauth/v2/token",
                 "revocation_endpoint": f"{issuer}/oauth/v2/revoke",
                 "registration_endpoint": None,
-                "scopes_supported": ["openid", "profile", "email"],
+                "scopes_supported": ["openid", "profile", "email", "offline_access"],
                 "response_types_supported": ["code"],
                 "grant_types_supported": ["authorization_code", "refresh_token"],
                 "token_endpoint_auth_methods_supported": ["none"],
@@ -136,7 +136,7 @@ class OdooMCPServer:
                 return JSONResponse({
                     "resource": resource_server_url,
                     "authorization_servers": [issuer],
-                    "scopes_supported": ["openid", "profile", "email"],
+                    "scopes_supported": ["openid", "profile", "email", "offline_access"],
                     "bearer_methods_supported": ["header"],
                 })
 
