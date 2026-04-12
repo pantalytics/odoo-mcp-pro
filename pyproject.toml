@@ -39,7 +39,7 @@ dependencies = [
     "jinja2>=3.1.0",
     "itsdangerous>=2.1.0",
     "asyncpg>=0.30.0",
-    "uvicorn>=0.32.0",
+    "uvicorn>=0.44.0",
     "cryptography>=41.0.0",
     "posthog>=3.0.0",
 ]
