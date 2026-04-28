@@ -88,81 +88,8 @@ class TestDatabaseDiscovery:
 
         assert connection.database_exists("nonexistent") is False
 
-    def test_auto_select_configured_database(self):
-        """Test auto-selection uses configured database when set."""
-        # Create config with explicit database
-        config = OdooConfig(url="http://localhost:8069", api_key="test_api_key", database="mydb")
-        connection = OdooConnection(config)
-        connection._connected = True
-        mock_proxy = Mock()
-        mock_proxy.list.return_value = ["db1", "mydb", "test"]
-        connection._db_proxy = mock_proxy
-
-        selected = connection.auto_select_database()
-
-        assert selected == "mydb"
-        # list() should not be called when database is configured
-        mock_proxy.list.assert_not_called()
-
-    def test_auto_select_configured_database_not_exists(self):
-        """Test auto-selection uses configured database even if not in list (skip validation)."""
-        # Create config with explicit database that doesn't exist
-        config = OdooConfig(
-            url="http://localhost:8069", api_key="test_api_key", database="nonexistent"
-        )
-        connection = OdooConnection(config)
-        connection._connected = True
-        mock_proxy = Mock()
-        mock_proxy.list.return_value = ["db1", "test"]
-        connection._db_proxy = mock_proxy
-
-        # Should return configured database without validation
-        selected = connection.auto_select_database()
-        assert selected == "nonexistent"
-        # list() should not be called when database is configured
-        mock_proxy.list.assert_not_called()
-
-    def test_auto_select_single_database(self, connection):
-        """Test auto-selection with single database."""
-        connection._connected = True
-        mock_proxy = Mock()
-        mock_proxy.list.return_value = ["only_db"]
-        connection._db_proxy = mock_proxy
-
-        selected = connection.auto_select_database()
-
-        assert selected == "only_db"
-
-    def test_auto_select_multiple_with_odoo(self, connection):
-        """Test auto-selection prefers 'odoo' database when multiple exist."""
-        connection._connected = True
-        mock_proxy = Mock()
-        mock_proxy.list.return_value = ["db1", "odoo", "test", "prod"]
-        connection._db_proxy = mock_proxy
-
-        selected = connection.auto_select_database()
-
-        assert selected == "odoo"
-
-    def test_auto_select_multiple_without_odoo(self, connection):
-        """Test auto-selection fails with multiple databases and no 'odoo'."""
-        connection._connected = True
-        mock_proxy = Mock()
-        mock_proxy.list.return_value = ["db1", "test", "prod"]
-        connection._db_proxy = mock_proxy
-
-        with pytest.raises(OdooConnectionError, match="Cannot auto-select"):
-            connection.auto_select_database()
-
-    def test_auto_select_no_databases(self, connection):
-        """Test auto-selection fails when no databases found."""
-        connection._connected = True
-        mock_proxy = Mock()
-        mock_proxy.list.return_value = []
-        connection._db_proxy = mock_proxy
-
-        with pytest.raises(OdooConnectionError, match="No databases found"):
-            connection.auto_select_database()
+    # auto_select_database tests removed — the method itself was removed in v1.2.1
+    # (database must now be explicitly provided for self-hosted Odoo).
 
     def test_validate_database_access_api_key(self, connection):
         """Test database validation with API key authentication."""
@@ -255,19 +182,6 @@ class TestDatabaseDiscoveryIntegration:
             assert isinstance(databases, list)
             assert len(databases) > 0
             print(f"Found databases: {databases}")
-
-    def test_real_auto_select(self, real_config):
-        """Test auto-selection on real Odoo server."""
-        with OdooConnection(real_config) as conn:
-            selected = conn.auto_select_database()
-
-            # Should select a database
-            assert isinstance(selected, str)
-            assert len(selected) > 0
-            print(f"Auto-selected database: {selected}")
-
-            # Verify it exists
-            assert conn.database_exists(selected)
 
     def test_real_validate_access(self, real_config):
         """Test database access validation on real server."""
