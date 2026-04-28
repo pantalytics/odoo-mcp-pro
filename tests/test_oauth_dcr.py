@@ -14,8 +14,8 @@ import pytest
 from mcp_server_odoo.server import (
     _DCR_ALLOWED_HOSTS,
     _DCR_STATIC_HOSTS,
-    _DCRUpdateError,
     _append_redirect_uris_to_dcr_app,
+    _DCRUpdateError,
 )
 
 
@@ -27,30 +27,29 @@ def _mock_client(responses):
     client = AsyncMock()
     client.__aenter__ = AsyncMock(return_value=client)
     client.__aexit__ = AsyncMock(return_value=False)
-    client.get = AsyncMock(side_effect=[
-        r for m, r in responses if m == "get"
-    ])
-    client.put = AsyncMock(side_effect=[
-        r for m, r in responses if m == "put"
-    ])
+    client.get = AsyncMock(side_effect=[r for m, r in responses if m == "get"])
+    client.put = AsyncMock(side_effect=[r for m, r in responses if m == "put"])
     return client
 
 
 def _get_response(existing_uris, extra=None):
     """Build a mock GET response for a Zitadel app with the given URIs."""
-    return httpx.Response(200, json={
-        "app": {
-            "oidcConfig": {
-                "redirectUris": list(existing_uris),
-                "responseTypes": ["OIDC_RESPONSE_TYPE_CODE"],
-                "grantTypes": ["OIDC_GRANT_TYPE_AUTHORIZATION_CODE"],
-                "appType": "OIDC_APP_TYPE_WEB",
-                "authMethodType": "OIDC_AUTH_METHOD_TYPE_NONE",
-                "devMode": False,
-                **(extra or {}),
+    return httpx.Response(
+        200,
+        json={
+            "app": {
+                "oidcConfig": {
+                    "redirectUris": list(existing_uris),
+                    "responseTypes": ["OIDC_RESPONSE_TYPE_CODE"],
+                    "grantTypes": ["OIDC_GRANT_TYPE_AUTHORIZATION_CODE"],
+                    "appType": "OIDC_APP_TYPE_WEB",
+                    "authMethodType": "OIDC_AUTH_METHOD_TYPE_NONE",
+                    "devMode": False,
+                    **(extra or {}),
+                },
             },
         },
-    })
+    )
 
 
 class TestDCRAllowlist:
@@ -84,10 +83,12 @@ class TestAppendRedirectUrisToDcrApp:
     async def test_appends_new_uri_and_puts(self):
         """Happy path: new URI added, PUT called with merged list."""
         new_uri = "https://chatgpt.com/connector/oauth/abc"
-        mock_client = _mock_client([
-            ("get", _get_response(["https://claude.ai/oauth/callback"])),
-            ("put", httpx.Response(200, json={"details": {}})),
-        ])
+        mock_client = _mock_client(
+            [
+                ("get", _get_response(["https://claude.ai/oauth/callback"])),
+                ("put", httpx.Response(200, json={"details": {}})),
+            ]
+        )
 
         with patch("httpx.AsyncClient", return_value=mock_client):
             await _append_redirect_uris_to_dcr_app(
@@ -111,9 +112,11 @@ class TestAppendRedirectUrisToDcrApp:
     async def test_skips_put_when_uri_already_registered(self):
         """Idempotency: repeat register of an existing URI skips PUT."""
         existing = "https://chatgpt.com/connector/oauth/abc"
-        mock_client = _mock_client([
-            ("get", _get_response([existing])),
-        ])
+        mock_client = _mock_client(
+            [
+                ("get", _get_response([existing])),
+            ]
+        )
 
         with patch("httpx.AsyncClient", return_value=mock_client):
             await _append_redirect_uris_to_dcr_app(
@@ -131,10 +134,12 @@ class TestAppendRedirectUrisToDcrApp:
         """Mix of new + existing URIs: PUT contains merged set without dupes."""
         existing = "https://chatgpt.com/connector/oauth/abc"
         new = "https://chatgpt.com/connector/oauth/xyz"
-        mock_client = _mock_client([
-            ("get", _get_response([existing])),
-            ("put", httpx.Response(200, json={"details": {}})),
-        ])
+        mock_client = _mock_client(
+            [
+                ("get", _get_response([existing])),
+                ("put", httpx.Response(200, json={"details": {}})),
+            ]
+        )
 
         with patch("httpx.AsyncClient", return_value=mock_client):
             await _append_redirect_uris_to_dcr_app(
@@ -151,9 +156,11 @@ class TestAppendRedirectUrisToDcrApp:
     @pytest.mark.asyncio
     async def test_get_non_200_raises(self):
         """GET failure surfaces as _DCRUpdateError, not silent skip."""
-        mock_client = _mock_client([
-            ("get", httpx.Response(404, text="not found")),
-        ])
+        mock_client = _mock_client(
+            [
+                ("get", httpx.Response(404, text="not found")),
+            ]
+        )
 
         with patch("httpx.AsyncClient", return_value=mock_client):
             with pytest.raises(_DCRUpdateError, match="GET app failed: 404"):
@@ -169,13 +176,18 @@ class TestAppendRedirectUrisToDcrApp:
     async def test_put_400_no_changes_is_treated_as_success(self):
         """Race: concurrent /register already added our URI. Zitadel
         returns 400 'No changes'. Idempotent, not an error."""
-        mock_client = _mock_client([
-            ("get", _get_response([])),
-            ("put", httpx.Response(
-                400,
-                json={"code": 9, "message": "No changes (COMMAND-1m88i)"},
-            )),
-        ])
+        mock_client = _mock_client(
+            [
+                ("get", _get_response([])),
+                (
+                    "put",
+                    httpx.Response(
+                        400,
+                        json={"code": 9, "message": "No changes (COMMAND-1m88i)"},
+                    ),
+                ),
+            ]
+        )
 
         with patch("httpx.AsyncClient", return_value=mock_client):
             # Must not raise
@@ -189,10 +201,12 @@ class TestAppendRedirectUrisToDcrApp:
 
     @pytest.mark.asyncio
     async def test_put_non_200_raises(self):
-        mock_client = _mock_client([
-            ("get", _get_response([])),
-            ("put", httpx.Response(403, text="forbidden")),
-        ])
+        mock_client = _mock_client(
+            [
+                ("get", _get_response([])),
+                ("put", httpx.Response(403, text="forbidden")),
+            ]
+        )
 
         with patch("httpx.AsyncClient", return_value=mock_client):
             with pytest.raises(_DCRUpdateError, match="PUT config failed: 403"):
@@ -207,9 +221,11 @@ class TestAppendRedirectUrisToDcrApp:
     @pytest.mark.asyncio
     async def test_missing_oidc_config_raises(self):
         """Wrong app_id (e.g. API app instead of OIDC app) is caught."""
-        mock_client = _mock_client([
-            ("get", httpx.Response(200, json={"app": {"apiConfig": {}}})),
-        ])
+        mock_client = _mock_client(
+            [
+                ("get", httpx.Response(200, json={"app": {"apiConfig": {}}})),
+            ]
+        )
 
         with patch("httpx.AsyncClient", return_value=mock_client):
             with pytest.raises(_DCRUpdateError, match="no oidcConfig"):
@@ -241,10 +257,12 @@ class TestAppendRedirectUrisToDcrApp:
     @pytest.mark.asyncio
     async def test_trailing_slash_in_base_url_handled(self):
         """zitadel_base_url may come in with or without trailing slash."""
-        mock_client = _mock_client([
-            ("get", _get_response([])),
-            ("put", httpx.Response(200, json={})),
-        ])
+        mock_client = _mock_client(
+            [
+                ("get", _get_response([])),
+                ("put", httpx.Response(200, json={})),
+            ]
+        )
 
         with patch("httpx.AsyncClient", return_value=mock_client):
             await _append_redirect_uris_to_dcr_app(

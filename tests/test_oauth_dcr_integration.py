@@ -26,10 +26,9 @@ import httpx
 import pytest
 
 from mcp_server_odoo.server import (
-    _DCRUpdateError,
     _append_redirect_uris_to_dcr_app,
+    _DCRUpdateError,
 )
-
 
 pytestmark = pytest.mark.integration
 
@@ -45,6 +44,7 @@ REQUIRED_ENV = [
 def _zitadel_reachable(url: str) -> bool:
     try:
         from urllib.parse import urlparse
+
         parsed = urlparse(url)
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(1)
@@ -67,8 +67,7 @@ if _env_missing():
 
 if not _zitadel_reachable(os.environ["ZITADEL_TEST_URL"]):
     pytest.skip(
-        f"skipping DCR integration: Zitadel not reachable at "
-        f"{os.environ['ZITADEL_TEST_URL']}",
+        f"skipping DCR integration: Zitadel not reachable at {os.environ['ZITADEL_TEST_URL']}",
         allow_module_level=True,
     )
 
@@ -110,15 +109,19 @@ def _reset_redirect_uris(cfg) -> None:
     )
     r.raise_for_status()
     oidc = (r.json().get("app") or {}).get("oidcConfig") or {}
-    put_body = {k: v for k, v in {
-        "redirectUris": [BOOTSTRAP_URI],
-        "responseTypes": oidc.get("responseTypes"),
-        "grantTypes": oidc.get("grantTypes"),
-        "appType": oidc.get("appType"),
-        "authMethodType": oidc.get("authMethodType"),
-        "postLogoutRedirectUris": oidc.get("postLogoutRedirectUris"),
-        "devMode": oidc.get("devMode"),
-    }.items() if v is not None}
+    put_body = {
+        k: v
+        for k, v in {
+            "redirectUris": [BOOTSTRAP_URI],
+            "responseTypes": oidc.get("responseTypes"),
+            "grantTypes": oidc.get("grantTypes"),
+            "appType": oidc.get("appType"),
+            "authMethodType": oidc.get("authMethodType"),
+            "postLogoutRedirectUris": oidc.get("postLogoutRedirectUris"),
+            "devMode": oidc.get("devMode"),
+        }.items()
+        if v is not None
+    }
     r = httpx.put(
         f"{cfg['url']}/management/v1/projects/{cfg['project_id']}/apps/{cfg['app_id']}/oidc_config",
         headers={"Authorization": f"Bearer {cfg['pat']}"},
@@ -141,7 +144,6 @@ def clean_state(cfg):
 
 
 class TestDCRAgainstRealZitadel:
-
     @pytest.mark.asyncio
     async def test_appends_chatgpt_uri(self, cfg):
         uri = "https://chatgpt.com/connector/oauth/int-test-1"
@@ -178,13 +180,17 @@ class TestDCRAgainstRealZitadel:
         uri_b = "https://chatgpt.com/connector/oauth/int-test-b"
 
         await _append_redirect_uris_to_dcr_app(
-            zitadel_base_url=cfg["url"], pat=cfg["pat"],
-            project_id=cfg["project_id"], app_id=cfg["app_id"],
+            zitadel_base_url=cfg["url"],
+            pat=cfg["pat"],
+            project_id=cfg["project_id"],
+            app_id=cfg["app_id"],
             new_uris=[uri_a],
         )
         await _append_redirect_uris_to_dcr_app(
-            zitadel_base_url=cfg["url"], pat=cfg["pat"],
-            project_id=cfg["project_id"], app_id=cfg["app_id"],
+            zitadel_base_url=cfg["url"],
+            pat=cfg["pat"],
+            project_id=cfg["project_id"],
+            app_id=cfg["app_id"],
             new_uris=[uri_b],
         )
         uris = _get_redirect_uris(cfg)
@@ -196,8 +202,10 @@ class TestDCRAgainstRealZitadel:
         a = "https://chatgpt.com/connector/oauth/int-multi-a"
         b = "https://chat.openai.com/connector/oauth/int-multi-b"
         await _append_redirect_uris_to_dcr_app(
-            zitadel_base_url=cfg["url"], pat=cfg["pat"],
-            project_id=cfg["project_id"], app_id=cfg["app_id"],
+            zitadel_base_url=cfg["url"],
+            pat=cfg["pat"],
+            project_id=cfg["project_id"],
+            app_id=cfg["app_id"],
             new_uris=[a, b],
         )
         uris = _get_redirect_uris(cfg)
@@ -207,8 +215,10 @@ class TestDCRAgainstRealZitadel:
     async def test_wrong_app_id_raises(self, cfg):
         with pytest.raises(_DCRUpdateError, match="GET app failed"):
             await _append_redirect_uris_to_dcr_app(
-                zitadel_base_url=cfg["url"], pat=cfg["pat"],
-                project_id=cfg["project_id"], app_id="000000000000000",
+                zitadel_base_url=cfg["url"],
+                pat=cfg["pat"],
+                project_id=cfg["project_id"],
+                app_id="000000000000000",
                 new_uris=["https://chatgpt.com/x"],
             )
 
@@ -216,7 +226,9 @@ class TestDCRAgainstRealZitadel:
     async def test_invalid_pat_raises(self, cfg):
         with pytest.raises(_DCRUpdateError, match="GET app failed"):
             await _append_redirect_uris_to_dcr_app(
-                zitadel_base_url=cfg["url"], pat="invalid-pat-xxx",
-                project_id=cfg["project_id"], app_id=cfg["app_id"],
+                zitadel_base_url=cfg["url"],
+                pat="invalid-pat-xxx",
+                project_id=cfg["project_id"],
+                app_id=cfg["app_id"],
                 new_uris=["https://chatgpt.com/x"],
             )

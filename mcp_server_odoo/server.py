@@ -18,7 +18,6 @@ from mcp.server.transport_security import TransportSecuritySettings
 
 from .access_control import AccessController
 from .config import OdooConfig, get_config
-from .odoo_knowledge import SERVER_INSTRUCTIONS
 from .error_handling import (
     ConfigurationError,
     ErrorContext,
@@ -28,6 +27,7 @@ from .exceptions import OdooConnectionError
 from .logging_config import get_logger, logging_config, perf_logger
 from .odoo_connection import OdooConnection
 from .odoo_json2_connection import OdooJSON2Connection
+from .odoo_knowledge import SERVER_INSTRUCTIONS
 from .performance import PerformanceManager
 from .resources import register_resources
 from .skills import register_skills
@@ -45,21 +45,25 @@ _BUILD_ORIGIN = "pnl-mcp-7f3a"  # Pantalytics provenance tag
 # Dynamic Client Registration (RFC 7591) — allowed redirect_uri hosts.
 # Intentionally not env-configurable: anti-abuse guardrail against arbitrary
 # URIs being registered in Zitadel.
-_DCR_ALLOWED_HOSTS = frozenset({
-    "chatgpt.com",
-    "chat.openai.com",
-    "claude.ai",
-    "localhost",
-    "127.0.0.1",
-})
+_DCR_ALLOWED_HOSTS = frozenset(
+    {
+        "chatgpt.com",
+        "chat.openai.com",
+        "claude.ai",
+        "localhost",
+        "127.0.0.1",
+    }
+)
 # Hosts that resolve against the pre-configured static OIDC app
 # (MCP_OIDC_CLIENT_ID) with no Zitadel mutation. Everything else goes
 # through the dynamic DCR app.
-_DCR_STATIC_HOSTS = frozenset({
-    "claude.ai",
-    "localhost",
-    "127.0.0.1",
-})
+_DCR_STATIC_HOSTS = frozenset(
+    {
+        "claude.ai",
+        "localhost",
+        "127.0.0.1",
+    }
+)
 _DCR_MAX_URIS_PER_REQUEST = 5
 
 
@@ -96,9 +100,7 @@ async def _append_redirect_uris_to_dcr_app(
         except httpx.HTTPError as e:
             raise _DCRUpdateError(f"GET app network error: {e}") from e
         if r.status_code != 200:
-            raise _DCRUpdateError(
-                f"GET app failed: {r.status_code} {r.text[:200]}"
-            )
+            raise _DCRUpdateError(f"GET app failed: {r.status_code} {r.text[:200]}")
         oidc = (r.json().get("app") or {}).get("oidcConfig") or {}
         if not oidc:
             raise _DCRUpdateError("app has no oidcConfig (wrong app_id?)")
@@ -111,24 +113,28 @@ async def _append_redirect_uris_to_dcr_app(
 
         # PUT requires the full OIDC config. Preserve every field we got
         # from GET; only override redirectUris.
-        put_body = {k: v for k, v in {
-            "redirectUris": sorted(merged),
-            "responseTypes": oidc.get("responseTypes"),
-            "grantTypes": oidc.get("grantTypes"),
-            "appType": oidc.get("appType"),
-            "authMethodType": oidc.get("authMethodType"),
-            "postLogoutRedirectUris": oidc.get("postLogoutRedirectUris"),
-            "devMode": oidc.get("devMode"),
-            "accessTokenType": oidc.get("accessTokenType"),
-            "accessTokenRoleAssertion": oidc.get("accessTokenRoleAssertion"),
-            "idTokenRoleAssertion": oidc.get("idTokenRoleAssertion"),
-            "idTokenUserinfoAssertion": oidc.get("idTokenUserinfoAssertion"),
-            "clockSkew": oidc.get("clockSkew"),
-            "additionalOrigins": oidc.get("additionalOrigins"),
-            "skipNativeAppSuccessPage": oidc.get("skipNativeAppSuccessPage"),
-            "backChannelLogoutUri": oidc.get("backChannelLogoutUri"),
-            "loginVersion": oidc.get("loginVersion"),
-        }.items() if v is not None}
+        put_body = {
+            k: v
+            for k, v in {
+                "redirectUris": sorted(merged),
+                "responseTypes": oidc.get("responseTypes"),
+                "grantTypes": oidc.get("grantTypes"),
+                "appType": oidc.get("appType"),
+                "authMethodType": oidc.get("authMethodType"),
+                "postLogoutRedirectUris": oidc.get("postLogoutRedirectUris"),
+                "devMode": oidc.get("devMode"),
+                "accessTokenType": oidc.get("accessTokenType"),
+                "accessTokenRoleAssertion": oidc.get("accessTokenRoleAssertion"),
+                "idTokenRoleAssertion": oidc.get("idTokenRoleAssertion"),
+                "idTokenUserinfoAssertion": oidc.get("idTokenUserinfoAssertion"),
+                "clockSkew": oidc.get("clockSkew"),
+                "additionalOrigins": oidc.get("additionalOrigins"),
+                "skipNativeAppSuccessPage": oidc.get("skipNativeAppSuccessPage"),
+                "backChannelLogoutUri": oidc.get("backChannelLogoutUri"),
+                "loginVersion": oidc.get("loginVersion"),
+            }.items()
+            if v is not None
+        }
 
         try:
             r = await client.put(put_url, headers=headers, json=put_body)
@@ -142,9 +148,7 @@ async def _append_redirect_uris_to_dcr_app(
         # outcome either way — treat as success.
         if r.status_code == 400 and "No changes" in r.text:
             return
-        raise _DCRUpdateError(
-            f"PUT config failed: {r.status_code} {r.text[:200]}"
-        )
+        raise _DCRUpdateError(f"PUT config failed: {r.status_code} {r.text[:200]}")
 
 
 class OdooMCPServer:
@@ -175,8 +179,11 @@ class OdooMCPServer:
         self.resource_handler = None
         self.tool_handler = None
 
-        # Multi-tenant registry (HTTP mode with admin panel)
-        self.db_manager: Optional[DatabaseManager] = None
+        # Multi-tenant registry (HTTP mode with admin panel).
+        # DatabaseManager type is intentionally Any: it lives in the
+        # private admin package, which isn't a static dependency of the
+        # public repo. Lazy-imported at runtime in _setup_multi_tenant.
+        self.db_manager: Optional[Any] = None
         self.registry: Optional[ConnectionRegistry] = None
 
         # Configure OAuth if environment variables are set
@@ -235,7 +242,6 @@ class OdooMCPServer:
 
         zitadel = zitadel_issuer_url.rstrip("/") if zitadel_issuer_url else issuer_url.rstrip("/")
         # Extract server root (without /mcp path) for authorization_servers
-        from urllib.parse import urlparse
 
         parsed = urlparse(resource_server_url)
         server_root = f"{parsed.scheme}://{parsed.netloc}"
@@ -356,9 +362,7 @@ class OdooMCPServer:
                     )
                 host = (parsed.hostname or "").lower()
                 if host not in _DCR_ALLOWED_HOSTS:
-                    logger.warning(
-                        f"DCR rejected: host={host!r} not in allowlist (uri={uri})"
-                    )
+                    logger.warning(f"DCR rejected: host={host!r} not in allowlist (uri={uri})")
                     return JSONResponse(
                         {
                             "error": "invalid_redirect_uri",
@@ -380,13 +384,8 @@ class OdooMCPServer:
             }
 
             if all_static:
-                logger.info(
-                    f"DCR static-path: client={client_name!r} "
-                    f"hosts={sorted(set(hosts))}"
-                )
-                return JSONResponse(
-                    {"client_id": oidc_client_id, **common_response_fields}
-                )
+                logger.info(f"DCR static-path: client={client_name!r} hosts={sorted(set(hosts))}")
+                return JSONResponse({"client_id": oidc_client_id, **common_response_fields})
 
             # Dynamic-path — mutate DCR app in Zitadel
             dcr_client_id = os.getenv("MCP_OIDC_DCR_CLIENT_ID", "").strip()
@@ -395,23 +394,22 @@ class OdooMCPServer:
             zitadel_pat = os.getenv("ZITADEL_PAT", "").strip()
 
             missing = [
-                name for name, value in [
+                name
+                for name, value in [
                     ("MCP_OIDC_DCR_CLIENT_ID", dcr_client_id),
                     ("MCP_OIDC_DCR_APP_ID", dcr_app_id),
                     ("MCP_OIDC_DCR_PROJECT_ID", dcr_project_id),
                     ("ZITADEL_PAT", zitadel_pat),
-                ] if not value
+                ]
+                if not value
             ]
             if missing:
-                logger.error(
-                    f"DCR dynamic-path blocked: missing env: {missing}"
-                )
+                logger.error(f"DCR dynamic-path blocked: missing env: {missing}")
                 return JSONResponse(
                     {
                         "error": "server_error",
                         "error_description": (
-                            f"DCR not configured on server "
-                            f"(missing: {', '.join(missing)})"
+                            f"DCR not configured on server (missing: {', '.join(missing)})"
                         ),
                     },
                     status_code=500,
@@ -439,9 +437,7 @@ class OdooMCPServer:
                 f"DCR dynamic-path: client={client_name!r} "
                 f"hosts={sorted(set(hosts))} uris={len(raw_uris)}"
             )
-            return JSONResponse(
-                {"client_id": dcr_client_id, **common_response_fields}
-            )
+            return JSONResponse({"client_id": dcr_client_id, **common_response_fields})
 
     @staticmethod
     def _build_oauth_settings():
@@ -677,12 +673,12 @@ class OdooMCPServer:
                     # Multi-tenant mode: requires odoo-mcp-pro-admin package
                     try:
                         from .admin.db import DatabaseManager
-                    except ImportError:
+                    except ImportError as e:
                         raise ConfigurationError(
                             "DATABASE_URL is set but the admin package is not installed. "
                             "Install odoo-mcp-pro-admin for multi-tenant mode, or unset "
                             "DATABASE_URL for single-tenant mode."
-                        )
+                        ) from e
                     from .registry import ConnectionRegistry
 
                     logger.info("Starting in multi-tenant mode (DATABASE_URL configured)")
@@ -724,6 +720,7 @@ class OdooMCPServer:
                 # Multi-tenant: mount admin panel alongside MCP (requires admin package)
                 try:
                     from starlette.routing import Mount
+
                     from .admin.app import create_admin_app
 
                     issuer_url = os.getenv("OAUTH_ISSUER_URL", "").strip()

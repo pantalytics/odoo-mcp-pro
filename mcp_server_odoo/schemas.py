@@ -207,7 +207,9 @@ class BinaryFieldResult(BaseModel):
     success: bool = Field(description="Whether the field was written successfully")
     model: str = Field(description="Odoo model name")
     record_id: int = Field(description="Record ID that was updated")
-    field: str = Field(description="Binary field actually written (may differ from the requested field)")
+    field: str = Field(
+        description="Binary field actually written (may differ from the requested field)"
+    )
     size_bytes: int = Field(description="Size of the uploaded bytes (before base64 encoding)")
     url: str = Field(description="Direct URL to the record in Odoo web interface")
     message: str = Field(description="Human-readable success or warning message")

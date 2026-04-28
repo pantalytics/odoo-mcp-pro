@@ -934,9 +934,7 @@ class OdooToolHandler:
             Returns:
                 Written field name, size in bytes, and record URL.
             """
-            result = await self._handle_set_binary_field_tool(
-                model, record_id, field_name, source
-            )
+            result = await self._handle_set_binary_field_tool(model, record_id, field_name, source)
             self._track_usage(_current_sub.get(), "set_binary_field")
             return BinaryFieldResult(**result)
 
@@ -1589,7 +1587,13 @@ class OdooToolHandler:
                 # Validate context keys (prevent dangerous keys like 'su')
                 safe_context = None
                 if context:
-                    allowed_keys = {"tracking_disable", "defer_fields_computation", "lang", "tz", "no_reset_password"}
+                    allowed_keys = {
+                        "tracking_disable",
+                        "defer_fields_computation",
+                        "lang",
+                        "tz",
+                        "no_reset_password",
+                    }
                     unsafe_keys = set(context.keys()) - allowed_keys
                     if unsafe_keys:
                         raise ValidationError(f"Context contains disallowed keys: {unsafe_keys}")
@@ -1609,7 +1613,11 @@ class OdooToolHandler:
 
                 # Separate errors from warnings
                 errors = [
-                    {"row": msg.get("rows", {}).get("from", -1), "message": msg.get("message", ""), "type": msg.get("type", "error")}
+                    {
+                        "row": msg.get("rows", {}).get("from", -1),
+                        "message": msg.get("message", ""),
+                        "type": msg.get("type", "error"),
+                    }
                     for msg in messages
                     if msg.get("type") == "error"
                 ]
@@ -1771,9 +1779,7 @@ class OdooToolHandler:
                             f"Field '{target_field}' is type '{ftype}', not binary/image"
                         )
                     if fields_info[target_field].get("readonly"):
-                        raise ValidationError(
-                            f"Field '{target_field}' on '{model}' is readonly"
-                        )
+                        raise ValidationError(f"Field '{target_field}' on '{model}' is readonly")
 
                     # --- Write (Odoo ORM creates/updates backing ir.attachment) ---
                     b64 = base64.b64encode(raw_bytes).decode("ascii")
@@ -1785,9 +1791,7 @@ class OdooToolHandler:
                     ).rstrip("/")
                     record_url = f"{base_url}/web#id={record_id}&model={model}&view_type=form"
 
-                    message = (
-                        f"Wrote {len(raw_bytes)} bytes to {model}({record_id}).{target_field}"
-                    )
+                    message = f"Wrote {len(raw_bytes)} bytes to {model}({record_id}).{target_field}"
                     if warning:
                         message = f"{message}. Note: {warning}"
 

@@ -10,8 +10,6 @@ import time
 from dataclasses import dataclass, field
 from typing import Dict
 
-from .usage import track_event
-
 from .access_control import AccessController
 from .config import OdooConfig
 from .connection_protocol import OdooConnectionProtocol
@@ -19,6 +17,7 @@ from .exceptions import OdooConnectionError
 from .odoo_connection import OdooConnection
 from .odoo_json2_connection import OdooJSON2Connection
 from .performance import PerformanceManager
+from .usage import track_event
 from .version_detect import detect_api_version
 
 logger = logging.getLogger(__name__)
@@ -100,7 +99,11 @@ class ConnectionRegistry:
         try:
             api_version, server_version = detect_api_version(user_conn.odoo_url)
         except Exception as e:
-            track_event("connection_error", distinct_id=zitadel_sub, properties={"type": "unreachable", "url": user_conn.odoo_url})
+            track_event(
+                "connection_error",
+                distinct_id=zitadel_sub,
+                properties={"type": "unreachable", "url": user_conn.odoo_url},
+            )
             raise OdooConnectionError(
                 f"Cannot reach your Odoo server at {user_conn.odoo_url}. "
                 f"Please check that the URL is correct and the server is online. "
@@ -141,9 +144,17 @@ class ConnectionRegistry:
                 error_type = "missing_database"
             elif "Cannot reach" in error_str:
                 error_type = "unreachable"
-            track_event("connection_error", distinct_id=zitadel_sub, properties={
-                "type": error_type, "api_version": api_version, "hosting": "odoo.sh" if ".odoo.com" in user_conn.odoo_url.lower() else "self-hosted",
-            })
+            track_event(
+                "connection_error",
+                distinct_id=zitadel_sub,
+                properties={
+                    "type": error_type,
+                    "api_version": api_version,
+                    "hosting": "odoo.sh"
+                    if ".odoo.com" in user_conn.odoo_url.lower()
+                    else "self-hosted",
+                },
+            )
 
             # Build helpful troubleshooting message
             details = [
