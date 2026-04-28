@@ -5,117 +5,125 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+This is the open-source MCP server. Hosted-service features (billing, team
+management UI, admin dashboard, deploy infrastructure) live in the proprietary
+`odoo-mcp-pro-admin` overlay and are not tracked here.
+
+## [Unreleased]
+
+### Added
+- `set_binary_field` tool: upload images and binaries to record fields by URL (e.g. `image_1920`, attachments). URL-only — `data:` URIs are rejected.
+- Warning when writing `image_1920` on `product.product` falls through to the template.
+
+## [1.4.3] - 2026-04-23
+
+### Added
+- `find_skill` tool: keyword-based skill discovery in a single call (avoids the `list_skills` + `get_skill` round-trip).
+
+## [1.4.2] - 2026-04-23
+
+### Added
+- `list_skills` and `get_skill` exposed as MCP tools (in addition to `skill://` resources) so models can discover them when the client UI does not surface resources.
+
+## [1.4.1] - 2026-04-23
+
+### Fixed
+- `skills/` directory now shipped inside the wheel.
+
+## [1.4.0] - 2026-04-23
+
+### Added
+- **Skills**: Odoo workflow guides exposed as MCP resources via `skill://` URIs. First batch covers common patterns (CRM imports, partner upsert, sales orders).
+- **ChatGPT connector support**: Dynamic Client Registration so ChatGPT connectors can self-register the OAuth app.
+
 ## [1.3.1] - 2026-04-17
 
 ### Changed
-- **Pricing update**: Pro is now EUR 25/user/month (was EUR 5), Max is EUR 100/user/month (was EUR 25)
-- **Plan features unified**: all plans (Free, Pro, Max) now include unlimited connections and team management — daily call limit and priority support (Max only) are the remaining differentiators
+- License switched to **Elastic License 2.0**; open-core overlay relationship documented in README and SETUP.md.
+- Documentation rewritten for open-core scope (admin/deploy content moved to the proprietary overlay).
 
 ## [1.3.0] - 2026-04-16
 
 ### Added
-- **Billing & subscriptions**: Free, Pro (EUR 25/user/mo), and Max (EUR 100/user/mo) plans with Stripe Checkout and Customer Portal
-- **Usage tracking**: daily call counter with progress bar, rate limiting per plan (50 / 500 / 5,000 calls/day)
-- **Rate limit upgrade CTA**: when you hit your daily limit, the error message includes a direct link to upgrade
-- **Team invites via email**: invite colleagues by email with a branded landing page (powered by Brevo)
-- **Multiple connections**: save and switch between Odoo instances without disconnecting Claude
-- **Progressive setup validation**: step-by-step connection setup with live URL detection, version check, and auth test
-- **Database name help**: guidance for self-hosted users who need to specify a database name
-- **Plan badge in sidebar**: always see your current plan and today's usage at a glance
+- **`import_records`**: idempotent upsert via Odoo's native `load()` using external IDs — re-running the same input does not create duplicates.
+- Odoo domain knowledge included in MCP server instructions so models make better routing decisions (CRM vs Sales vs Subscriptions, etc.).
 
 ### Changed
-- **Teams available on all plans**: teams and unlimited connections are no longer gated behind paid plans
-- **Simplified team UI**: removed member/admin role distinction — all team members are equal
-- **Billing page redesign**: clean plan comparison cards with current plan highlighting (Vercel-inspired)
-- **Setup instructions**: detailed step-by-step Claude connector guide (profile → settings → connectors → add → connect)
-- **Invite landing page**: says "sign in or create account" instead of just "sign up"
-- **Stripe opens in new tab**: checkout and customer portal open in a new window so you don't lose your place
-
-### Fixed
-- **New users get Free plan**: previously new registrations had no plan assigned, breaking rate limiting
-- **Billing buttons**: return proper JSON errors for AJAX requests instead of HTML error pages
-- **Registration blocked**: removed Zitadel org scope that prevented new users from signing up
+- **Open-core split**: admin panel, billing, team management, and deploy infrastructure moved to the proprietary `odoo-mcp-pro-admin` overlay. This package now provides only the MCP server.
+- Removed silent database guessing — database must be explicitly configured.
 
 ## [1.2.1] - 2026-04-11
 
 ### Added
-- **PostHog auth flow tracking**: server-side events for login success, callback errors, state loss, token exchange failures (privacy-respecting, no PII)
-- **PostHog "MCP System Health" dashboard** with alerts for auth failures and usage drops
-- **Auth error pages**: clear error messages instead of silent redirect loops on login failures
-- **Token introspection caching**: 60-second cache with retry logic reduces Zitadel round-trips
-- **CORS handler** on `/admin/callback` (fixes OPTIONS preflight returning 405)
-- **Connection profiles**: save multiple Odoo connections and switch instantly without disconnecting Claude
+- Token introspection caching (60s) with retry — fewer round-trips to the identity provider.
+- Auth error pages instead of silent redirect loops on login failures.
+- CORS handler on the OAuth callback route (fixes preflight returning 405).
 
 ### Changed
-- **PKCE state persisted in Postgres**: login state survives blue-green deploys (was in-memory)
-- **Deploy drain period**: old container runs 30 seconds after new is healthy (drains in-flight requests)
-- **Access token lifetime**: increased to 48 hours (was 12h) since Claude clients don't reliably auto-refresh
-- **Refresh tokens enabled**: 90-day lifetime for seamless re-authentication
-- **Zitadel email delivery**: custom SMTP via Brevo (fixes "could not verify email" for corporate domains)
-- **Setup page redesign**: Vercel-inspired UI with active connection card, inline edit, compact profile list
-- **Hardcoded Zitadel fallbacks removed**: ZITADEL_HOST and ZITADEL_ORG_ID are now required env vars
-
-### Fixed
-- **Registration broken via claude.ai**: Caddy OAuth proxy pointed to old locked US Zitadel instance
-- **Login loops during deploy**: PKCE state lost when container restarted mid-OAuth-flow
-- **503 during deploy**: old container removed too early, Caddy had no healthy upstream
-- **Caddy DNS errors**: stopped containers kept DNS name, causing intermittent health check failures
+- Hardcoded identity-provider fallbacks removed: required env vars must be set explicitly.
 
 ## [1.2.0] - 2026-04-05
 
 ### Added
-- **Admin dashboard** (`/admin/dashboard`): super admin view with all users, usage stats, sort/filter, CSV export
-- **Teams**: users sharing the same Odoo instance are automatically grouped into a team
-- **Team roles**: first user to connect an Odoo URL becomes team admin; others are members
-- **Invite system**: team admins can create invite links (7-day expiry) for colleagues to join their team
-- **Team management**: team admins can remove members and revoke pending invites
-- **PostHog analytics**: server-side `mcp_tool_called` events (opt-in via `POSTHOG_API_KEY` env var, disabled for self-hosted)
-- **Blue-green deploy** (`deploy.sh`): zero-downtime deployments using alternating mcp-blue/mcp-green containers
-- **Dev login** (`/admin/login/dev`): instant admin login for local development (requires `ADMIN_DEV_LOGIN=true`)
-- **Brand layout** (`brand_base.html`): shared Pantalytics-branded template with sidebar navigation and avatar dropdown
-- **`?next=` redirect**: invite links redirect back after login
+- PostHog server-side analytics for `mcp_tool_called` events. Opt-in via `POSTHOG_API_KEY`; disabled when running self-hosted without the env var.
 
 ### Changed
-- **Search default limit**: increased from 10 to 100 records (max raised to 500)
-- **Setup instructions**: added steps 4-6 explaining the Connect button, sign-in popup, and OAuth approval flow
-- **Reconnect tip**: setup page now notes to disconnect/reconnect when changing settings
-- **Admin panel layout**: all pages (My Connection, Team, Dashboard) share the sidebar layout with profile dropdown
-- **Caddy config**: uses `import mcp_upstream` snippet for DRY upstream definitions
-- **Health checks**: Caddy and Docker use `/.well-known/oauth-protected-resource` (not `/mcp` which returns 401)
+- Setup instructions expanded with the full Claude connector flow (Connect button, sign-in popup, OAuth approval).
 
 ### Fixed
-- **URL normalization**: trailing slashes and paths (`/web`, `/odoo`) are stripped on save for consistent team matching
+- URL normalization: trailing slashes and paths (`/web`, `/odoo`) stripped on save for consistent matching.
+
+## [1.1.3] - 2026-04-01
+
+### Added
+- Optional **database name** field for self-hosted Odoo where listing is blocked.
+- **Test Connection** button with stored debug info for support.
+- Step-by-step setup verification with a specific error per check.
+
+### Fixed
+- 404 on `check_access_rights` treated as allowed (Odoo.sh compatibility).
+- Allow updating URL or database without re-entering the API key.
+
+## [1.1.2] - 2026-03-31
+
+### Added
+- `company_id` included in smart fields; companies returned in `server_info`.
+
+### Fixed
+- Use `check_access_rights` for XML-RPC access control — no Odoo MCP module installation required.
+- Fall back to standard XML-RPC when the MCP module is not installed.
+- Auto-detect Odoo.sh database name when DB listing is blocked.
+- Use authenticated email as Odoo username for XML-RPC auth (Odoo 14–18).
+
+## [1.1.1] - 2026-03-31
+
+### Fixed
+- Use standard Odoo XML-RPC endpoints instead of the `/mcp/` prefix (drop the dependency on a server-side Odoo MCP module).
+- Lowercase email for XML-RPC username with exact-then-lowercase fallback (Odoo stores logins lowercase).
+
+## [1.1.0] - 2026-03-31
+
+### Added
+- **Bulk operations**: `create_records`, `update_records`, `delete_records` — operate on many records in a single call.
 
 ## [1.0.0] - 2026-03-27
 
 ### Added
-- **Multi-tenant SaaS architecture**: one MCP server serves multiple customers, each with their own Odoo instance
-- **Admin panel** (`/admin`): tenant management and user self-service setup page with Jinja2 + Tailwind
-- **OAuth 2.1 via Zitadel Cloud**: token-based authentication for Claude.ai users (PKCE, introspection)
-- **Dynamic Client Registration (DCR)**: `/register` endpoint returns pre-configured client_id for Claude.ai
-- **ConnectionRegistry**: maps authenticated users to Odoo connections via Postgres (30 min TTL cache)
-- **API key encryption**: user Odoo API keys encrypted at rest with Fernet (AES-128)
-- **Pantalytics branding**: login page, setup page, admin panel
-- **`server_info` tool**: exposes server version and git commit hash
-- **Protected Resource Metadata (PRM)**: RFC 9728 discovery pointing to Zitadel as authorization server
+- **HTTP transport** with OAuth 2.1 token introspection (PKCE).
+- **Connection registry**: maps authenticated users to Odoo connections (Postgres-backed, with an in-process TTL cache).
+- **`server_info`** tool: exposes server version and git commit hash.
+- **Protected Resource Metadata** (RFC 9728) discovery for OAuth resource servers.
 
 ### Changed
-- **Architecture**: from single-tenant stdio to multi-tenant SaaS with Postgres + Zitadel + Docker
-- **Deployment**: Docker Compose on Hetzner VPS with Caddy (TLS) reverse proxy
-- **Setup page**: shows all tenants a user belongs to, each with its own API key form
-- **`list_models`**: fetches from `ir.model` in JSON/2 mode, skips per-model permission checks for performance
-- **Logout**: clears Zitadel session and shows account picker on next login
-
-### Fixed
-- **OAuth discovery**: correct PRM routing, issuer URL pointing to server root
-- **Caddy proxy**: `/authorize`, `/token`, `/register` routes proxied to Zitadel for Claude.ai compatibility
-- **Setup page**: POST handler uses redirect instead of broken template render
-- **Tool responses**: use tenant URL instead of placeholder
+- Architecture: from single-tenant stdio to multi-user HTTP server.
+- `list_models` fetches from `ir.model` in JSON/2 mode and skips per-model permission checks for performance.
+- Logout clears the upstream identity-provider session and shows the account picker on next login.
 
 ### Removed
-- **YOLO mode**: removed in favor of Odoo native permissions as single source of truth (v0.6.0/v0.7.0)
-- **Admin dashboard tenant CRUD**: simplified to self-service setup only
-- **V1 login UI references**: use Zitadel Login UI V2 only
+- YOLO mode in favor of Odoo native permissions as the single source of truth.
+
+### Note
+- Admin panel, SaaS billing, team management, and deploy infrastructure shipped together with this version were later split into the proprietary `odoo-mcp-pro-admin` overlay (April 2026, see 1.3.0). This OSS package now provides only the MCP server.
 
 ## [0.4.0] - 2026-02-22
 
