@@ -83,6 +83,18 @@ pytest tests/ -x -q         # unit tests (mocked), stop on first failure
 - Self-hosted Odoo requires explicit database name (no auto-detection)
 - Odoo.sh determines database by hostname (no database name needed)
 
+### Tests: open core split
+
+This repo's test suite tests **only what ships in the OSS package**. SaaS-only
+logic (`UsageTracker`, billing, teams, multi-tenancy) is tested in the private
+`odoo-mcp-pro-admin` repo. Strict physical separation — no skip markers, no
+conditional imports. Same pattern as Sentry/getsentry and PostHog `ee/`.
+
+When changing or removing OSS behavior here, prune or update the test in the
+**same PR**. When moving logic out to admin, the test moves along. CI must
+never reference symbols that only exist in the admin overlay (caught at
+collection time).
+
 ## Key files
 
 | File | Role |
