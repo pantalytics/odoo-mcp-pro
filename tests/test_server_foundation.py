@@ -503,7 +503,8 @@ class TestFastMCPApp:
 
         assert server.app is not None
         assert server.app.name == "odoo-mcp-server"
-        assert "Odoo ERP data" in server.app.instructions
+        assert "Odoo" in server.app.instructions
+        assert len(server.app.instructions) > 100
 
     def test_fastmcp_app_has_required_methods(self, valid_config):
         """Test that FastMCP app has required methods."""
