@@ -7,7 +7,6 @@ actions like creating, updating, or deleting records.
 
 from __future__ import annotations
 
-import asyncio
 import base64
 import contextvars
 import json
@@ -55,8 +54,6 @@ logger = get_logger(__name__)
 
 MAX_BULK_SIZE = 1000  # Maximum records per bulk operation
 MAX_BINARY_SIZE_BYTES = 25 * 1024 * 1024  # set_binary_field upload cap
-MAX_CONCURRENT_BINARY_UPLOADS = 3  # parallel set_binary_field calls; higher OOMs the server
-_BINARY_UPLOAD_SEMAPHORE = asyncio.Semaphore(MAX_CONCURRENT_BINARY_UPLOADS)
 _AVATAR_FIELD_RE = re.compile(r"^avatar_(128|256|512|1024|1920)$")
 
 # ContextVar to pass the current user's sub from _get_user_context to the wrapper
@@ -1672,138 +1669,137 @@ class OdooToolHandler:
         the base64 string via connection.write.
         """
         try:
-            async with _BINARY_UPLOAD_SEMAPHORE:
-                connection, access_controller, sub = await self._get_user_context()
-                with perf_logger.track_operation("tool_set_binary_field", model=model):
-                    access_controller.validate_model_access(model, "write")
-                    if not connection.is_authenticated:
-                        raise ValidationError("Not authenticated with Odoo")
-                    if not field_name:
-                        raise ValidationError("field_name is required")
-                    if not source:
-                        raise ValidationError("source is required (http(s) URL)")
+            connection, access_controller, sub = await self._get_user_context()
+            with perf_logger.track_operation("tool_set_binary_field", model=model):
+                access_controller.validate_model_access(model, "write")
+                if not connection.is_authenticated:
+                    raise ValidationError("Not authenticated with Odoo")
+                if not field_name:
+                    raise ValidationError("field_name is required")
+                if not source:
+                    raise ValidationError("source is required (http(s) URL)")
 
-                    # --- Fetch bytes from URL ---
-                    # Reject data: URIs: they would force the LLM to carry the full
-                    # base64 payload in the tool call, which defeats the purpose of
-                    # this tool. The user should upload the file somewhere reachable
-                    # (Drive/Dropbox/S3/etc.) and pass the URL.
-                    if source.startswith("data:"):
-                        raise ValidationError(
-                            "data: URIs are not accepted — bytes must not pass through the "
-                            "LLM. Upload the file to a reachable URL (Google Drive share, "
-                            "Dropbox direct link, S3 pre-signed URL, etc.) and pass the URL."
-                        )
-                    parsed = urlparse(source)
-                    if parsed.scheme not in ("http", "https"):
-                        raise ValidationError(
-                            f"source must be an http(s) URL, got scheme '{parsed.scheme}'"
-                        )
-                    if not parsed.netloc:
-                        raise ValidationError("source URL is missing a host")
-                    try:
-                        async with httpx.AsyncClient(
-                            timeout=30.0,
-                            follow_redirects=True,
-                            max_redirects=5,
-                        ) as client:
-                            chunks: List[bytes] = []
-                            total = 0
-                            async with client.stream("GET", source) as resp:
-                                resp.raise_for_status()
-                                async for chunk in resp.aiter_bytes(chunk_size=65536):
-                                    total += len(chunk)
-                                    if total > MAX_BINARY_SIZE_BYTES:
-                                        raise ValidationError(
-                                            f"Source exceeds max size of "
-                                            f"{MAX_BINARY_SIZE_BYTES // (1024 * 1024)} MB"
-                                        )
-                                    chunks.append(chunk)
-                            raw_bytes = b"".join(chunks)
-                    except ValidationError:
-                        raise
-                    except httpx.HTTPError as e:
-                        raise ValidationError(f"Failed to fetch source URL: {e}") from e
+                # --- Fetch bytes from URL ---
+                # Reject data: URIs: they would force the LLM to carry the full
+                # base64 payload in the tool call, which defeats the purpose of
+                # this tool. The user should upload the file somewhere reachable
+                # (Drive/Dropbox/S3/etc.) and pass the URL.
+                if source.startswith("data:"):
+                    raise ValidationError(
+                        "data: URIs are not accepted — bytes must not pass through the "
+                        "LLM. Upload the file to a reachable URL (Google Drive share, "
+                        "Dropbox direct link, S3 pre-signed URL, etc.) and pass the URL."
+                    )
+                parsed = urlparse(source)
+                if parsed.scheme not in ("http", "https"):
+                    raise ValidationError(
+                        f"source must be an http(s) URL, got scheme '{parsed.scheme}'"
+                    )
+                if not parsed.netloc:
+                    raise ValidationError("source URL is missing a host")
+                try:
+                    async with httpx.AsyncClient(
+                        timeout=30.0,
+                        follow_redirects=True,
+                        max_redirects=5,
+                    ) as client:
+                        chunks: List[bytes] = []
+                        total = 0
+                        async with client.stream("GET", source) as resp:
+                            resp.raise_for_status()
+                            async for chunk in resp.aiter_bytes(chunk_size=65536):
+                                total += len(chunk)
+                                if total > MAX_BINARY_SIZE_BYTES:
+                                    raise ValidationError(
+                                        f"Source exceeds max size of "
+                                        f"{MAX_BINARY_SIZE_BYTES // (1024 * 1024)} MB"
+                                    )
+                                chunks.append(chunk)
+                        raw_bytes = b"".join(chunks)
+                except ValidationError:
+                    raise
+                except httpx.HTTPError as e:
+                    raise ValidationError(f"Failed to fetch source URL: {e}") from e
 
-                    if not raw_bytes:
-                        raise ValidationError("Source produced zero bytes")
+                if not raw_bytes:
+                    raise ValidationError("Source produced zero bytes")
 
-                    # --- Validate record exists ---
-                    existing = connection.read(model, [record_id], ["id"])
-                    if not existing:
-                        raise NotFoundError(f"Record not found: {model} with ID {record_id}")
+                # --- Validate record exists ---
+                existing = connection.read(model, [record_id], ["id"])
+                if not existing:
+                    raise NotFoundError(f"Record not found: {model} with ID {record_id}")
 
-                    # --- Validate field type + auto-redirect avatar_* ---
-                    fields_info = connection.fields_get(model)
-                    if not isinstance(fields_info, dict):
-                        raise ValidationError(f"Could not introspect fields of {model}")
+                # --- Validate field type + auto-redirect avatar_* ---
+                fields_info = connection.fields_get(model)
+                if not isinstance(fields_info, dict):
+                    raise ValidationError(f"Could not introspect fields of {model}")
 
-                    target_field = field_name
-                    warning: Optional[str] = None
+                target_field = field_name
+                warning: Optional[str] = None
 
-                    # Avatar fields on avatar.mixin are compute-only without inverse;
-                    # writing to them is a silent no-op. Redirect to image_1920 if present.
-                    if _AVATAR_FIELD_RE.match(field_name) and "image_1920" in fields_info:
-                        target_field = "image_1920"
-                        warning = (
-                            f"'{field_name}' is a computed field without an inverse; "
-                            f"wrote to 'image_1920' instead (avatar/image variants recompute automatically)"
-                        )
+                # Avatar fields on avatar.mixin are compute-only without inverse;
+                # writing to them is a silent no-op. Redirect to image_1920 if present.
+                if _AVATAR_FIELD_RE.match(field_name) and "image_1920" in fields_info:
+                    target_field = "image_1920"
+                    warning = (
+                        f"'{field_name}' is a computed field without an inverse; "
+                        f"wrote to 'image_1920' instead (avatar/image variants recompute automatically)"
+                    )
 
-                    # product.product.image_1920 has a fall-through inverse: if the
-                    # template image is empty OR the template has only one active
-                    # variant, the write lands on product.template instead of the
-                    # variant. Use 'image_variant_1920' to force variant-specific
-                    # storage. Don't auto-redirect (user may legitimately want the
-                    # template-wide write); just warn.
-                    if (
-                        model == "product.product"
-                        and field_name == "image_1920"
-                        and "image_variant_1920" in fields_info
-                    ):
-                        warning = (
-                            "writes to product.product.image_1920 may fall through to "
-                            "product.template (if template image is empty or only one "
-                            "active variant exists). Use field_name='image_variant_1920' "
-                            "for guaranteed variant-specific storage."
-                        )
+                # product.product.image_1920 has a fall-through inverse: if the
+                # template image is empty OR the template has only one active
+                # variant, the write lands on product.template instead of the
+                # variant. Use 'image_variant_1920' to force variant-specific
+                # storage. Don't auto-redirect (user may legitimately want the
+                # template-wide write); just warn.
+                if (
+                    model == "product.product"
+                    and field_name == "image_1920"
+                    and "image_variant_1920" in fields_info
+                ):
+                    warning = (
+                        "writes to product.product.image_1920 may fall through to "
+                        "product.template (if template image is empty or only one "
+                        "active variant exists). Use field_name='image_variant_1920' "
+                        "for guaranteed variant-specific storage."
+                    )
 
-                    if target_field not in fields_info:
-                        raise ValidationError(
-                            f"Field '{target_field}' does not exist on model '{model}'"
-                        )
+                if target_field not in fields_info:
+                    raise ValidationError(
+                        f"Field '{target_field}' does not exist on model '{model}'"
+                    )
 
-                    ftype = fields_info[target_field].get("type")
-                    if ftype not in ("binary", "image"):
-                        raise ValidationError(
-                            f"Field '{target_field}' is type '{ftype}', not binary/image"
-                        )
-                    if fields_info[target_field].get("readonly"):
-                        raise ValidationError(f"Field '{target_field}' on '{model}' is readonly")
+                ftype = fields_info[target_field].get("type")
+                if ftype not in ("binary", "image"):
+                    raise ValidationError(
+                        f"Field '{target_field}' is type '{ftype}', not binary/image"
+                    )
+                if fields_info[target_field].get("readonly"):
+                    raise ValidationError(f"Field '{target_field}' on '{model}' is readonly")
 
-                    # --- Write (Odoo ORM creates/updates backing ir.attachment) ---
-                    b64 = base64.b64encode(raw_bytes).decode("ascii")
-                    success = connection.write(model, [record_id], {target_field: b64})
+                # --- Write (Odoo ORM creates/updates backing ir.attachment) ---
+                b64 = base64.b64encode(raw_bytes).decode("ascii")
+                success = connection.write(model, [record_id], {target_field: b64})
 
-                    base_url = (
-                        getattr(connection, "_base_url", None)
-                        or (self.config.url if self.config else "")
-                    ).rstrip("/")
-                    record_url = f"{base_url}/web#id={record_id}&model={model}&view_type=form"
+                base_url = (
+                    getattr(connection, "_base_url", None)
+                    or (self.config.url if self.config else "")
+                ).rstrip("/")
+                record_url = f"{base_url}/web#id={record_id}&model={model}&view_type=form"
 
-                    message = f"Wrote {len(raw_bytes)} bytes to {model}({record_id}).{target_field}"
-                    if warning:
-                        message = f"{message}. Note: {warning}"
+                message = f"Wrote {len(raw_bytes)} bytes to {model}({record_id}).{target_field}"
+                if warning:
+                    message = f"{message}. Note: {warning}"
 
-                    return {
-                        "success": bool(success),
-                        "model": model,
-                        "record_id": record_id,
-                        "field": target_field,
-                        "size_bytes": len(raw_bytes),
-                        "url": record_url,
-                        "message": message,
-                    }
+                return {
+                    "success": bool(success),
+                    "model": model,
+                    "record_id": record_id,
+                    "field": target_field,
+                    "size_bytes": len(raw_bytes),
+                    "url": record_url,
+                    "message": message,
+                }
 
         except ValidationError:
             raise
