@@ -35,11 +35,6 @@ jobs:
     - name: Lint with Ruff
       run: |
         ruff check . --output-format=github
-    
-    - name: Type check with ty
-      continue-on-error: true  # Open-core layout: admin.* and UsageTracker are provided by the private package
-      run: |
-        ty check .
 
   test:
     name: Test Python ${{ matrix.python-version }}
