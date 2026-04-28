@@ -91,6 +91,22 @@ def _resolve_static_client_id(host: str) -> str:
     return ""
 
 
+def _resolve_static_client_secret(host: str) -> str:
+    """Map a static-redirect host to its OIDC client_secret, if any.
+
+    Most AI clients (Claude, ChatGPT) are public clients and use PKCE only.
+    Le Chat is a confidential client per Mistral's flow: it sends
+    `token_endpoint_auth_method: "client_secret_basic"` during DCR and
+    expects a `client_secret` in the /register response, which it then
+    uses to authenticate at the Zitadel /token endpoint (alongside PKCE).
+
+    Returns "" for hosts that should be public clients.
+    """
+    if host == "callback.mistral.ai":
+        return os.getenv("MCP_LECHAT_CLIENT_SECRET", "").strip()
+    return ""
+
+
 def _resolve_dcr_env() -> dict:
     """Return the DCR (dynamic-host) Zitadel env config.
 
@@ -328,7 +344,11 @@ class OdooMCPServer:
                         "authorization_code",
                         "refresh_token",
                     ],
-                    "token_endpoint_auth_methods_supported": ["none"],
+                    "token_endpoint_auth_methods_supported": [
+                        "none",
+                        "client_secret_basic",
+                        "client_secret_post",
+                    ],
                     "code_challenge_methods_supported": ["S256"],
                 }
             )
@@ -419,7 +439,6 @@ class OdooMCPServer:
                 "redirect_uris": raw_uris,
                 "grant_types": ["authorization_code", "refresh_token"],
                 "response_types": ["code"],
-                "token_endpoint_auth_method": "none",
             }
 
             if all_static:
@@ -457,8 +476,31 @@ class OdooMCPServer:
                         },
                         status_code=500,
                     )
-                logger.info(f"DCR static-path: client={client_name!r} hosts={sorted(set(hosts))}")
-                return JSONResponse({"client_id": client_id, **common_response_fields})
+                # Confidential clients (e.g. Le Chat) need the client_secret
+                # echoed back in DCR so they can authenticate at /token via
+                # client_secret_basic. Public clients (Claude, localhost)
+                # use PKCE only. all_static guarantees all hosts map to the
+                # same AI app, so picking hosts[0] is safe.
+                client_secret = _resolve_static_client_secret(hosts[0])
+                if client_secret:
+                    static_response = {
+                        "client_id": client_id,
+                        "client_secret": client_secret,
+                        "token_endpoint_auth_method": "client_secret_basic",
+                        **common_response_fields,
+                    }
+                else:
+                    static_response = {
+                        "client_id": client_id,
+                        "token_endpoint_auth_method": "none",
+                        **common_response_fields,
+                    }
+                logger.info(
+                    f"DCR static-path: client={client_name!r} "
+                    f"hosts={sorted(set(hosts))} "
+                    f"auth={static_response['token_endpoint_auth_method']}"
+                )
+                return JSONResponse(static_response)
 
             # Dynamic-path — mutate DCR app in Zitadel
             dcr = _resolve_dcr_env()
@@ -511,7 +553,13 @@ class OdooMCPServer:
                 f"DCR dynamic-path: client={client_name!r} "
                 f"hosts={sorted(set(hosts))} uris={len(raw_uris)}"
             )
-            return JSONResponse({"client_id": dcr_client_id, **common_response_fields})
+            return JSONResponse(
+                {
+                    "client_id": dcr_client_id,
+                    "token_endpoint_auth_method": "none",
+                    **common_response_fields,
+                }
+            )
 
     @staticmethod
     def _build_oauth_settings():

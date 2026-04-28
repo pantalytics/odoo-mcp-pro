@@ -18,6 +18,7 @@ from mcp_server_odoo.server import (
     _DCRUpdateError,
     _resolve_dcr_env,
     _resolve_static_client_id,
+    _resolve_static_client_secret,
 )
 
 
@@ -122,6 +123,27 @@ class TestResolveStaticClientId:
     def test_unset_env_returns_empty(self, monkeypatch):
         monkeypatch.delenv("MCP_LECHAT_CLIENT_ID", raising=False)
         assert _resolve_static_client_id("callback.mistral.ai") == ""
+
+
+class TestResolveStaticClientSecret:
+    """Le Chat is the only confidential static client; everyone else is public."""
+
+    def test_lechat_returns_configured_secret(self, monkeypatch):
+        monkeypatch.setenv("MCP_LECHAT_CLIENT_SECRET", "shh-secret")
+        assert _resolve_static_client_secret("callback.mistral.ai") == "shh-secret"
+
+    def test_lechat_unset_returns_empty(self, monkeypatch):
+        monkeypatch.delenv("MCP_LECHAT_CLIENT_SECRET", raising=False)
+        assert _resolve_static_client_secret("callback.mistral.ai") == ""
+
+    def test_claude_is_public_client_no_secret(self, monkeypatch):
+        # Claude uses PKCE only — no secret env var, helper returns "".
+        monkeypatch.setenv("MCP_LECHAT_CLIENT_SECRET", "should-not-leak")
+        assert _resolve_static_client_secret("claude.ai") == ""
+        assert _resolve_static_client_secret("localhost") == ""
+
+    def test_unknown_host_returns_empty(self):
+        assert _resolve_static_client_secret("evil.com") == ""
 
 
 class TestResolveDcrEnv:
