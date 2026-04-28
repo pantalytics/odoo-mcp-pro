@@ -283,7 +283,10 @@ class TestOdooJSON2Lifecycle:
                 mock_connect.assert_called_once()
                 assert isinstance(conn, OdooJSON2Connection)
 
-            mock_disconnect.assert_called_once()
+            # Python 3.10's GC may call __del__ within this scope, triggering
+            # extra disconnect calls. The contract is that __exit__ calls it
+            # at least once — assert that, not the exact count.
+            mock_disconnect.assert_called()
 
 
 # ---------------------------------------------------------------------------
