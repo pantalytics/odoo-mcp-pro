@@ -50,21 +50,62 @@ _DCR_ALLOWED_HOSTS = frozenset(
         "chatgpt.com",
         "chat.openai.com",
         "claude.ai",
+        "callback.mistral.ai",
         "localhost",
         "127.0.0.1",
     }
 )
-# Hosts that resolve against the pre-configured static OIDC app
-# (MCP_OIDC_CLIENT_ID) with no Zitadel mutation. Everything else goes
-# through the dynamic DCR app.
+# Static-redirect hosts: each maps to a pre-configured OIDC app via
+# environment variable. No Zitadel mutation happens for these — the
+# redirect URIs are baked into the Zitadel app at setup time.
+# Hosts NOT in this set go through the dynamic DCR app (chatgpt.com, etc.)
+# whose redirectUris are appended at /register time.
 _DCR_STATIC_HOSTS = frozenset(
     {
         "claude.ai",
+        "callback.mistral.ai",
         "localhost",
         "127.0.0.1",
     }
 )
 _DCR_MAX_URIS_PER_REQUEST = 5
+
+
+def _resolve_static_client_id(host: str) -> str:
+    """Map a static-redirect host to its OIDC client_id from env.
+
+    Each AI client gets its own Zitadel app for clean per-AI audit/revocation.
+    Old env names (`MCP_OIDC_CLIENT_ID`, `MCP_OIDC_DCR_CLIENT_ID`) are
+    accepted as fallbacks during the rename rollout — once prod has the
+    new vars set, the fallback can be dropped in a follow-up.
+
+    Returns "" if the host isn't static or no env is configured.
+    """
+    if host in {"claude.ai", "localhost", "127.0.0.1"}:
+        return (
+            os.getenv("MCP_CLAUDE_CLIENT_ID", "").strip()
+            or os.getenv("MCP_OIDC_CLIENT_ID", "").strip()
+        )
+    if host == "callback.mistral.ai":
+        return os.getenv("MCP_LECHAT_CLIENT_ID", "").strip()
+    return ""
+
+
+def _resolve_dcr_env() -> dict:
+    """Return the DCR (dynamic-host) Zitadel env config.
+
+    Accepts both `MCP_CHATGPT_*` (new) and `MCP_OIDC_DCR_*` (old) names,
+    new wins. Empty values mean the dynamic-path is not configured.
+    """
+
+    def _pick(new: str, old: str) -> str:
+        return os.getenv(new, "").strip() or os.getenv(old, "").strip()
+
+    return {
+        "client_id": _pick("MCP_CHATGPT_CLIENT_ID", "MCP_OIDC_DCR_CLIENT_ID"),
+        "app_id": _pick("MCP_CHATGPT_APP_ID", "MCP_OIDC_DCR_APP_ID"),
+        "project_id": _pick("MCP_CHATGPT_PROJECT_ID", "MCP_OIDC_DCR_PROJECT_ID"),
+    }
 
 
 class _DCRUpdateError(Exception):
@@ -245,7 +286,6 @@ class OdooMCPServer:
 
         parsed = urlparse(resource_server_url)
         server_root = f"{parsed.scheme}://{parsed.netloc}"
-        oidc_client_id = os.getenv("MCP_OIDC_CLIENT_ID", "").strip()
 
         @self.app.custom_route(
             "/.well-known/oauth-protected-resource",
@@ -297,14 +337,13 @@ class OdooMCPServer:
         async def register_client(request: Request) -> JSONResponse:
             """RFC 7591 Dynamic Client Registration.
 
-            Two-path router based on redirect_uri host:
+            Per-AI router based on redirect_uri host:
 
-            - Static hosts (claude.ai, localhost): returns the
-              pre-configured MCP_OIDC_CLIENT_ID unchanged. No Zitadel
-              mutation. Preserves live Claude users' refresh tokens.
-            - Dynamic hosts (chatgpt.com, chat.openai.com): appends the
-              URIs to the DCR app's allowlist in Zitadel via the
-              management API, returns MCP_OIDC_DCR_CLIENT_ID.
+            - claude.ai / localhost → MCP_CLAUDE_CLIENT_ID (static app)
+            - callback.mistral.ai → MCP_LECHAT_CLIENT_ID (static app)
+            - chatgpt.com / chat.openai.com → MCP_CHATGPT_CLIENT_ID
+              (dynamic DCR app: redirect URIs are appended to its
+              allowlist via the Zitadel management API at registration time)
 
             Host allowlist is intentionally hardcoded. Any URI outside
             the allowlist → 400.
@@ -384,21 +423,56 @@ class OdooMCPServer:
             }
 
             if all_static:
+                # Each static host maps to its own AI-specific Zitadel app.
+                # Reject mixed-AI requests: a single /register call cannot
+                # return one client_id for two different apps.
+                client_ids = {_resolve_static_client_id(h) for h in hosts}
+                client_ids.discard("")
+                if len(client_ids) > 1:
+                    logger.warning(
+                        f"DCR rejected: mixed AI hosts in one request: {sorted(set(hosts))}"
+                    )
+                    return JSONResponse(
+                        {
+                            "error": "invalid_redirect_uri",
+                            "error_description": (
+                                "redirect_uris span multiple AI clients; register one AI at a time"
+                            ),
+                        },
+                        status_code=400,
+                    )
+                client_id = client_ids.pop() if client_ids else ""
+                if not client_id:
+                    # Resolved to "" — env var for this AI is unset on the
+                    # server. Loud error so we notice in logs/telemetry.
+                    logger.error(
+                        f"DCR static-path: no client_id configured for hosts={sorted(set(hosts))}"
+                    )
+                    return JSONResponse(
+                        {
+                            "error": "server_error",
+                            "error_description": (
+                                "no client_id configured for this AI on the server"
+                            ),
+                        },
+                        status_code=500,
+                    )
                 logger.info(f"DCR static-path: client={client_name!r} hosts={sorted(set(hosts))}")
-                return JSONResponse({"client_id": oidc_client_id, **common_response_fields})
+                return JSONResponse({"client_id": client_id, **common_response_fields})
 
             # Dynamic-path — mutate DCR app in Zitadel
-            dcr_client_id = os.getenv("MCP_OIDC_DCR_CLIENT_ID", "").strip()
-            dcr_app_id = os.getenv("MCP_OIDC_DCR_APP_ID", "").strip()
-            dcr_project_id = os.getenv("MCP_OIDC_DCR_PROJECT_ID", "").strip()
+            dcr = _resolve_dcr_env()
+            dcr_client_id = dcr["client_id"]
+            dcr_app_id = dcr["app_id"]
+            dcr_project_id = dcr["project_id"]
             zitadel_pat = os.getenv("ZITADEL_PAT", "").strip()
 
             missing = [
                 name
                 for name, value in [
-                    ("MCP_OIDC_DCR_CLIENT_ID", dcr_client_id),
-                    ("MCP_OIDC_DCR_APP_ID", dcr_app_id),
-                    ("MCP_OIDC_DCR_PROJECT_ID", dcr_project_id),
+                    ("MCP_CHATGPT_CLIENT_ID", dcr_client_id),
+                    ("MCP_CHATGPT_APP_ID", dcr_app_id),
+                    ("MCP_CHATGPT_PROJECT_ID", dcr_project_id),
                     ("ZITADEL_PAT", zitadel_pat),
                 ]
                 if not value

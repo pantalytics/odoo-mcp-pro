@@ -16,6 +16,8 @@ from mcp_server_odoo.server import (
     _DCR_STATIC_HOSTS,
     _append_redirect_uris_to_dcr_app,
     _DCRUpdateError,
+    _resolve_dcr_env,
+    _resolve_static_client_id,
 )
 
 
@@ -60,6 +62,9 @@ class TestDCRAllowlist:
         assert "chat.openai.com" in _DCR_ALLOWED_HOSTS
         assert "claude.ai" in _DCR_ALLOWED_HOSTS
 
+    def test_lechat_is_allowed(self):
+        assert "callback.mistral.ai" in _DCR_ALLOWED_HOSTS
+
     def test_localhost_allowed_for_dev(self):
         assert "localhost" in _DCR_ALLOWED_HOSTS
         assert "127.0.0.1" in _DCR_ALLOWED_HOSTS
@@ -74,6 +79,85 @@ class TestDCRAllowlist:
     def test_chatgpt_is_dynamic_not_static(self):
         assert "chatgpt.com" not in _DCR_STATIC_HOSTS
         assert "chat.openai.com" not in _DCR_STATIC_HOSTS
+
+    def test_lechat_is_static(self):
+        # Mistral uses one fixed callback URL across all customers, so
+        # the redirect URI is pre-declared on the Zitadel app at setup
+        # time — no DCR mutation needed.
+        assert "callback.mistral.ai" in _DCR_STATIC_HOSTS
+
+
+class TestResolveStaticClientId:
+    """Per-AI host → client_id mapping with new+old env name fallback."""
+
+    def test_claude_prefers_new_env_name(self, monkeypatch):
+        monkeypatch.setenv("MCP_CLAUDE_CLIENT_ID", "new-claude-id")
+        monkeypatch.setenv("MCP_OIDC_CLIENT_ID", "old-claude-id")
+        assert _resolve_static_client_id("claude.ai") == "new-claude-id"
+
+    def test_claude_falls_back_to_old_env_name(self, monkeypatch):
+        monkeypatch.delenv("MCP_CLAUDE_CLIENT_ID", raising=False)
+        monkeypatch.setenv("MCP_OIDC_CLIENT_ID", "old-claude-id")
+        assert _resolve_static_client_id("claude.ai") == "old-claude-id"
+
+    def test_localhost_resolves_to_claude_app(self, monkeypatch):
+        # Localhost is dev-only and shares the Claude Zitadel app.
+        monkeypatch.setenv("MCP_CLAUDE_CLIENT_ID", "claude-id")
+        assert _resolve_static_client_id("localhost") == "claude-id"
+        assert _resolve_static_client_id("127.0.0.1") == "claude-id"
+
+    def test_lechat_uses_dedicated_env(self, monkeypatch):
+        monkeypatch.setenv("MCP_LECHAT_CLIENT_ID", "lechat-id")
+        monkeypatch.setenv("MCP_CLAUDE_CLIENT_ID", "claude-id")
+        # Lechat must NOT pick up Claude's id even with old fallback set.
+        monkeypatch.setenv("MCP_OIDC_CLIENT_ID", "old-claude-id")
+        assert _resolve_static_client_id("callback.mistral.ai") == "lechat-id"
+
+    def test_unknown_host_returns_empty(self):
+        # Defensive: even if somehow allowlisted, an unmapped static host
+        # returns "" so /register fails loudly rather than silently
+        # returning the wrong client_id.
+        assert _resolve_static_client_id("evil.com") == ""
+
+    def test_unset_env_returns_empty(self, monkeypatch):
+        monkeypatch.delenv("MCP_LECHAT_CLIENT_ID", raising=False)
+        assert _resolve_static_client_id("callback.mistral.ai") == ""
+
+
+class TestResolveDcrEnv:
+    """ChatGPT (dynamic-DCR) env config: new+old name fallback."""
+
+    def test_prefers_new_env_names(self, monkeypatch):
+        monkeypatch.setenv("MCP_CHATGPT_CLIENT_ID", "new-cid")
+        monkeypatch.setenv("MCP_CHATGPT_APP_ID", "new-aid")
+        monkeypatch.setenv("MCP_CHATGPT_PROJECT_ID", "new-pid")
+        monkeypatch.setenv("MCP_OIDC_DCR_CLIENT_ID", "old-cid")
+        monkeypatch.setenv("MCP_OIDC_DCR_APP_ID", "old-aid")
+        monkeypatch.setenv("MCP_OIDC_DCR_PROJECT_ID", "old-pid")
+        env = _resolve_dcr_env()
+        assert env == {"client_id": "new-cid", "app_id": "new-aid", "project_id": "new-pid"}
+
+    def test_falls_back_to_old_env_names(self, monkeypatch):
+        for new in ("MCP_CHATGPT_CLIENT_ID", "MCP_CHATGPT_APP_ID", "MCP_CHATGPT_PROJECT_ID"):
+            monkeypatch.delenv(new, raising=False)
+        monkeypatch.setenv("MCP_OIDC_DCR_CLIENT_ID", "old-cid")
+        monkeypatch.setenv("MCP_OIDC_DCR_APP_ID", "old-aid")
+        monkeypatch.setenv("MCP_OIDC_DCR_PROJECT_ID", "old-pid")
+        env = _resolve_dcr_env()
+        assert env == {"client_id": "old-cid", "app_id": "old-aid", "project_id": "old-pid"}
+
+    def test_unset_returns_empty_strings(self, monkeypatch):
+        for var in (
+            "MCP_CHATGPT_CLIENT_ID",
+            "MCP_CHATGPT_APP_ID",
+            "MCP_CHATGPT_PROJECT_ID",
+            "MCP_OIDC_DCR_CLIENT_ID",
+            "MCP_OIDC_DCR_APP_ID",
+            "MCP_OIDC_DCR_PROJECT_ID",
+        ):
+            monkeypatch.delenv(var, raising=False)
+        env = _resolve_dcr_env()
+        assert env == {"client_id": "", "app_id": "", "project_id": ""}
 
 
 class TestAppendRedirectUrisToDcrApp:
