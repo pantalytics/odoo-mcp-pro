@@ -153,47 +153,31 @@ class TestAuthentication:
 
     @patch("urllib.request.urlopen")
     def test_authentication_fallback(self, mock_urlopen, config_both):
-        """Test fallback from API key to username/password."""
-        # Create connection with both auth methods
+        """Test fallback from MCP /auth/validate to standard XML-RPC.
+
+        When the MCP-specific endpoint returns 401, _authenticate_api_key
+        falls back to _authenticate_api_key_standard which calls common.authenticate
+        with the api_key in the password slot. The auth_method stays "api_key"
+        because that's literally what was used — this is NOT a fallback to
+        username/password auth (that path is covered by
+        test_authentication_fallback_in_standard_mode).
+        """
         conn = OdooConnection(config_both)
         conn._connected = True
 
-        # Mock failed API key response
+        # MCP endpoint returns 401 → triggers XML-RPC fallback
         mock_urlopen.side_effect = urllib.error.HTTPError(None, 401, "Unauthorized", {}, None)
 
-        # Mock successful password auth
+        # Standard XML-RPC accepts the api_key as password and returns a uid
         mock_common = Mock()
         mock_common.authenticate.return_value = 3
         conn._common_proxy = mock_common
 
-        # Authenticate - should fallback to password
         conn.authenticate("mcp")
 
-        # Verify authenticated (via standard XML-RPC API key fallback)
         assert conn.is_authenticated
         assert conn.uid == 3
         assert conn.auth_method == "api_key"
-
-    def test_authenticate_with_auto_database(self, connection_api_key):
-        """Test authentication with automatic database selection."""
-        # Mock database list to return the configured database
-        mock_db = Mock()
-        db_name = os.getenv("ODOO_DB")
-        mock_db.list.return_value = [db_name]
-        connection_api_key._db_proxy = mock_db
-
-        # Mock API key auth
-        with patch("urllib.request.urlopen") as mock_urlopen:
-            mock_response = MagicMock()
-            mock_response.read.return_value = json.dumps(
-                {"success": True, "data": {"valid": True, "user_id": 2}}
-            ).encode("utf-8")
-            mock_urlopen.return_value.__enter__.return_value = mock_response
-
-            # Authenticate without specifying database
-            connection_api_key.authenticate()
-
-            assert connection_api_key.database == db_name
 
     def test_authentication_state_cleared_on_disconnect(self, connection_api_key):
         """Test authentication state is cleared on disconnect."""

@@ -170,7 +170,7 @@ class TestDatabaseDiscoveryIntegration:
         return OdooConfig(
             url=os.getenv("ODOO_URL", "http://localhost:8069"),
             api_key=os.getenv("ODOO_API_KEY"),
-            database=None,  # Let it auto-select
+            database=None,  # Remaining tests don't authenticate, only list/validate
         )
 
     def test_real_list_databases(self, real_config):

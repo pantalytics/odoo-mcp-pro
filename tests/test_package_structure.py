@@ -31,11 +31,14 @@ class TestPackageStructure:
 
     def test_package_imports(self):
         """Test that the package can be imported."""
+        import re
+
         import mcp_server_odoo
 
-        # Check version
+        # Version exists and looks like semver — don't pin to a specific number
+        # (pinning means every release bump fails this test for nothing).
         assert hasattr(mcp_server_odoo, "__version__")
-        assert mcp_server_odoo.__version__ == "1.2.1"
+        assert re.match(r"^\d+\.\d+\.\d+", mcp_server_odoo.__version__)
 
         # Check main class
         assert hasattr(mcp_server_odoo, "OdooMCPServer")
