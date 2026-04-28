@@ -21,6 +21,16 @@ def track_event(event: str, distinct_id: str = "server", properties: Optional[di
     pass
 
 
+class SessionLifecycleMiddleware:
+    """No-op middleware. Install odoo-mcp-pro-admin for session lifecycle tracking."""
+
+    def __init__(self, app, path_prefix: str = "/mcp"):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        await self.app(scope, receive, send)
+
+
 class RateLimitExceeded(Exception):
     """Raised when a user exceeds their daily call limit."""
 

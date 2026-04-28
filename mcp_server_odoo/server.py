@@ -857,6 +857,19 @@ class OdooMCPServer:
                     logger.warning("Admin panel not available (odoo-mcp-pro-admin not installed)")
                 logger.info("Admin panel mounted at /admin")
 
+            # Wrap with session lifecycle tracking (no-op without admin package).
+            # Filters by /mcp path so admin requests pass through untouched.
+            from .usage import SessionLifecycleMiddleware, track_event
+
+            asgi_app = SessionLifecycleMiddleware(asgi_app)
+            track_event(
+                "mcp_server_started",
+                properties={
+                    "git_commit": os.getenv("GIT_COMMIT", "unknown"),
+                    "multi_tenant": bool(database_url),
+                },
+            )
+
             import uvicorn
 
             config = uvicorn.Config(
