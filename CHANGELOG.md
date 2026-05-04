@@ -11,6 +11,9 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+### Added
+- **`communicating` skill**: chatter posts, email sending via `mail.mail` / `mail.template`, followers, and detection of which mail stack is active (Pantalytics Outlook Pro Graph API vs OSS `microsoft_outlook` vs Gmail vs plain SMTP). Documents the `x_microsoft.mailbox` model and the MCP-friendly path for posting to the chatter without `message_post()`.
+
 ### Fixed
 - **XML-RPC username resolution**: `registry.get_connection` now reads `user_conn.odoo_login` (when set) and falls back to `user_conn.email`. Odoo authenticates against `res.users.login`, which can differ from the user's email (e.g. `login="admin"`); the previous behavior locked everyone to the sign-up email.
 - **`server_info` observability**: `_current_sub` is now set before the registry/rate-limit calls in `_get_user_context`, so when those raise and a tool catches the exception (notably `server_info`), usage tracking still attributes the event to the correct user instead of silently no-op'ing as `"stdio"`.

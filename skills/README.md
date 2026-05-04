@@ -58,6 +58,7 @@ odoo_modules_any: [sale_management, crm]
 | `configuring` | Custom fields, views, Studio-style changes |
 | `automating` | Automated actions, cron jobs, triggers |
 | `cleaning` | Deduplicate, enrich, fix data quality |
+| `communicating` | Chatter posts, email send, followers, mail server / Outlook Pro |
 | `permissions` | Groups, access rights, record rules |
 
 ### Flagship skills
