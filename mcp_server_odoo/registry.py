@@ -115,14 +115,16 @@ class ConnectionRegistry:
             f" (Odoo {server_version or 'unknown'})"
         )
 
-        # Create connection with detected API version
-        # For XML-RPC (Odoo 14-18), the Zitadel email is used as the Odoo login
-        # (API key auth requires both username and key as password)
+        # Create connection with detected API version.
+        # For XML-RPC (Odoo 14-18) Odoo authenticates against res.users.login,
+        # which can differ from the user's email (e.g. login="admin"). Prefer
+        # the explicitly stored Odoo Login when present; fall back to email.
+        odoo_login = getattr(user_conn, "odoo_login", None) or user_conn.email
         config = OdooConfig(
             url=user_conn.odoo_url,
             database=user_conn.odoo_db or None,
             api_key=user_conn.odoo_api_key,
-            username=user_conn.email if api_version == "xmlrpc" else None,
+            username=odoo_login if api_version == "xmlrpc" else None,
             api_version=api_version,
         )
 
@@ -161,7 +163,7 @@ class ConnectionRegistry:
                 f"Odoo URL: {user_conn.odoo_url}",
                 f"Odoo version: {server_version or 'unknown'}",
                 f"API mode: {api_version}",
-                f"Username: {user_conn.email}",
+                f"Username: {odoo_login}",
                 f"Database: {user_conn.odoo_db or 'not set'}",
             ]
 
@@ -169,8 +171,10 @@ class ConnectionRegistry:
             if "Authentication failed" in error_str:
                 if api_version == "xmlrpc":
                     hints.append(
-                        "Your Odoo login email must match your sign-up email. "
-                        "Check that your API key belongs to this user."
+                        "Odoo authenticates against res.users.login, which is not "
+                        "always your email. Check Settings -> Users -> your user -> "
+                        "Login in Odoo and enter that exact value as the Odoo Login "
+                        "on the setup page. Also confirm the API key belongs to that user."
                     )
                 else:
                     hints.append("Your API key may be invalid or expired. Regenerate it in Odoo.")

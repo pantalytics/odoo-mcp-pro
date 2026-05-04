@@ -11,6 +11,10 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+### Fixed
+- **XML-RPC username resolution**: `registry.get_connection` now reads `user_conn.odoo_login` (when set) and falls back to `user_conn.email`. Odoo authenticates against `res.users.login`, which can differ from the user's email (e.g. `login="admin"`); the previous behavior locked everyone to the sign-up email.
+- **`server_info` observability**: `_current_sub` is now set before the registry/rate-limit calls in `_get_user_context`, so when those raise and a tool catches the exception (notably `server_info`), usage tracking still attributes the event to the correct user instead of silently no-op'ing as `"stdio"`.
+
 ## [1.5.0] - 2026-04-28
 
 ### Added

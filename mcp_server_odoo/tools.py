@@ -114,13 +114,15 @@ class OdooToolHandler:
             if access_token is None:
                 raise ValidationError("No authentication token available")
             sub = access_token.client_id
+            # Set early so callers that catch downstream errors (e.g. server_info)
+            # can still emit usage/diagnostic events tied to the right user.
+            _current_sub.set(sub)
 
             # Check rate limit before doing any work
             if self.usage_tracker:
                 await self.usage_tracker.check_rate_limit(sub)
 
             cached = await self.registry.get_connection(sub)
-            _current_sub.set(sub)
             return cached.connection, cached.access_controller, sub
 
         # Stdio mode: use direct connection (no rate limiting)
