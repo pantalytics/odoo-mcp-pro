@@ -11,7 +11,6 @@ from mcp_server_odoo.access_control import AccessControlError
 from mcp_server_odoo.error_handling import ValidationError
 from mcp_server_odoo.tools import OdooToolHandler
 
-
 # ---------------------------------------------------------------------------
 # Unit tests with a mocked OdooConnection
 # ---------------------------------------------------------------------------
@@ -54,12 +53,12 @@ class TestPostMessageUnit:
         """Default subtype is mt_comment; only body is required in kwargs."""
         # existence check + message read + outlook field probe
         mock_connection.read.side_effect = [
-            [{"id": 7}],                                    # existence check
+            [{"id": 7}],  # existence check
             [{"subtype_id": [1, "Discussions"], "attachment_ids": []}],  # message readback
         ]
-        mock_connection.fields_get.return_value = {}        # no outlook field
-        mock_connection.call_method.return_value = 42        # message_post returns mail.message id
-        mock_connection.search_read.return_value = []       # no notifications
+        mock_connection.fields_get.return_value = {}  # no outlook field
+        mock_connection.call_method.return_value = 42  # message_post returns mail.message id
+        mock_connection.search_read.return_value = []  # no notifications
 
         result = await handler._handle_post_message_tool(
             model="res.partner", record_id=7, body="<p>hi</p>"
@@ -134,15 +133,15 @@ class TestPostMessageUnit:
         """When mail.message has x_microsoft_message_id, surface it."""
         mock_connection.read.side_effect = [
             [{"id": 7}],
-            [{
-                "subtype_id": [1, "Discussions"],
-                "attachment_ids": [],
-                "x_microsoft_message_id": "<AAMkAG...>",
-            }],
+            [
+                {
+                    "subtype_id": [1, "Discussions"],
+                    "attachment_ids": [],
+                    "x_microsoft_message_id": "<AAMkAG...>",
+                }
+            ],
         ]
-        mock_connection.fields_get.return_value = {
-            "x_microsoft_message_id": {"type": "char"}
-        }
+        mock_connection.fields_get.return_value = {"x_microsoft_message_id": {"type": "char"}}
         mock_connection.call_method.return_value = 42
         mock_connection.search_read.return_value = []
 
@@ -162,9 +161,7 @@ class TestPostMessageUnit:
     @pytest.mark.asyncio
     async def test_empty_body_rejected(self, handler):
         with pytest.raises(ValidationError, match="body is required"):
-            await handler._handle_post_message_tool(
-                model="res.partner", record_id=7, body=""
-            )
+            await handler._handle_post_message_tool(model="res.partner", record_id=7, body="")
 
     @pytest.mark.asyncio
     async def test_access_denied(self, handler, mock_access_controller):
@@ -201,7 +198,9 @@ class TestPostMessageUnit:
         ]
 
         result = await handler._handle_post_message_tool(
-            model="res.partner", record_id=7, body="<p>hi</p>",
+            model="res.partner",
+            record_id=7,
+            body="<p>hi</p>",
             partner_ids=[11, 12],
         )
         assert len(result["notifications"]) == 2
@@ -215,6 +214,7 @@ class TestPostMessageUnit:
 # ---------------------------------------------------------------------------
 # Integration tests against the local docker stack
 # ---------------------------------------------------------------------------
+
 
 # Read deploy/.env.test if available so the test can target odoo18 / odoo19
 # without needing the user to mess with environment variables.
@@ -248,6 +248,7 @@ def _make_handler_for(target: str):
     Returns (handler, base_url, db) or None if the env / server is unreachable.
     """
     import socket
+
     from mcp.server.fastmcp import FastMCP
 
     from mcp_server_odoo.access_control import AccessController
@@ -270,6 +271,7 @@ def _make_handler_for(target: str):
 
     # Quick TCP probe
     from urllib.parse import urlparse
+
     parsed = urlparse(url)
     host = parsed.hostname or "localhost"
     port = parsed.port or 8069

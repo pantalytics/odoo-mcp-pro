@@ -155,7 +155,9 @@ class PostMessageNotification(BaseModel):
     partner_name: str = Field(description="Display name of the recipient")
     type: str = Field(description="notification_type — 'inbox' or 'email'")
     status: str = Field(description="notification_status — 'sent', 'exception', 'ready', etc.")
-    failure_reason: Optional[str] = Field(default=None, description="Failure detail when status is 'exception'")
+    failure_reason: Optional[str] = Field(
+        default=None, description="Failure detail when status is 'exception'"
+    )
 
 
 class PostMessageResult(BaseModel):
@@ -163,8 +165,13 @@ class PostMessageResult(BaseModel):
 
     success: bool = Field(description="Whether the post succeeded")
     message_id: int = Field(description="ID of the created mail.message")
-    subtype: Optional[str] = Field(default=None, description="Subtype name — e.g. 'Discussions' (mt_comment) or 'Note' (mt_note)")
-    attachment_count: int = Field(default=0, description="Number of attachments linked to the message")
+    subtype: Optional[str] = Field(
+        default=None,
+        description="Subtype name — e.g. 'Discussions' (mt_comment) or 'Note' (mt_note)",
+    )
+    attachment_count: int = Field(
+        default=0, description="Number of attachments linked to the message"
+    )
     notifications: List[PostMessageNotification] = Field(
         default_factory=list,
         description="Per-recipient delivery rows. Empty for silent notes without explicit partner_ids.",

@@ -1982,7 +1982,11 @@ class OdooToolHandler:
                 msg_rows = connection.read("mail.message", [message_id], msg_fields)
                 msg = msg_rows[0] if msg_rows else {}
                 subtype_pair = msg.get("subtype_id")
-                subtype_name = subtype_pair[1] if isinstance(subtype_pair, list) and len(subtype_pair) > 1 else None
+                subtype_name = (
+                    subtype_pair[1]
+                    if isinstance(subtype_pair, list) and len(subtype_pair) > 1
+                    else None
+                )
                 attachments = msg.get("attachment_ids") or []
                 outlook_msg_id = msg.get(outlook_field) if outlook_field in msg_fields else None
                 if outlook_msg_id is False:
@@ -1992,18 +1996,25 @@ class OdooToolHandler:
                 notif_rows = connection.search_read(
                     "mail.notification",
                     [("mail_message_id", "=", message_id)],
-                    ["res_partner_id", "notification_type", "notification_status", "failure_reason"],
+                    [
+                        "res_partner_id",
+                        "notification_type",
+                        "notification_status",
+                        "failure_reason",
+                    ],
                 )
                 notifications: List[Dict[str, Any]] = []
                 for n in notif_rows:
                     p = n.get("res_partner_id") or [None, ""]
-                    notifications.append({
-                        "partner_id": p[0] if isinstance(p, list) else None,
-                        "partner_name": p[1] if isinstance(p, list) and len(p) > 1 else "",
-                        "type": n.get("notification_type") or "",
-                        "status": n.get("notification_status") or "",
-                        "failure_reason": n.get("failure_reason") or None,
-                    })
+                    notifications.append(
+                        {
+                            "partner_id": p[0] if isinstance(p, list) else None,
+                            "partner_name": p[1] if isinstance(p, list) and len(p) > 1 else "",
+                            "type": n.get("notification_type") or "",
+                            "status": n.get("notification_status") or "",
+                            "failure_reason": n.get("failure_reason") or None,
+                        }
+                    )
 
                 base_url = (
                     getattr(connection, "_base_url", None)
