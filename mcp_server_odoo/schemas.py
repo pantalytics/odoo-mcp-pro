@@ -145,6 +145,38 @@ class DeleteResult(BaseModel):
     message: str = Field(description="Human-readable success message")
 
 
+# --- Post Message (chatter) ---
+
+
+class PostMessageNotification(BaseModel):
+    """One mail.notification row created by a chatter post."""
+
+    partner_id: int = Field(description="res.partner id of the recipient")
+    partner_name: str = Field(description="Display name of the recipient")
+    type: str = Field(description="notification_type — 'inbox' or 'email'")
+    status: str = Field(description="notification_status — 'sent', 'exception', 'ready', etc.")
+    failure_reason: Optional[str] = Field(default=None, description="Failure detail when status is 'exception'")
+
+
+class PostMessageResult(BaseModel):
+    """Result of posting a chatter message via mail.thread.message_post."""
+
+    success: bool = Field(description="Whether the post succeeded")
+    message_id: int = Field(description="ID of the created mail.message")
+    subtype: Optional[str] = Field(default=None, description="Subtype name — e.g. 'Discussions' (mt_comment) or 'Note' (mt_note)")
+    attachment_count: int = Field(default=0, description="Number of attachments linked to the message")
+    notifications: List[PostMessageNotification] = Field(
+        default_factory=list,
+        description="Per-recipient delivery rows. Empty for silent notes without explicit partner_ids.",
+    )
+    outlook_pro_message_id: Optional[str] = Field(
+        default=None,
+        description="x_microsoft_message_id when pan_outlook_pro is installed and the send went via Graph",
+    )
+    record_url: str = Field(description="Direct URL to the record in Odoo")
+    message: str = Field(description="Human-readable summary")
+
+
 # --- Bulk Operations ---
 
 

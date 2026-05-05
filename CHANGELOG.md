@@ -11,6 +11,11 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+### Added
+- **`post_message`** tool: post chatter messages and notes via the API, equivalent to clicking "Send Message" / "Log Note" in the Odoo UI. Sends synchronously within the request (no email-queue cron wait); returns the `mail.message` id, per-recipient `mail.notification` rows, and — on Odoo with `pan_outlook_pro` — the Microsoft Graph `internetMessageId` for thread reconstruction.
+- **`communications`** skill: how-to for chatter API (note vs message, attachments, followers, activities) plus vanilla-vs-`pan_outlook_pro` behavioral differences. Companion to `post_message`.
+- **Le Chat (Mistral) connector support**: per-AI Zitadel app routing so Le Chat can sign in via OAuth. Le Chat is a confidential client, so `/register` returns `client_secret` for it.
+
 ### Fixed
 - **XML-RPC username resolution**: `registry.get_connection` now reads `user_conn.odoo_login` (when set) and falls back to `user_conn.email`. Odoo authenticates against `res.users.login`, which can differ from the user's email (e.g. `login="admin"`); the previous behavior locked everyone to the sign-up email.
 - **`server_info` observability**: `_current_sub` is now set before the registry/rate-limit calls in `_get_user_context`, so when those raise and a tool catches the exception (notably `server_info`), usage tracking still attributes the event to the correct user instead of silently no-op'ing as `"stdio"`.

@@ -75,3 +75,27 @@ class OdooConnectionProtocol(Protocol):
     def check_access_rights(self, model: str, operation: str) -> bool: ...
 
     def get_server_version(self) -> Optional[Dict[str, Any]]: ...
+
+    def call_method(
+        self,
+        model: str,
+        method: str,
+        ids: Optional[List[int]] = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Call an arbitrary ORM method on a model or recordset.
+
+        Transport-agnostic wrapper around `execute_kw` (XML-RPC) /
+        `_call` (JSON/2). Use for non-CRUD methods like `message_post`,
+        `action_confirm`, `activity_schedule`, etc.
+
+        Args:
+            model: Odoo model name.
+            ids: Recordset ids — pass for record-level methods. Omit
+                for class-level (`@api.model`) methods.
+            **kwargs: Keyword arguments forwarded to the Odoo method.
+
+        Returns:
+            Whatever the Odoo method returns.
+        """
+        ...

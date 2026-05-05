@@ -711,6 +711,20 @@ class OdooConnection:
         """
         return self.execute_kw(model, method, list(args), {})
 
+    def call_method(
+        self,
+        model: str,
+        method: str,
+        ids: Optional[List[int]] = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Transport-agnostic recordset method call (XML-RPC backend).
+
+        See `OdooConnectionProtocol.call_method` for semantics.
+        """
+        args = [list(ids)] if ids is not None else []
+        return self.execute_kw(model, method, args, kwargs)
+
     def execute_kw(self, model: str, method: str, args: List[Any], kwargs: Dict[str, Any]) -> Any:
         """Execute an operation on an Odoo model with keyword arguments.
 

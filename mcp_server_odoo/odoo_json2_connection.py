@@ -527,6 +527,24 @@ class OdooJSON2Connection:
                 return True
             return False
 
+    def call_method(
+        self,
+        model: str,
+        method: str,
+        ids: Optional[List[int]] = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Transport-agnostic recordset method call (JSON/2 backend).
+
+        See `OdooConnectionProtocol.call_method` for semantics. JSON/2
+        passes the recordset as `ids` in the request body.
+        """
+        body: Dict[str, Any] = {}
+        if ids is not None:
+            body["ids"] = list(ids)
+        body.update(kwargs)
+        return self._call(model, method, **body)
+
     def get_server_version(self) -> Optional[Dict[str, Any]]:
         """Get Odoo server version information.
 

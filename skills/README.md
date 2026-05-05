@@ -59,6 +59,7 @@ odoo_modules_any: [sale_management, crm]
 | `automating` | Automated actions, cron jobs, triggers |
 | `cleaning` | Deduplicate, enrich, fix data quality |
 | `permissions` | Groups, access rights, record rules |
+| `communications` | Chatter messages, notes, activities, attachments, followers (mail.thread API) |
 
 ### Flagship skills
 
