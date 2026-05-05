@@ -76,6 +76,9 @@ class TestPostMessageUnit:
         assert positional == ("res.partner", "message_post")
         assert kw["ids"] == [7]
         assert kw["body"] == "<p>hi</p>"
+        # body_is_html must always be True over RPC, otherwise Odoo HTML-escapes
+        # the body and chatter shows literal "&lt;p&gt;..." text.
+        assert kw["body_is_html"] is True
         assert kw["subtype_xmlid"] == "mail.mt_comment"
         assert kw["message_type"] == "comment"
         assert "subject" not in kw

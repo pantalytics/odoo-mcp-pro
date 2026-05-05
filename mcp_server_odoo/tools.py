@@ -1934,8 +1934,13 @@ class OdooToolHandler:
 
                 # Build kwargs for message_post — only include fields the user set,
                 # so we don't override Odoo's own defaults (e.g. subject from display_name).
+                # body_is_html=True is essential over RPC: Odoo's message_post escapes
+                # plain str bodies (it expects markupsafe.Markup for HTML), but Markup
+                # objects can't traverse XML-RPC / JSON-RPC. Without this flag, "<p>x</p>"
+                # arrives in the chatter as literal "&lt;p&gt;x&lt;/p&gt;".
                 kwargs: Dict[str, Any] = {
                     "body": body,
+                    "body_is_html": True,
                     "message_type": "comment",
                     "subtype_xmlid": subtype_xmlid,
                 }
