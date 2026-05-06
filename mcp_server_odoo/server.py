@@ -246,12 +246,17 @@ class OdooMCPServer:
         # Configure OAuth if environment variables are set
         auth_settings, token_verifier = self._build_oauth_settings()
 
-        # Create FastMCP instance with server metadata
+        # Create FastMCP instance with server metadata.
+        # stateless_http=True so any replica can serve any request — sessions
+        # don't pin to a single container, so blue/green deploys don't drop
+        # client connections with "No transport found for sessionId".
         self.app = FastMCP(
             name="odoo-mcp-server",
             instructions=SERVER_INSTRUCTIONS,
             auth=auth_settings,
             token_verifier=token_verifier,
+            stateless_http=True,
+            json_response=True,
         )
 
         if auth_settings:
