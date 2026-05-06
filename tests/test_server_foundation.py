@@ -63,6 +63,23 @@ class TestServerFoundation:
         assert server.app is not None
         assert server.app.name == "odoo-mcp-server"
 
+    def test_streamable_http_is_stateless(self, valid_config):
+        """Streamable-http must run stateless so blue/green deploys don't drop
+        client connections with 'No transport found for sessionId'. Pair with
+        json_response=True since we use no server-initiated notifications.
+        Reverting either flag is the regression we are guarding against.
+        """
+        server = OdooMCPServer(valid_config)
+
+        assert server.app.settings.stateless_http is True, (
+            "FastMCP must be stateless_http=True; otherwise sessions pin to a "
+            "single replica and deploys disconnect every client."
+        )
+        assert server.app.settings.json_response is True, (
+            "FastMCP must be json_response=True; SSE GET streams are pointless "
+            "in stateless mode and break json-only HTTP clients."
+        )
+
     def test_server_initialization_with_env_config(self, monkeypatch, tmp_path):
         """Test server initialization loading config from environment."""
         # Reset config singleton first

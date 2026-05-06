@@ -121,14 +121,19 @@ class HttpTransportTester:
             if "mcp-session-id" in response.headers:
                 self.session_id = response.headers["mcp-session-id"]
 
-            # Parse SSE response
+            # Parse response — either plain JSON (json_response=True) or SSE.
             if response.status_code == 200:
-                events = self._parse_sse_response(response.text)
-                for event in events:
-                    if request_id is not None and event.get("id") == request_id:
+                if request_id is None:
+                    return {"status": response.status_code}
+                content_type = response.headers.get("content-type", "")
+                if content_type.startswith("application/json"):
+                    event = response.json()
+                    if event.get("id") == request_id:
                         return event
-                    elif request_id is None:
-                        return {"status": response.status_code}
+                else:
+                    for event in self._parse_sse_response(response.text):
+                        if event.get("id") == request_id:
+                            return event
 
             return {
                 "error": f"Request failed with status {response.status_code}",
@@ -217,7 +222,10 @@ class TestTransportIntegration:
             assert response is not None, "No response to initialize request"
             assert "error" not in response, f"Error in initialize response: {response}"
             assert "result" in response, f"Expected result in response, got: {response}"
-            assert tester.session_id is not None, "No session ID received"
+            assert tester.session_id is None, (
+                "Server is configured stateless_http=True, so it must not "
+                "return an Mcp-Session-Id header on initialize."
+            )
 
             # Send initialized notification
             await tester._send_request("notifications/initialized", {})
@@ -232,37 +240,36 @@ class TestTransportIntegration:
             tester.stop_server()
 
     @pytest.mark.asyncio
-    async def test_http_transport_session_persistence(self, odoo_server_required):
-        """Test that HTTP transport maintains session across requests."""
+    async def test_http_transport_stateless_across_requests(self, odoo_server_required):
+        """Stateless transport: each request is independent, no session id needed.
+
+        Sending a stale Mcp-Session-Id (e.g. left over in a client cache from a
+        pre-stateless deploy) must not yield "No transport found for sessionId";
+        the server should ignore the header and serve the request.
+        """
         tester = HttpTransportTester()
 
         try:
-            # Start and initialize server
             assert await tester.start_server(), "Failed to start HTTP server"
 
-            # Initialize
-            init_params = {
-                "protocolVersion": "2025-03-26",
-                "capabilities": {},
-                "clientInfo": {"name": "pytest-http", "version": "1.0"},
-            }
-            response = await tester._send_request("initialize", init_params, tester._next_id())
-            assert response and "result" in response
-
-            original_session_id = tester.session_id
-            assert original_session_id is not None, "No session ID after initialize"
-
-            # Send initialized notification
-            await tester._send_request("notifications/initialized", {})
-
-            # Make multiple requests and verify session ID persists
+            # Skip initialize: in stateless mode it isn't required between requests.
+            # Make multiple tools/list calls without ever holding a session id.
             for i in range(3):
                 response = await tester._send_request("tools/list", {}, tester._next_id())
                 assert response is not None, f"No response to request {i + 1}"
                 assert "error" not in response, f"Error in request {i + 1}: {response}"
-                assert tester.session_id == original_session_id, (
-                    f"Session ID changed on request {i + 1}"
+                assert tester.session_id is None, (
+                    f"Server returned an Mcp-Session-Id on request {i + 1} — "
+                    "stateless_http=True is not in effect."
                 )
+
+            # Stale session id from an old deploy must be silently accepted.
+            tester.session_id = "stale-id-from-pre-stateless-deploy"
+            response = await tester._send_request("tools/list", {}, tester._next_id())
+            assert response is not None
+            assert "error" not in response, (
+                f"Server rejected a stale Mcp-Session-Id instead of ignoring it: {response}"
+            )
 
         finally:
             tester.stop_server()
