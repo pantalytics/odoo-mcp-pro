@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/pantalytics-odoo-mcp-pro-badge.png)](https://mseep.ai/app/pantalytics-odoo-mcp-pro)
+
 <p align="center">
   <a href="https://www.odoo.com"><img src="assets/odoo-logo.svg" alt="Odoo" height="60"/></a>
   &nbsp;&nbsp;&nbsp;&nbsp;
