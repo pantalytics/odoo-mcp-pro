@@ -240,6 +240,57 @@ detection, and a few extra fields:
 | Extra `mail.message` fields | none | `x_microsoft_message_id`, `x_microsoft_conversation_id` (both indexed) |
 | `ir.mail_server` after install | unchanged | post-init hook deactivates all existing rows; module installs one placeholder `[Outlook Pro] SMTP Disabled` (active=True, host unresolvable) |
 
+### Mail-stack detection — pick the right outbound path
+
+`pan_outlook_pro` is one of four possible mail stacks. Detect first; the
+right outbound flow, the right config model, and even the right
+`email_from` semantics depend on it.
+
+```python
+search_records(
+  model='ir.module.module',
+  domain=[['name', 'in', ['pan_outlook_pro', 'microsoft_outlook', 'google_gmail']],
+          ['state', '=', 'installed']],
+  fields=['name'],
+)
+```
+
+| Module installed | Outbound | Inbound | Config model |
+|---|---|---|---|
+| `pan_outlook_pro` (Pantalytics) | Microsoft Graph API per mailbox | Graph polling per mailbox + alias routing | `x_microsoft.mailbox` |
+| `microsoft_outlook` (OSS) | OAuth on `ir.mail_server` (`smtp_authentication='outlook'`) | separate `fetchmail.server` | `ir.mail_server` |
+| `google_gmail` | OAuth on `ir.mail_server` | separate `fetchmail.server` | `ir.mail_server` |
+| none | Plain SMTP `ir.mail_server` (or none configured) | `fetchmail.server` (IMAP/POP) | `ir.mail_server` |
+
+If `pan_outlook_pro` is installed, do **not** also configure an OSS
+`microsoft_outlook` `ir.mail_server` — they are alternatives, not
+layered. The placeholder `[Outlook Pro] SMTP Disabled` row exists on
+purpose; routing is done by the Graph client based on the sender
+mailbox, not by `ir.mail_server`.
+
+### Outlook Pro mailboxes — `x_microsoft.mailbox` fields
+
+```python
+search_records(
+  model='x_microsoft.mailbox',
+  fields=['email', 'x_mailbox_type', 'x_owner_user_id',
+          'x_alias_id', 'x_incoming_enabled', 'x_sync_sent',
+          'x_sync_inbox', 'state', 'active'],
+)
+```
+
+- `x_mailbox_type` ∈ `personal` / `shared` / `notification`.
+- `state='active'` means OAuth is set up and Graph sync is live.
+- `x_alias_id` ties inbound mail on a shared mailbox (`support@`,
+  `info@`) to a `mail.alias`, so messages create or thread records.
+- `x_incoming_enabled`, `x_sync_sent`, `x_sync_inbox` toggle direction.
+
+**Sending from a shared mailbox:** set `email_from` on the post (or on
+the `mail.mail` row) to the shared address. Outlook Pro picks the
+matching mailbox and dispatches via Graph; if no mailbox matches the
+`email_from`, the smart fallback in `mail_mail.py` kicks in (see the
+install-stages table) and you get the placeholder-SMTP DNS error.
+
 ### Three Outlook Pro install stages — different failure modes
 
 What an MCP user sees when posting `mt_comment` depends on which stage
