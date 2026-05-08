@@ -47,6 +47,64 @@ out depends on three things, in order:
    portal users and partners-without-a-user) creates a `mail.mail` and
    sends. Set per `res.users`.
 
+## Picking recipients — decision tree
+
+Before every `message_post`, classify each intended recipient on three
+axes:
+
+| Axis | Possible values | How to determine |
+|---|---|---|
+| **Identity** | (a) internal user, (b) portal user, (c) external partner with `res.partner`, (d) bare email, no partner | `res.users.search([('partner_id','=',pid)])`; `share=True` ⇒ portal |
+| **Has email** | yes / no on `res.partner.email` | read `email` field |
+| **Relation to the post** | recipient == `author_id` ("self"), recipient == the `res.partner` you are posting on, or unrelated | compare ids |
+
+Then:
+
+```
+For each intended recipient:
+├─ Has res.partner?
+│  ├─ Yes → has email on the partner?
+│  │  ├─ Yes → use partner_ids=[id]
+│  │  │       ├─ Internal user (notification_type='inbox')  → in-app inbox ping, NO email
+│  │  │       │                                                unless user.notification_type='email'
+│  │  │       ├─ Portal user / partner-without-user         → mail.mail created (email)
+│  │  │       └─ Recipient == author_id ?                   → Odoo silently drops author from
+│  │  │                                                        the fan-out; recipient gets nothing
+│  │  │                                                        (see "Email-to-self" below)
+│  │  └─ No  → STOP; set res.partner.email first, otherwise
+│  │           mail.mail will end in 'exception' or 'ready' forever
+│  └─ No → bare email address
+│      ├─ Odoo v19+   → cc='a@x.com,b@y.com'
+│      │                NB: notifications get res_partner_id=NULL — fine for Odoo,
+│      │                but trips strict result-model validation in some MCP clients
+│      └─ Odoo ≤v18  → create a res.partner with that email first,
+│                       then partner_ids=[id]. cc is rejected by v18.
+└─ Do you actually want a chatter entry?
+   ├─ Yes, on this record    → message_post
+   ├─ Yes, on a different record → message_post on the right record
+   │                              (a weekly briefing does not belong
+   │                              on the author's own partner card)
+   └─ No, just push a notification → message_notify (no chatter)
+       Or env['mail.mail'].create({...}).send() (no chatter, no audit trail)
+```
+
+### Email-to-self
+
+If `author_id`'s partner is among the intended recipients:
+
+- Via `partner_ids` → Odoo silently de-dupes the author from the
+  notify fan-out (`MailThread._message_compute_author` and the
+  follower filter). The author gets **nothing**, even though they
+  appear in `partner_ids`.
+- Via `cc` → no de-dupe; the author does receive the email. The
+  resulting `mail.notification` has `res_partner_id=NULL` because
+  `cc` is keyed on email string, not partner.
+- **Preferred fix:** post on a record where the author is *not* the
+  author-as-subject (e.g. a dedicated `project.task` "Weekly briefing",
+  a `crm.lead`, a `note.note`), with `partner_ids=[self_partner, …]`
+  and explicitly set the author's user `notification_type='email'`
+  if you want yourself to also receive the email copy.
+
 ## Key models
 
 - `mail.thread` — mixin; gives `message_post`, `message_subscribe`, `message_unsubscribe`
@@ -227,7 +285,9 @@ referenced by the mail's responsible user for "configured for sending".
 - `body_is_html=True` is only for RPC calls where you're forcing string-typed HTML through.
 - Tracked-field changes auto-post a system message — don't `message_post` the same change twice.
 - `message_type='user_notification'` is reserved for `message_notify`; `message_post` rejects it.
-- `outgoing_email_to` (and `incoming_email_to` / `incoming_email_cc`) are **Odoo v19+ only**. On v18 they raise `ValueError: Those values are not supported when posting or notifying`. For pre-v19, add CC recipients as `partner_ids`.
+- `outgoing_email_to` (and `incoming_email_to` / `incoming_email_cc`) are **Odoo v19+ only**. On v18 they raise `ValueError: Those values are not supported when posting or notifying`. For pre-v19, add CC recipients as `partner_ids`. On v19+, `cc` produces `mail.notification` rows with `res_partner_id=NULL` — Odoo handles that fine, but strict client-side result models (like `mcp_server_odoo`'s `PostMessageResult.notifications[].partner_id: int`) will fail to deserialize. Prefer `partner_ids` when the recipient has a `res.partner`.
+- `partner_ids` silently de-dupes the author. `message_post(partner_ids=[author_partner_id, X])` notifies only X. To email yourself: post on a record where you are not the author, set your user's `notification_type='email'`, or fall back to `cc=<your_email>`.
+- A `res.partner` without `email` produces a `mail.notification` (often stuck on `ready` / `exception`) and a `mail.mail` that never delivers. Always check (and fill via `update_record`) `res.partner.email` before posting if you intend an email to actually go out.
 - **Inline `attachments=[(name, raw_bytes)]` does not work over XML-RPC** — Odoo's `_process_attachments_for_post` calls `base64.b64encode(content)` and crashes with `TypeError: a bytes-like object is required, not 'Binary'`. Pre-create `ir.attachment` and pass `attachment_ids=[id]` instead.
 - A note (`mt_note`) is hidden from portal/public users via `internal=True` on the subtype.
 - Followers without the right subtype subscription won't get notified, even if they follow the record. Subtype subscription = filter, not just on/off.
@@ -235,3 +295,48 @@ referenced by the mail's responsible user for "configured for sending".
 - Activities live on `mail.activity`, not `mail.message`. Closing an activity *posts* a `mt_activities`-subtype message — that's how chatter shows "X done".
 - v18 vs v19: same post can produce different notification counts. v18 tends to add the author's partner as an extra notified party; v19 doesn't with the same defaults. Don't trust an exact count — read `mail.notification` rows back if it matters.
 - On Outlook Pro, `mail.alias` is still the routing config for inbound — vanilla aliases keep working, just fed by Graph instead of MX.
+
+## When to suggest a rewrite before calling `message_post`
+
+Run the decision tree on the user's intended call. If any of these
+patterns match, **propose the rewrite first and wait for explicit
+confirmation** — do not silently "fix" the call.
+
+1. **Author cc'ing themselves.** `cc` contains an email that resolves
+   to the same partner as `author_id`. Ask: "did you mean to email
+   yourself, or should this be posted on a different record?"
+2. **`cc` for someone who already has a `res.partner`.** A `cc` email
+   matches an existing `res.partner.email`. Propose `partner_ids=[id]`
+   instead — cleaner notification, audit trail, no NULL-partner row.
+3. **Briefing-on-own-card.** `record_id` resolves to the author's own
+   `res.partner` and the recipients are external. Ask whether the
+   right host is a `crm.lead`, `sale.order`, `project.task`, or
+   `note.note` — chatter on your own partner card is rarely the
+   intended audit trail.
+4. **Recipient without email.** A partner in `partner_ids` has
+   `email=False`. Flag it: the `mail.mail` will not deliver. Offer to
+   set the email via `update_record` first.
+5. **Outlook Pro stage check.** Before any `mt_comment` post that is
+   meant to send email, detect the Outlook Pro install stage (see
+   "Three Outlook Pro install stages" above):
+   - **Installed only** (0 `x_microsoft.mailbox` rows) → SMTP fallback
+     hits the placeholder server; user will see
+     `failure_reason: "-2 Name or service not known"`. Warn before
+     posting; offer to either skip the send (use `mt_note`) or guide
+     mailbox setup.
+   - **Configured, not connected** (mailbox exists but inactive for
+     the responsible user) → `mail.mail` lands in `state=cancel`
+     silently. Warn explicitly: "this will look like it sent but
+     nothing leaves the system."
+   - **Fully configured** → no warning needed.
+
+Detection one-liners (all read-only):
+
+```python
+# Outlook Pro installed?
+env['ir.module.module'].search_count([('name','=','pan_outlook_pro'),('state','=','installed')])
+# Any mailbox ever configured?
+env['x_microsoft.mailbox'].with_context(active_test=False).search_count([])
+# Active mailbox for the author?
+env['x_microsoft.mailbox'].search_count([('user_id','=',author_user_id),('active','=',True)])
+```
