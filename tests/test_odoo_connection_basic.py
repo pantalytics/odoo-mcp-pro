@@ -67,6 +67,27 @@ class TestOdooConnectionInit:
         conn = OdooConnection(test_config, timeout=60)
         assert conn.timeout == 60
 
+    def test_init_exposes_base_url(self, test_config):
+        """OdooConnection mirrors OdooJSON2Connection._base_url so server_info
+        and other callers can read the connected URL uniformly across both
+        connection types."""
+        conn = OdooConnection(test_config)
+        assert conn._base_url == test_config.url.rstrip("/")
+
+    def test_init_base_url_strips_trailing_slash(self):
+        """Trailing slashes are normalised so concatenation against a path
+        (like '/web/database/list') doesn't produce a double slash."""
+        config = OdooConfig(
+            url="https://example.odoo.com/",
+            api_key="test-key",
+            username="admin",
+            database="testdb",
+            api_version="xmlrpc",
+            skip_validation=True,
+        )
+        conn = OdooConnection(config)
+        assert conn._base_url == "https://example.odoo.com"
+
     def test_parse_url_https(self):
         """Test URL parsing for HTTPS URLs."""
         config = OdooConfig(

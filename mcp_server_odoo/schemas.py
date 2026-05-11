@@ -264,6 +264,10 @@ class ServerInfoResult(BaseModel):
     git_commit: str = Field(description="Git commit hash of the running build")
     api_version: str = Field(description="Odoo API version (json2 or xmlrpc)")
     odoo_url: str = Field(description="Connected Odoo instance URL")
+    database: Optional[str] = Field(
+        default=None,
+        description="Active Odoo database name. None on JSON/2 single-tenant where the API key resolves it server-side.",
+    )
     connected: bool = Field(description="Whether the server is connected to Odoo")
     runtime_id: str = Field(description="Server runtime identifier")
     companies: List[Dict[str, Any]] = Field(

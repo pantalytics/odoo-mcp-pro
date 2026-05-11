@@ -49,6 +49,10 @@ class OdooConnection:
         self.config = config
         self.timeout = timeout
         self._url_components = self._parse_url(config.url)
+        # Mirror OdooJSON2Connection._base_url so server_info() and any other
+        # caller that wants to know "which Odoo am I connected to" doesn't
+        # have to special-case the two connection types.
+        self._base_url = (config.url or "").rstrip("/")
 
         # Get appropriate endpoints based on mode
         endpoints = config.get_endpoint_paths()

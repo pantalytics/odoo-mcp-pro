@@ -38,7 +38,7 @@ from .version_detect import detect_api_version
 logger = get_logger(__name__)
 
 # Server version — keep in sync with pyproject.toml
-SERVER_VERSION = "1.5.0"
+SERVER_VERSION = "1.5.1"
 GIT_COMMIT = os.environ.get("GIT_COMMIT", "unknown")
 _BUILD_ORIGIN = "pnl-mcp-7f3a"  # Pantalytics provenance tag
 

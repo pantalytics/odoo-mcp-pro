@@ -636,14 +636,18 @@ class OdooToolHandler:
                     else False
                 )
                 api_version = self.config.api_version if self.config else "json2"
-                # Use the connection's actual URL (tenant URL), not the global config
+                # Use the connection's actual URL (tenant URL), not the global config.
+                # Both XML-RPC and JSON/2 connections expose _base_url; the getattr
+                # fallback is just defensive in case of a stale connection object.
                 odoo_url = getattr(connection, "_base_url", None) or (
                     self.config.url if self.config else "multi-tenant"
                 )
+                database = getattr(connection, "database", None)
             except Exception:
                 is_connected = False
                 api_version = self.config.api_version if self.config else "unknown"
                 odoo_url = "not connected"
+                database = None
 
             # Fetch companies for context (helps with multi-company setups)
             companies = []
@@ -661,6 +665,7 @@ class OdooToolHandler:
                 git_commit=GIT_COMMIT,
                 api_version=api_version,
                 odoo_url=odoo_url,
+                database=database,
                 connected=is_connected,
                 runtime_id=_BUILD_ORIGIN,
                 companies=companies,
