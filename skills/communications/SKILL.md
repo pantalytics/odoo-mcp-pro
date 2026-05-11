@@ -334,6 +334,7 @@ referenced by the mail's responsible user for "configured for sending".
 - `partner_ids` on a *note* still creates `mail.notification` + `mail.mail` for those partners. The `mt_note` subtype only suppresses the *implicit* follower fan-out, not explicit recipients.
 - `body` is HTML. Plain strings are HTML-escaped; pass `markupsafe.Markup(...)` only if you control the source.
 - `body_is_html=True` is only for RPC calls where you're forcing string-typed HTML through.
+- **Never wrap `body` in `<![CDATA[ ... ]]>`.** CDATA is an XML escaping construct with no meaning in this code path — Odoo stores the markers verbatim and they show up in the rendered chatter and the outgoing email. Pass raw HTML directly; the JSON transport already handles `<`/`>`/`&` inside Python strings.
 - Tracked-field changes auto-post a system message — don't `message_post` the same change twice.
 - `message_type='user_notification'` is reserved for `message_notify`; `message_post` rejects it.
 - `outgoing_email_to` (and `incoming_email_to` / `incoming_email_cc`) are **Odoo v19+ only**. On v18 they raise `ValueError: Those values are not supported when posting or notifying`. For pre-v19, add CC recipients as `partner_ids`. On v19+, `cc` produces `mail.notification` rows with `res_partner_id=NULL` — Odoo handles that fine, but strict client-side result models (like `mcp_server_odoo`'s `PostMessageResult.notifications[].partner_id: int`) will fail to deserialize. Prefer `partner_ids` when the recipient has a `res.partner`.
