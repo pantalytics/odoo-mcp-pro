@@ -1,17 +1,13 @@
 """Tests for the shotgun detection module."""
 
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from mcp_server_odoo.detection import (
-    DetectionResult,
     ProbeResult,
     _aggregate,
     _parse_major,
     detect_odoo_sync,
 )
-
 
 # ---------------------------------------------------------------------------
 # Pure aggregator tests — no I/O

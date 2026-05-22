@@ -42,7 +42,6 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 from urllib.parse import urlparse
 
 from curl_cffi import requests as cffi_requests
-from curl_cffi.requests.errors import RequestsError
 
 logger = logging.getLogger(__name__)
 
