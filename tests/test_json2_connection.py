@@ -1,14 +1,15 @@
 """Tests for OdooJSON2Connection.
 
-Unit tests use mocked httpx.Client; integration tests require
+Unit tests use a mocked curl_cffi Session; integration tests require
 a running Odoo 19 instance with ODOO_API_VERSION=json2.
 """
 
 import os
 from unittest.mock import MagicMock, patch
 
-import httpx
 import pytest
+from curl_cffi import requests as cffi_requests
+from curl_cffi.requests.errors import RequestsError
 
 from mcp_server_odoo.config import OdooConfig
 from mcp_server_odoo.odoo_json2_connection import OdooConnectionError, OdooJSON2Connection
@@ -31,7 +32,7 @@ def json2_config():
 
 @pytest.fixture
 def connected_json2(json2_config):
-    """Return a connected+authenticated OdooJSON2Connection with a mocked httpx client.
+    """Return a connected+authenticated OdooJSON2Connection with a mocked curl_cffi session.
 
     Yields (conn, mock_client) so tests can configure mock_client.post / .get.
     """
@@ -41,7 +42,7 @@ def connected_json2(json2_config):
     conn._uid = 2
     conn._database = "testdb"
 
-    mock_client = MagicMock(spec=httpx.Client)
+    mock_client = MagicMock(spec=cffi_requests.Session)
     # Default headers as a regular dict so .update() works
     mock_client.headers = {}
     conn._client = mock_client
@@ -49,16 +50,16 @@ def connected_json2(json2_config):
 
 
 def _ok_response(json_data):
-    """Build a mock httpx.Response with status 200."""
-    resp = MagicMock(spec=httpx.Response)
+    """Build a mock Response with status 200."""
+    resp = MagicMock()
     resp.status_code = 200
     resp.json.return_value = json_data
     return resp
 
 
 def _error_response(status_code, json_data=None, text="error"):
-    """Build a mock httpx.Response with an error status."""
-    resp = MagicMock(spec=httpx.Response)
+    """Build a mock Response with an error status."""
+    resp = MagicMock()
     resp.status_code = status_code
     resp.text = text
     if json_data is not None:
@@ -161,13 +162,13 @@ class TestOdooJSON2Call:
 
     def test_call_timeout_raises(self, connected_json2):
         conn, mock_client = connected_json2
-        mock_client.post.side_effect = httpx.TimeoutException("timed out")
+        mock_client.post.side_effect = RequestsError("operation timed out")
         with pytest.raises(OdooConnectionError, match="Request timeout"):
             conn._call("res.partner", "search", domain=[])
 
     def test_call_connect_error_raises(self, connected_json2):
         conn, mock_client = connected_json2
-        mock_client.post.side_effect = httpx.ConnectError("refused")
+        mock_client.post.side_effect = RequestsError("could not connect to host")
         with pytest.raises(OdooConnectionError, match="Connection failed"):
             conn._call("res.partner", "search", domain=[])
 
@@ -195,9 +196,11 @@ class TestOdooJSON2Lifecycle:
         conn = OdooJSON2Connection(json2_config)
 
         with patch.object(conn, "_fetch_version", return_value={"server_version": "19.0"}):
-            with patch("httpx.Client") as mock_client_cls:
+            with patch(
+                "mcp_server_odoo.odoo_json2_connection.cffi_requests.Session"
+            ) as mock_session_cls:
                 mock_instance = MagicMock()
-                mock_client_cls.return_value = mock_instance
+                mock_session_cls.return_value = mock_instance
                 conn.connect()
 
         assert conn.is_connected
@@ -214,7 +217,7 @@ class TestOdooJSON2Lifecycle:
         conn = OdooJSON2Connection(json2_config)
 
         with patch.object(conn, "_fetch_version", side_effect=OdooConnectionError("no version")):
-            with patch("httpx.Client"):
+            with patch("mcp_server_odoo.odoo_json2_connection.cffi_requests.Session"):
                 with pytest.raises(OdooConnectionError, match="no version"):
                     conn.connect()
 
@@ -244,7 +247,7 @@ class TestOdooJSON2Lifecycle:
     def test_authenticate_no_api_key(self, json2_config):
         conn = OdooJSON2Connection(json2_config)
         conn._connected = True
-        conn._client = MagicMock(spec=httpx.Client)
+        conn._client = MagicMock(spec=cffi_requests.Session)
         conn._client.headers = {}
         conn.config.api_key = None
 

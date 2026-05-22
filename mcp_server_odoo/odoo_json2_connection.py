@@ -13,7 +13,8 @@ import logging
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urlparse
 
-import httpx
+from curl_cffi import requests as cffi_requests
+from curl_cffi.requests.errors import RequestsError
 
 from .config import OdooConfig
 from .error_sanitizer import ErrorSanitizer
@@ -66,8 +67,10 @@ class OdooJSON2Connection:
         self._database: Optional[str] = None
         self._version: Optional[Dict[str, Any]] = None
 
-        # httpx client (created on connect)
-        self._client: Optional[httpx.Client] = None
+        # HTTP client (created on connect). curl_cffi with browser-TLS
+        # impersonation, so customer-side WAFs (Cloudflare bot-detection in
+        # particular) don't reject us on TLS fingerprint.
+        self._client: Optional[cffi_requests.Session] = None
 
         # Field cache
         self._fields_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
@@ -117,13 +120,14 @@ class OdooJSON2Connection:
 
         try:
             response = self._client.post(url, json=body)
-        except httpx.TimeoutException:
-            raise OdooConnectionError(
-                f"Request timeout after {self.timeout}s: {model}/{method}"
-            ) from None
-        except httpx.ConnectError as e:
-            raise OdooConnectionError(f"Connection failed: {e}") from e
-        except httpx.HTTPError as e:
+        except RequestsError as e:
+            msg = str(e).lower()
+            if "timeout" in msg or "timed out" in msg:
+                raise OdooConnectionError(
+                    f"Request timeout after {self.timeout}s: {model}/{method}"
+                ) from None
+            if "resolve" in msg or "connect" in msg:
+                raise OdooConnectionError(f"Connection failed: {e}") from e
             raise OdooConnectionError(f"HTTP error: {e}") from e
 
         # Handle error responses
@@ -144,7 +148,7 @@ class OdooJSON2Connection:
         else:
             raise OdooConnectionError(f"Server error ({response.status_code}): {error_msg}")
 
-    def _parse_error_response(self, response: httpx.Response) -> str:
+    def _parse_error_response(self, response: Any) -> str:
         """Extract error message from a JSON/2 error response.
 
         JSON/2 error responses contain:
@@ -168,8 +172,8 @@ class OdooJSON2Connection:
     def connect(self) -> None:
         """Establish connection to Odoo server.
 
-        Creates an httpx client and verifies the server is reachable
-        by fetching the version endpoint.
+        Creates a curl_cffi session with Chrome TLS impersonation and
+        verifies the server is reachable by fetching the version endpoint.
 
         Raises:
             OdooConnectionError: If connection fails
@@ -179,16 +183,22 @@ class OdooJSON2Connection:
             return
 
         try:
-            self._client = httpx.Client(
+            self._client = cffi_requests.Session(
+                impersonate="chrome",
                 timeout=self.timeout,
-                follow_redirects=True,
+                allow_redirects=True,
             )
 
             # Test connection by fetching server version
             self._version = self._fetch_version()
             self._connected = True
 
-            version_str = self._version.get("server_version", "unknown")
+            # /web/version returns {"version": ..., "version_info": [...]}
+            # while xmlrpc /common.version() returns {"server_version": ...}.
+            # Accept either to keep the log useful regardless of source.
+            version_str = self._version.get("version") or self._version.get(
+                "server_version", "unknown"
+            )
             logger.info(f"Connected to Odoo {version_str}")
 
         except OdooConnectionError:
@@ -209,14 +219,17 @@ class OdooJSON2Connection:
         """
         try:
             response = self._client.get(f"{self._base_url}/web/version")
-            response.raise_for_status()
-            return response.json()
-        except httpx.HTTPStatusError as e:
-            raise OdooConnectionError(
-                f"Failed to fetch server version: HTTP {e.response.status_code}"
-            ) from e
-        except Exception as e:
+        except RequestsError as e:
             raise OdooConnectionError(f"Failed to fetch server version: {e}") from e
+
+        if response.status_code != 200:
+            raise OdooConnectionError(
+                f"Failed to fetch server version: HTTP {response.status_code}"
+            )
+        try:
+            return response.json()
+        except Exception as e:
+            raise OdooConnectionError(f"Failed to parse server version response: {e}") from e
 
     def disconnect(self) -> None:
         """Close connection and cleanup resources."""
@@ -233,7 +246,7 @@ class OdooJSON2Connection:
         logger.info("Disconnected from Odoo server")
 
     def _cleanup_client(self) -> None:
-        """Close the httpx client if open."""
+        """Close the HTTP client if open."""
         if self._client:
             try:
                 self._client.close()
