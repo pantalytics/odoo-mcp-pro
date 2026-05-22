@@ -90,44 +90,85 @@ class TestDetectApiVersion:
         assert api_version == "json2"
         assert server_version == "19.0"
 
-    def test_fallback_xmlrpc_on_connection_error(self):
-        """Should fall back to xmlrpc when connection fails."""
+    def test_unknown_when_both_probes_fail(self):
+        """When xmlrpc raises AND /web/version is unreachable, return 'unknown'."""
         mock_proxy = MagicMock()
         mock_proxy.version.side_effect = ConnectionRefusedError("refused")
 
         with patch(
             "mcp_server_odoo.version_detect.xmlrpc.client.ServerProxy", return_value=mock_proxy
-        ):
+        ), patch("mcp_server_odoo.version_detect._detect_via_web_version", return_value=None):
             api_version, server_version = detect_api_version("https://unreachable.example.com")
 
-        assert api_version == "xmlrpc"
+        assert api_version == "unknown"
         assert server_version is None
 
-    def test_fallback_xmlrpc_on_timeout(self):
-        """Should fall back to xmlrpc on timeout."""
+    def test_unknown_on_timeout_with_both_probes_failing(self):
+        """xmlrpc timeout + /web/version unreachable -> unknown."""
         mock_proxy = MagicMock()
         mock_proxy.version.side_effect = TimeoutError("timeout")
 
         with patch(
             "mcp_server_odoo.version_detect.xmlrpc.client.ServerProxy", return_value=mock_proxy
-        ):
+        ), patch("mcp_server_odoo.version_detect._detect_via_web_version", return_value=None):
             api_version, server_version = detect_api_version("https://slow.example.com")
 
-        assert api_version == "xmlrpc"
+        assert api_version == "unknown"
         assert server_version is None
 
-    def test_fallback_xmlrpc_on_empty_version(self):
-        """Should fall back to xmlrpc when version info is empty."""
+    def test_unknown_when_xmlrpc_returns_empty(self):
+        """Empty xmlrpc response + /web/version unreachable -> unknown."""
         mock_proxy = MagicMock()
         mock_proxy.version.return_value = {}
 
         with patch(
             "mcp_server_odoo.version_detect.xmlrpc.client.ServerProxy", return_value=mock_proxy
-        ):
+        ), patch("mcp_server_odoo.version_detect._detect_via_web_version", return_value=None):
             api_version, server_version = detect_api_version("https://mycompany.odoo.com")
 
-        assert api_version == "xmlrpc"
+        assert api_version == "unknown"
         assert server_version is None
+
+    def test_web_version_fallback_when_xmlrpc_fails(self):
+        """xmlrpc 301/connection-error -> /web/version succeeds with curl_cffi."""
+        mock_proxy = MagicMock()
+        mock_proxy.version.side_effect = ConnectionError("301 Moved Permanently")
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "version": "saas~19.2+e",
+            "version_info": ["saas~19", 2, 0, "final", 0, "e"],
+        }
+
+        with patch(
+            "mcp_server_odoo.version_detect.xmlrpc.client.ServerProxy", return_value=mock_proxy
+        ), patch(
+            "mcp_server_odoo.version_detect.cffi_requests.get", return_value=mock_resp
+        ):
+            api_version, server_version = detect_api_version("https://cf-protected.example.com")
+
+        assert api_version == "json2"
+        assert server_version == "saas~19.2+e"
+
+    def test_web_version_fallback_returns_xmlrpc_for_v18(self):
+        """xmlrpc fails -> /web/version returns v18 -> xmlrpc."""
+        mock_proxy = MagicMock()
+        mock_proxy.version.side_effect = ConnectionError("blocked")
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"version": "18.0", "version_info": [18, 0, 0, "final", 0]}
+
+        with patch(
+            "mcp_server_odoo.version_detect.xmlrpc.client.ServerProxy", return_value=mock_proxy
+        ), patch(
+            "mcp_server_odoo.version_detect.cffi_requests.get", return_value=mock_resp
+        ):
+            api_version, server_version = detect_api_version("https://example.com")
+
+        assert api_version == "xmlrpc"
+        assert server_version == "18.0"
 
     def test_url_trailing_slash_stripped(self):
         """Should strip trailing slash from URL."""

@@ -657,6 +657,16 @@ class OdooMCPServer:
                 with perf_logger.track_operation("connection_setup"):
                     # Auto-detect API version from Odoo server version
                     api_version, server_version = detect_api_version(self.config.url)
+                    if api_version == "unknown":
+                        # Both XML-RPC and /web/version probes failed. In OSS
+                        # standalone usage we have no UI to ask the user, so
+                        # fall back to xmlrpc and let authenticate() raise with
+                        # the real reason.
+                        logger.warning(
+                            "Could not auto-detect Odoo version; falling back to xmlrpc. "
+                            "If you are on Odoo 19+, set ODOO_API_VERSION=json2 explicitly."
+                        )
+                        api_version = "xmlrpc"
                     self.config.api_version = api_version
                     logger.info(
                         f"Auto-detected api_version={api_version}"

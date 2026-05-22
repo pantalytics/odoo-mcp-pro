@@ -110,6 +110,22 @@ class ConnectionRegistry:
                 f"(Error: {e})"
             ) from e
 
+        if api_version == "unknown":
+            # Both probes failed but we don't have a UI to ask the user from
+            # here. Use the version explicitly stored on the connection if any,
+            # otherwise fall back to xmlrpc and let authenticate() surface a
+            # real reason. The admin setup wizard should have asked the user
+            # already; reaching this branch means setup was skipped or stale.
+            stored = (user_conn.odoo_version or "").lower()
+            if "saas~" in stored or stored.startswith("19") or "19." in stored:
+                api_version = "json2"
+            else:
+                api_version = "xmlrpc"
+            logger.warning(
+                f"Auto-detection failed for {user_conn.odoo_url}; "
+                f"using stored version '{user_conn.odoo_version}' -> {api_version}"
+            )
+
         logger.info(
             f"Auto-detected api_version={api_version} for {user_conn.odoo_url}"
             f" (Odoo {server_version or 'unknown'})"
