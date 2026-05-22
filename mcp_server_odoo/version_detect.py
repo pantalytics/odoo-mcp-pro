@@ -151,9 +151,7 @@ def detect_api_version(
     result = _detect_via_xmlrpc(url, timeout)
     if result is not None:
         api_version, server_version = result
-        logger.info(
-            f"Detected Odoo {server_version} via xmlrpc -> api_version={api_version}"
-        )
+        logger.info(f"Detected Odoo {server_version} via xmlrpc -> api_version={api_version}")
         return api_version, server_version
 
     result = _detect_via_web_version(url, timeout)

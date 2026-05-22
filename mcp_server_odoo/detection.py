@@ -481,9 +481,7 @@ def _aggregate(probes: List[ProbeResult]) -> DetectionResult:
     if json2_alive:
         api_version: ApiVersion = "json2"
         if major is not None and major < JSON2_MIN_VERSION:
-            conflicts.append(
-                f"json2_endpoint_live_but_version_probe_says_v{major}"
-            )
+            conflicts.append(f"json2_endpoint_live_but_version_probe_says_v{major}")
             # Trust json2: the version probe is likely cached or wrong.
             major = max(major, JSON2_MIN_VERSION)
     elif major is not None:
@@ -524,7 +522,9 @@ def _aggregate(probes: List[ProbeResult]) -> DetectionResult:
     contributing = sum(
         1
         for p in probes
-        if p.ok and p.name in {
+        if p.ok
+        and p.name
+        in {
             "xmlrpc_version",
             "web_version",
             "jsonrpc_version",
@@ -570,8 +570,7 @@ async def detect_odoo(url: str, timeout: int = PROBE_TIMEOUT_SECONDS) -> Detecti
         probes: List[ProbeResult] = list(await asyncio.gather(*tasks))
     result = _aggregate(probes)
     logger.info(
-        "Detected %s: api=%s major=%s hosting=%s waf=%s confidence=%s "
-        "(probes_ok=%d/%d)",
+        "Detected %s: api=%s major=%s hosting=%s waf=%s confidence=%s (probes_ok=%d/%d)",
         url,
         result.api_version,
         result.major,

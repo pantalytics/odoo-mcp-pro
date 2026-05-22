@@ -198,11 +198,7 @@ class TestDetectOdooSync:
             lambda url, t, n=p.__name__: self._make_probe_result(
                 n.replace("_probe_", ""),
                 ok=True,
-                **(
-                    {"server_version": "saas~19.2+e", "major": 19}
-                    if "version" in n
-                    else {}
-                ),
+                **({"server_version": "saas~19.2+e", "major": 19} if "version" in n else {}),
             )
             for p in detection._PROBES
         ]

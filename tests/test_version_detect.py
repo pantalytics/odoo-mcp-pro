@@ -95,9 +95,12 @@ class TestDetectApiVersion:
         mock_proxy = MagicMock()
         mock_proxy.version.side_effect = ConnectionRefusedError("refused")
 
-        with patch(
-            "mcp_server_odoo.version_detect.xmlrpc.client.ServerProxy", return_value=mock_proxy
-        ), patch("mcp_server_odoo.version_detect._detect_via_web_version", return_value=None):
+        with (
+            patch(
+                "mcp_server_odoo.version_detect.xmlrpc.client.ServerProxy", return_value=mock_proxy
+            ),
+            patch("mcp_server_odoo.version_detect._detect_via_web_version", return_value=None),
+        ):
             api_version, server_version = detect_api_version("https://unreachable.example.com")
 
         assert api_version == "unknown"
@@ -108,9 +111,12 @@ class TestDetectApiVersion:
         mock_proxy = MagicMock()
         mock_proxy.version.side_effect = TimeoutError("timeout")
 
-        with patch(
-            "mcp_server_odoo.version_detect.xmlrpc.client.ServerProxy", return_value=mock_proxy
-        ), patch("mcp_server_odoo.version_detect._detect_via_web_version", return_value=None):
+        with (
+            patch(
+                "mcp_server_odoo.version_detect.xmlrpc.client.ServerProxy", return_value=mock_proxy
+            ),
+            patch("mcp_server_odoo.version_detect._detect_via_web_version", return_value=None),
+        ):
             api_version, server_version = detect_api_version("https://slow.example.com")
 
         assert api_version == "unknown"
@@ -121,9 +127,12 @@ class TestDetectApiVersion:
         mock_proxy = MagicMock()
         mock_proxy.version.return_value = {}
 
-        with patch(
-            "mcp_server_odoo.version_detect.xmlrpc.client.ServerProxy", return_value=mock_proxy
-        ), patch("mcp_server_odoo.version_detect._detect_via_web_version", return_value=None):
+        with (
+            patch(
+                "mcp_server_odoo.version_detect.xmlrpc.client.ServerProxy", return_value=mock_proxy
+            ),
+            patch("mcp_server_odoo.version_detect._detect_via_web_version", return_value=None),
+        ):
             api_version, server_version = detect_api_version("https://mycompany.odoo.com")
 
         assert api_version == "unknown"
@@ -141,10 +150,11 @@ class TestDetectApiVersion:
             "version_info": ["saas~19", 2, 0, "final", 0, "e"],
         }
 
-        with patch(
-            "mcp_server_odoo.version_detect.xmlrpc.client.ServerProxy", return_value=mock_proxy
-        ), patch(
-            "mcp_server_odoo.version_detect.cffi_requests.get", return_value=mock_resp
+        with (
+            patch(
+                "mcp_server_odoo.version_detect.xmlrpc.client.ServerProxy", return_value=mock_proxy
+            ),
+            patch("mcp_server_odoo.version_detect.cffi_requests.get", return_value=mock_resp),
         ):
             api_version, server_version = detect_api_version("https://cf-protected.example.com")
 
@@ -160,10 +170,11 @@ class TestDetectApiVersion:
         mock_resp.status_code = 200
         mock_resp.json.return_value = {"version": "18.0", "version_info": [18, 0, 0, "final", 0]}
 
-        with patch(
-            "mcp_server_odoo.version_detect.xmlrpc.client.ServerProxy", return_value=mock_proxy
-        ), patch(
-            "mcp_server_odoo.version_detect.cffi_requests.get", return_value=mock_resp
+        with (
+            patch(
+                "mcp_server_odoo.version_detect.xmlrpc.client.ServerProxy", return_value=mock_proxy
+            ),
+            patch("mcp_server_odoo.version_detect.cffi_requests.get", return_value=mock_resp),
         ):
             api_version, server_version = detect_api_version("https://example.com")
 
