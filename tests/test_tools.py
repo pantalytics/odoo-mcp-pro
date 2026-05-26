@@ -77,6 +77,7 @@ class TestOdooToolHandler:
         assert "search_records" in mock_app._tools
         assert "get_record" in mock_app._tools
         assert "list_models" in mock_app._tools
+        assert "describe_model" in mock_app._tools
 
     @pytest.mark.asyncio
     async def test_search_records_success(

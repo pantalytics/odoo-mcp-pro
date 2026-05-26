@@ -274,3 +274,26 @@ class ServerInfoResult(BaseModel):
         default_factory=list,
         description="Available companies in the Odoo instance (id and name). Use company_id in search domains to filter by company.",
     )
+
+
+# --- Describe Model ---
+
+
+class FieldInfo(BaseModel):
+    """Metadata for a single Odoo model field."""
+
+    type: str
+    string: str
+    required: bool = False
+    readonly: bool = False
+    relation: Optional[str] = None
+    help: Optional[str] = None
+    is_m2m: bool = False  # True when type == "many2many"
+
+
+class DescribeModelResult(BaseModel):
+    """Result of describe_model tool."""
+
+    model: str
+    fields: Dict[str, FieldInfo]
+    total_fields: int
