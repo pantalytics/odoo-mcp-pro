@@ -144,6 +144,48 @@ class OdooToolHandler:
         if self.usage_tracker and sub != "stdio":
             self.usage_tracker.record_usage_fire_and_forget(sub, tool_name)
 
+    def _validate_m2m_values(self, model: str, values: Dict[str, Any]) -> None:
+        """Pre-flight check for common M2M write mistakes before sending to Odoo.
+
+        Agents frequently pass incorrect syntax to Many2many fields. This check
+        catches the three most common mistakes early with actionable error messages.
+        """
+        for field_name, value in values.items():
+            # Case A: bare command tuple e.g. [4, 15] instead of [[4, 15]]
+            # Checked before Case B because [4, 15] also satisfies "all ints"
+            if (
+                isinstance(value, list)
+                and len(value) == 2
+                and value[0] in (0, 1, 2, 3, 4, 5, 6)
+                and isinstance(value[1], int)
+            ):
+                raise ValidationError(
+                    f"Field '{field_name}' on '{model}': bare command tuple detected. "
+                    f"Wrap in a list: [[{value[0]}, {value[1]}]]. "
+                    f"Use describe_model('{model}') to confirm '{field_name}' is many2many."
+                )
+
+            # Case B: flat integer list e.g. [15, 3] instead of [[4, id], ...]
+            if (
+                isinstance(value, list)
+                and len(value) > 0
+                and all(isinstance(el, int) for el in value)
+            ):
+                raise ValidationError(
+                    f"Field '{field_name}' on '{model}': flat integer list detected. "
+                    f"Many2many fields require Odoo command syntax: "
+                    f"[[4, id], ...] to add, [[3, id], ...] to remove, "
+                    f"[[6, 0, [ids]]] to replace all."
+                )
+
+            # Case C: dict syntax e.g. {"add": [15], "remove": []}
+            if isinstance(value, dict) and set(value.keys()) <= {"add", "remove", "set"}:
+                raise ValidationError(
+                    f"Field '{field_name}' on '{model}': dict syntax is not valid for Odoo. "
+                    f"Use Odoo command tuples: [[4, id]] to add, [[3, id]] to remove, "
+                    f"[[6, 0, [ids]]] to replace all."
+                )
+
     def _format_datetime(self, value: str) -> str:
         """Format datetime values to ISO 8601 with timezone."""
         if not value or not isinstance(value, str):
@@ -1399,6 +1441,7 @@ class OdooToolHandler:
                 # Validate required fields
                 if not values:
                     raise ValidationError("No values provided for record creation")
+                self._validate_m2m_values(model, values)
 
                 # Create the record
                 record_id = connection.create(model, values)
@@ -1471,6 +1514,7 @@ class OdooToolHandler:
                 # Validate input
                 if not values:
                     raise ValidationError("No values provided for record update")
+                self._validate_m2m_values(model, values)
 
                 # Check if record exists (only fetch ID to verify existence)
                 existing = connection.read(model, [record_id], ["id"])

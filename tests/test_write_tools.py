@@ -10,45 +10,49 @@ from mcp_server_odoo.odoo_connection import OdooConnectionError
 from mcp_server_odoo.tools import OdooToolHandler, register_tools
 
 
+@pytest.fixture
+def mock_app():
+    """Create mock FastMCP app."""
+    app = Mock()
+    app.tool = Mock(side_effect=lambda **kwargs: lambda func: func)
+    return app
+
+
+@pytest.fixture
+def mock_connection():
+    """Create mock OdooConnection."""
+    conn = Mock()
+    conn.is_authenticated = True
+    conn._base_url = "http://localhost:8069"
+    # Default fields_get returns common fields so essential field filtering works
+    conn.fields_get.return_value = {
+        "id": {"string": "ID", "type": "integer"},
+        "name": {"string": "Name", "type": "char"},
+        "display_name": {"string": "Display Name", "type": "char"},
+    }
+    return conn
+
+
+@pytest.fixture
+def mock_access_controller():
+    """Create mock AccessController."""
+    controller = Mock()
+    controller.validate_model_access = Mock()
+    return controller
+
+
+@pytest.fixture
+def mock_config():
+    """Create mock OdooConfig."""
+    config = Mock()
+    config.default_limit = 10
+    config.max_limit = 100
+    config.url = "http://localhost:8069"
+    return config
+
+
 class TestWriteTools:
     """Test write operation tools."""
-
-    @pytest.fixture
-    def mock_app(self):
-        """Create mock FastMCP app."""
-        app = Mock()
-        app.tool = Mock(side_effect=lambda **kwargs: lambda func: func)
-        return app
-
-    @pytest.fixture
-    def mock_connection(self):
-        """Create mock OdooConnection."""
-        conn = Mock()
-        conn.is_authenticated = True
-        conn._base_url = "http://localhost:8069"
-        # Default fields_get returns common fields so essential field filtering works
-        conn.fields_get.return_value = {
-            "id": {"string": "ID", "type": "integer"},
-            "name": {"string": "Name", "type": "char"},
-            "display_name": {"string": "Display Name", "type": "char"},
-        }
-        return conn
-
-    @pytest.fixture
-    def mock_access_controller(self):
-        """Create mock AccessController."""
-        controller = Mock()
-        controller.validate_model_access = Mock()
-        return controller
-
-    @pytest.fixture
-    def mock_config(self):
-        """Create mock OdooConfig."""
-        config = Mock()
-        config.default_limit = 10
-        config.max_limit = 100
-        config.url = "http://localhost:8069"
-        return config
 
     @pytest.fixture
     def tool_handler(self, mock_app, mock_connection, mock_access_controller, mock_config):
@@ -226,6 +230,64 @@ class TestWriteTools:
         assert "create_record" in decorated_functions
         assert "update_record" in decorated_functions
         assert "delete_record" in decorated_functions
+
+
+class TestValidateM2mValues:
+    """Tests for _validate_m2m_values pre-flight check."""
+
+    @pytest.fixture
+    def tool_handler(self, mock_app, mock_connection, mock_access_controller, mock_config):
+        return OdooToolHandler(mock_app, mock_connection, mock_access_controller, mock_config)
+
+    def test_flat_int_list_rejected(self, tool_handler):
+        """Flat integer list raises ValidationError."""
+        with pytest.raises(ValidationError, match="flat integer list"):
+            tool_handler._validate_m2m_values("res.partner", {"tag_ids": [15, 3]})
+
+    def test_single_int_list_rejected(self, tool_handler):
+        """Single-element integer list also rejected."""
+        with pytest.raises(ValidationError, match="flat integer list"):
+            tool_handler._validate_m2m_values("res.partner", {"tag_ids": [15]})
+
+    def test_bare_command_tuple_rejected(self, tool_handler):
+        """Bare command tuple [4, 15] raises ValidationError before flat-int check."""
+        with pytest.raises(ValidationError, match="bare command tuple"):
+            tool_handler._validate_m2m_values("crm.lead", {"tag_ids": [4, 15]})
+
+    def test_dict_syntax_rejected(self, tool_handler):
+        """Dict with add/remove/set keys raises ValidationError."""
+        with pytest.raises(ValidationError, match="dict syntax"):
+            tool_handler._validate_m2m_values("res.partner", {"tag_ids": {"add": [15], "remove": []}})
+
+    def test_dict_with_unknown_key_not_flagged(self, tool_handler):
+        """Dict with keys outside {add, remove, set} is not flagged as M2M dict syntax."""
+        # Should not raise — the dict does not match the M2M dict heuristic
+        tool_handler._validate_m2m_values("res.partner", {"lead_properties": [{"key": "value"}]})
+
+    def test_valid_m2m_add_passes(self, tool_handler):
+        """[[4, id]] command syntax passes validation."""
+        tool_handler._validate_m2m_values("res.partner", {"tag_ids": [[4, 15], [4, 3]]})
+
+    def test_valid_m2m_replace_passes(self, tool_handler):
+        """[[6, 0, [ids]]] replace-all syntax passes validation."""
+        tool_handler._validate_m2m_values("res.partner", {"tag_ids": [[6, 0, [15, 3]]]})
+
+    def test_lead_properties_list_of_dicts_not_flagged(self, tool_handler):
+        """lead_properties list-of-dicts is not flagged as M2M flat list."""
+        tool_handler._validate_m2m_values(
+            "crm.lead",
+            {"lead_properties": [{"id": "abc", "name": "Priority", "type": "selection", "value": "high"}]},
+        )
+
+    def test_model_name_in_error_message(self, tool_handler):
+        """Model name appears in the error message."""
+        with pytest.raises(ValidationError, match="crm.lead"):
+            tool_handler._validate_m2m_values("crm.lead", {"tag_ids": [15, 3]})
+
+    def test_field_name_in_error_message(self, tool_handler):
+        """Field name appears in the error message."""
+        with pytest.raises(ValidationError, match="tag_ids"):
+            tool_handler._validate_m2m_values("res.partner", {"tag_ids": [15, 3]})
 
 
 class TestWriteToolsIntegration:
