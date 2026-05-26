@@ -14,6 +14,31 @@ from typing import Any, Dict, Optional
 class ErrorSanitizer:
     """Sanitizes error messages to remove internal implementation details."""
 
+    # Matches "XxxError: msg" or "odoo.exceptions.XxxError: msg" bare prefixes.
+    # AccessError is intentionally excluded — access errors are always normalised
+    # in the early-exit block to avoid leaking model names, user IDs, etc.
+    _ODOO_EXC_PREFIX_RE = re.compile(
+        r"^(?:odoo\.exceptions\.)?(?:ValidationError|UserError|"
+        r"MissingError|RedirectWarning|Warning):\s*(.+)",  # AccessError removed
+        re.DOTALL,
+    )
+
+    # Matches legacy except_orm tuple: "('ExcType', 'user message')"
+    # Emitted by some community modules on older Odoo versions.
+    _EXCEPT_ORM_RE = re.compile(
+        r"^\(['\"][\w ]+['\"],\s*['\"](.+?)['\"]\)\s*$", re.DOTALL
+    )
+
+    # Matches XxxError('msg') or XxxError('title', 'detail') repr formats.
+    # Restricted to the same allowlist as _ODOO_EXC_PREFIX_RE so stdlib exceptions
+    # are not treated as Odoo application messages.
+    _EXC_REPR_RE = re.compile(
+        r"^(?:odoo\.exceptions\.)?(?:ValidationError|UserError|"
+        r"MissingError|RedirectWarning|Warning)\(['\"](.+?)['\"]"
+        r"(?:,\s*['\"][^'\"]*['\"])?\)\s*$",
+        re.DOTALL,
+    )
+
     # Patterns to detect and remove
     PATTERNS_TO_REMOVE = [
         # File paths
@@ -209,35 +234,61 @@ class ErrorSanitizer:
     def sanitize_xmlrpc_fault(cls, fault_string: str) -> str:
         """Sanitize XML-RPC fault messages from Odoo.
 
-        Args:
-            fault_string: Raw fault string from XML-RPC
-
-        Returns:
-            Sanitized error message
+        Strips the Python runtime layer (tracebacks, file paths, exception
+        class name prefixes) while passing Odoo application messages through
+        intact. The only content replacement is Access Denied: Odoo's messages
+        sometimes leak internal model names, user IDs, and group XML IDs.
         """
-        # Common Odoo XML-RPC faults
-        if "Access Denied" in fault_string:
+        if not fault_string:
+            return "An error occurred"
+
+        # Always normalize access errors — content may leak internal Odoo details
+        # (model names, user IDs, group XML IDs)
+        if (
+            "Access Denied" in fault_string
+            or "AccessDenied" in fault_string
+            or bool(re.search(r"\bAccessError\s*:", fault_string))
+        ):
             return "Access denied: Invalid credentials or insufficient permissions"
-        elif "Object does not exist" in fault_string:
-            return "The requested resource does not exist"
-        elif "Invalid field" in fault_string:
-            # Try to extract field name
-            field_match = re.search(
-                r"field\s+['\"]?([a-zA-Z_][a-zA-Z0-9_\.]*)['\"]?", fault_string, re.IGNORECASE
+
+        stripped = fault_string.strip()
+
+        # Legacy except_orm tuple: "('ValidationError', 'user message')"
+        # Emitted by some community modules on older Odoo versions.
+        m = cls._EXCEPT_ORM_RE.match(stripped)
+        if m:
+            return m.group(1).strip()
+
+        # XxxError('msg') repr format, e.g. UserError('Cannot delete ...')
+        m = cls._EXC_REPR_RE.match(stripped)
+        if m:
+            return m.group(1).strip()
+
+        # Case 1: traceback fault — extract the last odoo.exceptions.* message.
+        # re.findall + [-1] handles chained exceptions; re.DOTALL captures
+        # multi-line messages (field lists etc.). Non-greedy to stop at the
+        # next exception line so chained exceptions resolve to the last one.
+        if "Traceback (most recent call last)" in fault_string:
+            matches = re.findall(
+                r"odoo\.exceptions\.\w+:\s*(.+?)(?=\nodoo\.exceptions\.|$)",
+                fault_string,
+                re.DOTALL,
             )
-            if field_match:
-                return f"Invalid field '{field_match.group(1)}' in request"
-            return "Invalid field in request"
-        elif "MissingError" in fault_string:
-            return "The requested record was not found"
-        elif "ValidationError" in fault_string:
-            return "Validation error: Please check your input"
-        elif "UserError" in fault_string:
-            # Try to extract the user-friendly part of UserError
-            user_msg_match = re.search(r'UserError\(["\']([^"\']+)["\']', fault_string)
-            if user_msg_match:
-                return user_msg_match.group(1)
-            return "Operation failed due to business rule violation"
-        else:
-            # Generic sanitization
+            if matches:
+                message = matches[-1].strip()
+                # Trim any "During handling of the above exception..." suffix
+                message = re.sub(
+                    r"\n+\s*During handling.*", "", message, flags=re.DOTALL
+                ).strip()
+                return message or "An error occurred while processing your request"
+            # Traceback but no odoo.exceptions line — strip Python layer via generic sanitisation
             return cls.sanitize_message(fault_string)
+
+        # Case 2: bare "XxxError: message" without traceback
+        m = cls._ODOO_EXC_PREFIX_RE.match(stripped)
+        if m:
+            return m.group(1).strip()
+
+        # Case 3: no recognisable pattern — apply generic sanitisation
+        # (strips file paths, module paths, class names, memory addresses)
+        return cls.sanitize_message(fault_string)

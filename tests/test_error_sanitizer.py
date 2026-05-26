@@ -81,7 +81,7 @@ class TestErrorSanitizer:
 
         fault = "ValidationError: Field 'vat' is required"
         sanitized = ErrorSanitizer.sanitize_xmlrpc_fault(fault)
-        assert sanitized == "Validation error: Please check your input"
+        assert sanitized == "Field 'vat' is required"
 
         fault = "UserError('Cannot delete record that has dependencies')"
         sanitized = ErrorSanitizer.sanitize_xmlrpc_fault(fault)
@@ -156,3 +156,83 @@ class TestErrorSanitizer:
 
         # Should contain useful information
         assert "Invalid field" in sanitized or "error" in sanitized.lower()
+
+
+class TestSanitizeXmlrpcFaultRefactored:
+    """Tests for the refactored sanitize_xmlrpc_fault behavior."""
+
+    def test_bare_message_passes_through(self):
+        fault = "Invalid field 'mobile' in 'crm.lead'"
+        assert ErrorSanitizer.sanitize_xmlrpc_fault(fault) == "Invalid field 'mobile' in 'crm.lead'"
+
+    def test_validation_error_prefix_stripped(self):
+        fault = "ValidationError: Field 'vat' is required"
+        assert ErrorSanitizer.sanitize_xmlrpc_fault(fault) == "Field 'vat' is required"
+
+    def test_missing_error_prefix_stripped(self):
+        fault = "MissingError: Record does not exist or has been deleted."
+        assert ErrorSanitizer.sanitize_xmlrpc_fault(fault) == "Record does not exist or has been deleted."
+
+    def test_traceback_fault_extracts_message(self):
+        fault = (
+            "Traceback (most recent call last):\n"
+            '  File "/opt/odoo/addons/crm/models/crm_lead.py", line 42, in write\n'
+            "    super().write(values)\n"
+            "odoo.exceptions.ValidationError: Mandatory field 'Partner' is missing\n"
+        )
+        assert ErrorSanitizer.sanitize_xmlrpc_fault(fault) == "Mandatory field 'Partner' is missing"
+
+    def test_chained_exceptions_takes_last(self):
+        fault = (
+            "Traceback (most recent call last):\n"
+            "  ...\n"
+            "odoo.exceptions.ValidationError: First error\n"
+            "  ...\n"
+            "odoo.exceptions.UserError: Final user error\n"
+        )
+        assert ErrorSanitizer.sanitize_xmlrpc_fault(fault) == "Final user error"
+
+    def test_except_orm_legacy_format(self):
+        fault = "('ValidationError', 'Cannot process this record')"
+        assert ErrorSanitizer.sanitize_xmlrpc_fault(fault) == "Cannot process this record"
+
+    def test_user_error_repr_format_preserved(self):
+        fault = "UserError('Cannot delete record that has dependencies')"
+        assert ErrorSanitizer.sanitize_xmlrpc_fault(fault) == "Cannot delete record that has dependencies"
+
+    def test_access_denied_normalized_strips_internals(self):
+        fault = "Access Denied\nModel: res.users\nUID: 42\nGroup: base.group_system"
+        result = ErrorSanitizer.sanitize_xmlrpc_fault(fault)
+        assert result == "Access denied: Invalid credentials or insufficient permissions"
+        assert "res.users" not in result
+        assert "UID" not in result
+
+    def test_access_error_normalized(self):
+        fault = "AccessError: You don't have access to 'res.users' (uid=1)"
+        result = ErrorSanitizer.sanitize_xmlrpc_fault(fault)
+        assert result == "Access denied: Invalid credentials or insufficient permissions"
+        assert "res.users" not in result
+
+    def test_empty_string_input(self):
+        assert ErrorSanitizer.sanitize_xmlrpc_fault("") == "An error occurred"
+
+    def test_none_input(self):
+        assert ErrorSanitizer.sanitize_xmlrpc_fault(None) == "An error occurred"
+
+    def test_non_odoo_traceback_falls_to_sanitize_message(self):
+        fault = (
+            "Traceback (most recent call last):\n"
+            '  File "/opt/odoo/server/odoo/sql_db.py", line 302, in execute\n'
+            '    cr.execute(query, params)\n'
+            "psycopg2.errors.UniqueViolation: duplicate key value violates unique constraint\n"
+        )
+        result = ErrorSanitizer.sanitize_xmlrpc_fault(fault)
+        assert "/opt/odoo" not in result
+        assert "line 302" not in result
+        assert len(result) > 5
+
+    def test_access_error_substring_in_message_does_not_suppress(self):
+        """'AccessError' appearing in application message must not trigger normalization."""
+        fault = "UserError('Resolve the AccessError before retrying')"
+        result = ErrorSanitizer.sanitize_xmlrpc_fault(fault)
+        assert "Resolve" in result
