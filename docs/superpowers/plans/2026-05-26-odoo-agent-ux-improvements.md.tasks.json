@@ -4,20 +4,20 @@
     {
       "id": 5,
       "subject": "Task 1: Error Sanitizer Refactor",
-      "status": "pending",
+      "status": "completed",
       "description": "**Goal:** Replace `sanitize_xmlrpc_fault` if/elif chain with two-case logic that passes Odoo application messages through intact.\n\n**Files:**\n- Modify: `mcp_server_odoo/error_sanitizer.py`\n- Modify: `tests/test_error_sanitizer.py`\n\n**Acceptance Criteria:**\n- [ ] `\"ValidationError: Field 'vat' is required\"` → `\"Field 'vat' is required\"`\n- [ ] Traceback faults extract the last `odoo.exceptions.*` message\n- [ ] Access errors always normalize to standard string\n- [ ] `None` input → `\"An error occurred\"`\n- [ ] 13 new tests pass; existing test passes with updated assertion\n\n**Verify:** `uv run pytest tests/test_error_sanitizer.py -v`\n\n```json:metadata\n{\"files\": [\"mcp_server_odoo/error_sanitizer.py\", \"tests/test_error_sanitizer.py\"], \"verifyCommand\": \"uv run pytest tests/test_error_sanitizer.py -v\", \"acceptanceCriteria\": [\"ValidationError prefix stripped\", \"Traceback extracts last odoo.exceptions message\", \"Access errors normalized\", \"None input handled\", \"13 new tests pass\"]}\n```"
     },
     {
       "id": 6,
       "subject": "Task 2: describe_model Tool",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [5],
       "description": "**Goal:** Add read-only `describe_model` MCP tool returning field metadata with `is_m2m` derived flag.\n\n**Files:**\n- Modify: `mcp_server_odoo/schemas.py`\n- Modify: `mcp_server_odoo/tools.py`\n- Create: `tests/test_describe_model.py`\n- Modify: `tests/test_tools.py`\n\n**Verify:** `uv run pytest tests/test_describe_model.py tests/test_tools.py -v`\n\n```json:metadata\n{\"files\": [\"mcp_server_odoo/schemas.py\", \"mcp_server_odoo/tools.py\", \"tests/test_describe_model.py\", \"tests/test_tools.py\"], \"verifyCommand\": \"uv run pytest tests/test_describe_model.py tests/test_tools.py -v\", \"acceptanceCriteria\": [\"DescribeModelResult returned\", \"is_m2m flag correct\", \"empty help becomes None\", \"access control called\", \"describe_model in test_tools_registered\"]}\n```"
     },
     {
       "id": 7,
       "subject": "Task 3: M2M Heuristic Validation",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [5],
       "description": "**Goal:** Add `_validate_m2m_values()` catching flat int lists, bare command tuples, and dict syntax before they reach Odoo.\n\n**Files:**\n- Modify: `mcp_server_odoo/tools.py`\n- Modify: `tests/test_write_tools.py`\n\n**Verify:** `uv run pytest tests/test_write_tools.py -v`\n\n```json:metadata\n{\"files\": [\"mcp_server_odoo/tools.py\", \"tests/test_write_tools.py\"], \"verifyCommand\": \"uv run pytest tests/test_write_tools.py -v\", \"acceptanceCriteria\": [\"flat int list rejected\", \"bare command tuple rejected\", \"dict syntax rejected\", \"valid M2M passes\", \"lead_properties not flagged\", \"model name in error\"]}\n```"
     },
@@ -29,5 +29,5 @@
       "description": "**Goal:** Replace create_record and update_record docstrings with explicit write-path patterns.\n\n**Files:**\n- Modify: `mcp_server_odoo/tools.py`\n\n**Verify:** `uv run python -c \"from mcp_server_odoo.tools import OdooToolHandler; print('OK')\"`\n\n```json:metadata\n{\"files\": [\"mcp_server_odoo/tools.py\"], \"verifyCommand\": \"uv run python -c \\\"from mcp_server_odoo.tools import OdooToolHandler; print('OK')\\\"\", \"acceptanceCriteria\": [\"create_record docstring has M2M patterns\", \"update_record docstring has lead_properties note\", \"module imports cleanly\"]}\n```"
     }
   ],
-  "lastUpdated": "2026-05-26T19:00:00+02:00"
+  "lastUpdated": "2026-05-26T22:35:00+02:00"
 }

@@ -765,6 +765,22 @@ class OdooToolHandler:
         ) -> CreateResult:
             """Create a new record in an Odoo model.
 
+            **Write-path patterns:**
+
+            Many2many fields (e.g. ``tag_ids``):
+                ``[[4, id]]`` — add one record
+                ``[[3, id]]`` — remove one record
+                ``[[6, 0, [id1, id2]]]`` — replace all (set full list)
+                Flat lists like ``[15, 3]`` will raise a validation error.
+                Use ``describe_model(model)`` to identify many2many fields.
+
+            Many2one fields (e.g. ``source_id``, ``country_id``):
+                Pass the integer ID, not the display name.
+                Use ``search_records`` to resolve a name to an ID first.
+
+            HTML fields (e.g. ``description`` on ``crm.lead``):
+                Pass ``"<p>text</p>"``, not plain text.
+
             Args:
                 model: The Odoo model name (e.g., 'res.partner')
                 values: Field values for the new record
@@ -791,6 +807,24 @@ class OdooToolHandler:
             values: Dict[str, Any],
         ) -> UpdateResult:
             """Update an existing record.
+
+            **Write-path patterns:**
+
+            Many2many fields (e.g. ``tag_ids``):
+                ``[[4, id]]`` — add one record
+                ``[[3, id]]`` — remove one record
+                ``[[6, 0, [id1, id2]]]`` — replace all (set full list)
+                Flat lists like ``[15, 3]`` will raise a validation error.
+
+            Many2one fields (e.g. ``source_id``, ``country_id``):
+                Pass the integer ID, not the display name.
+
+            HTML fields (e.g. ``description`` on ``crm.lead``):
+                Pass ``"<p>text</p>"``, not plain text.
+
+            ``lead_properties`` (``crm.lead`` only):
+                Always pass the complete array — Odoo replaces the entire
+                field on write. Partial updates are not supported.
 
             Args:
                 model: The Odoo model name (e.g., 'res.partner')
