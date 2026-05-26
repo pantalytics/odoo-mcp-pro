@@ -69,6 +69,9 @@ deploy/machinekey/
 deploy/.env.local-test
 .local/
 
+# Planning docs (superpowers specs/plans)
+/docs
+
 # Local-dev overlay from odoo-mcp-pro-admin (never commit)
 # Admin's local-dev.sh symlinks/copies admin code into this dir.
 # In production this dir is populated by the admin repo's Dockerfile COPY.
