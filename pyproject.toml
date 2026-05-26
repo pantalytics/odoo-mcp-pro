@@ -52,7 +52,7 @@ dev = [
     "pytest-cov>=6.1.1",
     "ty>=0.0.1",
     "ruff>=0.11.12",
-    "requests>=2.32.3",
+    "requests>=2.34.2",
 ]
 
 [project.scripts]
