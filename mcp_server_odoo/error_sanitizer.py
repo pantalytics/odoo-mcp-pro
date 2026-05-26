@@ -32,12 +32,14 @@ class ErrorSanitizer:
     # Matches XxxError('msg') or XxxError('title', 'detail') repr formats.
     # Restricted to the same allowlist as _ODOO_EXC_PREFIX_RE so stdlib exceptions
     # are not treated as Odoo application messages.
-    # Uses backreference \1 to ensure closing quote matches opening quote,
-    # preventing backtracking corruption when second arg contains an apostrophe.
+    # Uses quote-specific branches ([^']+ vs [^"]+) to prevent backtracking
+    # corruption when the second arg contains an apostrophe or double-quote.
+    # Group 1 = single-quoted message, group 2 = double-quoted message.
     _EXC_REPR_RE = re.compile(
         r"^(?:odoo\.exceptions\.)?(?:ValidationError|UserError|"
         r"MissingError|RedirectWarning|Warning)"
-        r"\((['\"])(.+?)\1(?:,\s*(?:'[^']*'|\"[^\"]*\"))?\)\s*$",
+        r"\((?:'([^']+)'|\"([^\"]+)\")"
+        r"(?:,\s*(?:\"[^\"]*\"|'[^']*'))?\)\s*$",
         re.DOTALL,
     )
 
@@ -264,7 +266,7 @@ class ErrorSanitizer:
         # XxxError('msg') repr format, e.g. UserError('Cannot delete ...')
         m = cls._EXC_REPR_RE.match(stripped)
         if m:
-            return m.group(2).strip()
+            return (m.group(1) or m.group(2)).strip()
 
         # Case 1: traceback fault — extract the last odoo.exceptions.* message.
         # re.findall + [-1] handles chained exceptions; re.DOTALL captures

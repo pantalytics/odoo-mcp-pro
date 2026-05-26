@@ -246,3 +246,4 @@ class TestSanitizeXmlrpcFaultRefactored:
         fault = "ValidationError('Required field', \"It's mandatory\")"
         result = ErrorSanitizer.sanitize_xmlrpc_fault(fault)
         assert result == "Required field"
+
