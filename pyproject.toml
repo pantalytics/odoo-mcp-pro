@@ -33,7 +33,7 @@ dependencies = [
     "mcp>=1.27.1,<2",
     "httpx>=0.28.1",
     "curl_cffi>=0.7.0",
-    "python-dotenv>=1.0.0",
+    "python-dotenv>=1.2.2",
     "pydantic>=2.13.4",
     "pydantic-settings>=2.0.0",
 ]
