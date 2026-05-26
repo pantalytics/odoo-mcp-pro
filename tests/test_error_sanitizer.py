@@ -236,3 +236,13 @@ class TestSanitizeXmlrpcFaultRefactored:
         fault = "UserError('Resolve the AccessError before retrying')"
         result = ErrorSanitizer.sanitize_xmlrpc_fault(fault)
         assert "Resolve" in result
+
+    def test_validation_error_whitespace_only_body(self):
+        fault = "ValidationError:   "
+        result = ErrorSanitizer.sanitize_xmlrpc_fault(fault)
+        assert result == "An error occurred while processing your request"
+
+    def test_exc_repr_two_arg_with_apostrophe_in_second_arg(self):
+        fault = "ValidationError('Required field', \"It's mandatory\")"
+        result = ErrorSanitizer.sanitize_xmlrpc_fault(fault)
+        assert result == "Required field"

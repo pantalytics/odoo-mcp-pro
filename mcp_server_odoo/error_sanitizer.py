@@ -19,7 +19,7 @@ class ErrorSanitizer:
     # in the early-exit block to avoid leaking model names, user IDs, etc.
     _ODOO_EXC_PREFIX_RE = re.compile(
         r"^(?:odoo\.exceptions\.)?(?:ValidationError|UserError|"
-        r"MissingError|RedirectWarning|Warning):\s*(.+)",  # AccessError removed
+        r"MissingError|RedirectWarning|Warning):\s*(.*)",  # AccessError removed; .* allows empty body
         re.DOTALL,
     )
 
@@ -32,10 +32,12 @@ class ErrorSanitizer:
     # Matches XxxError('msg') or XxxError('title', 'detail') repr formats.
     # Restricted to the same allowlist as _ODOO_EXC_PREFIX_RE so stdlib exceptions
     # are not treated as Odoo application messages.
+    # Uses backreference \1 to ensure closing quote matches opening quote,
+    # preventing backtracking corruption when second arg contains an apostrophe.
     _EXC_REPR_RE = re.compile(
         r"^(?:odoo\.exceptions\.)?(?:ValidationError|UserError|"
-        r"MissingError|RedirectWarning|Warning)\(['\"](.+?)['\"]"
-        r"(?:,\s*['\"][^'\"]*['\"])?\)\s*$",
+        r"MissingError|RedirectWarning|Warning)"
+        r"\((['\"])(.+?)\1(?:,\s*(?:'[^']*'|\"[^\"]*\"))?\)\s*$",
         re.DOTALL,
     )
 
@@ -262,7 +264,7 @@ class ErrorSanitizer:
         # XxxError('msg') repr format, e.g. UserError('Cannot delete ...')
         m = cls._EXC_REPR_RE.match(stripped)
         if m:
-            return m.group(1).strip()
+            return m.group(2).strip()
 
         # Case 1: traceback fault — extract the last odoo.exceptions.* message.
         # re.findall + [-1] handles chained exceptions; re.DOTALL captures
@@ -287,7 +289,8 @@ class ErrorSanitizer:
         # Case 2: bare "XxxError: message" without traceback
         m = cls._ODOO_EXC_PREFIX_RE.match(stripped)
         if m:
-            return m.group(1).strip()
+            result = m.group(1).strip()
+            return result or "An error occurred while processing your request"
 
         # Case 3: no recognisable pattern — apply generic sanitisation
         # (strips file paths, module paths, class names, memory addresses)
