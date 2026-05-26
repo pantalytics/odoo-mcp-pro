@@ -144,3 +144,21 @@ class TestDescribeModelTool:
         }
         result = await tool_handler._handle_describe_model_tool("res.partner")
         assert result.total_fields == 5
+
+    @pytest.mark.asyncio
+    async def test_empty_relation_becomes_none(self, tool_handler, mock_connection):
+        """Empty string relation from Odoo is converted to None."""
+        mock_connection.fields_get.return_value = {
+            "partner_id": {"type": "many2one", "string": "Partner", "required": False, "readonly": False, "relation": "", "help": ""},
+        }
+        result = await tool_handler._handle_describe_model_tool("sale.order")
+        assert result.fields["partner_id"].relation is None
+
+    @pytest.mark.asyncio
+    async def test_none_help_from_odoo_becomes_none(self, tool_handler, mock_connection):
+        """None help from Odoo (null in JSON) stays None."""
+        mock_connection.fields_get.return_value = {
+            "name": {"type": "char", "string": "Name", "required": False, "readonly": False, "relation": None, "help": None},
+        }
+        result = await tool_handler._handle_describe_model_tool("res.partner")
+        assert result.fields["name"].help is None

@@ -1288,34 +1288,33 @@ class OdooToolHandler:
         """Handle describe_model tool request."""
         try:
             connection, access_controller, sub = await self._get_user_context()
-            access_controller.validate_model_access(model, "read")
-            if not connection.is_authenticated:
-                raise ValidationError("Not authenticated. Please check your Odoo credentials.")
-            attrs = attributes or _DESCRIBE_MODEL_DEFAULT_ATTRIBUTES
-            raw_fields = connection.fields_get(model, attrs)
-            fields: Dict[str, FieldInfo] = {}
-            for fname, fdata in raw_fields.items():
-                help_text = fdata.get("help") or None
-                if help_text == "":
-                    help_text = None
-                fields[fname] = FieldInfo(
-                    type=fdata.get("type", ""),
-                    string=fdata.get("string", fname),
-                    required=fdata.get("required", False),
-                    readonly=fdata.get("readonly", False),
-                    relation=fdata.get("relation") or None,
-                    help=help_text,
-                    is_m2m=fdata.get("type") == "many2many",
+            with perf_logger.track_operation("tool_describe_model"):
+                access_controller.validate_model_access(model, "read")
+                if not connection.is_authenticated:
+                    raise ValidationError("Not authenticated. Please check your Odoo credentials.")
+                attrs = attributes or _DESCRIBE_MODEL_DEFAULT_ATTRIBUTES
+                raw_fields = connection.fields_get(model, attrs)
+                fields: Dict[str, FieldInfo] = {}
+                for fname, fdata in raw_fields.items():
+                    help_text = fdata.get("help") or None
+                    fields[fname] = FieldInfo(
+                        type=fdata.get("type", ""),
+                        string=fdata.get("string", fname),
+                        required=fdata.get("required", False),
+                        readonly=fdata.get("readonly", False),
+                        relation=fdata.get("relation") or None,
+                        help=help_text,
+                        is_m2m=fdata.get("type") == "many2many",
+                    )
+                return DescribeModelResult(
+                    model=model,
+                    fields=fields,
+                    total_fields=len(fields),
                 )
-            return DescribeModelResult(
-                model=model,
-                fields=fields,
-                total_fields=len(fields),
-            )
-        except (ValidationError, AccessControlError) as e:
-            if isinstance(e, AccessControlError):
-                raise ValidationError(str(e)) from e
+        except ValidationError:
             raise
+        except AccessControlError as e:
+            raise ValidationError(str(e)) from e
         except OdooConnectionError as e:
             raise ValidationError(f"Connection error: {e}") from e
         except Exception as e:
