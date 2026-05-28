@@ -289,6 +289,15 @@ class TestValidateM2mValues:
         with pytest.raises(ValidationError, match="tag_ids"):
             tool_handler._validate_m2m_values("res.partner", {"tag_ids": [15, 3]})
 
+    def test_non_ids_field_flat_int_list_not_flagged(self, tool_handler):
+        """Field not ending in _ids is skipped — no false positive on int lists."""
+        # e.g. a custom field holding a plain list of integers should not be blocked
+        tool_handler._validate_m2m_values("res.partner", {"year_range": [2020, 2025]})
+
+    def test_non_ids_field_bare_tuple_not_flagged(self, tool_handler):
+        """Field not ending in _ids is skipped — no false positive on [op, id] shape."""
+        tool_handler._validate_m2m_values("res.partner", {"x_custom": [4, 15]})
+
 
 class TestWriteToolsIntegration:
     """Integration tests for write tools with real connection."""

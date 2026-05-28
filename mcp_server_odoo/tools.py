@@ -149,8 +149,15 @@ class OdooToolHandler:
 
         Agents frequently pass incorrect syntax to Many2many fields. This check
         catches the three most common mistakes early with actionable error messages.
+
+        Only checks fields that follow Odoo's ``_ids`` naming convention to avoid
+        false positives on non-relational fields that happen to hold integer lists.
         """
         for field_name, value in values.items():
+            # Skip non-relational fields: Odoo many2many fields always end in _ids
+            if not field_name.endswith("_ids"):
+                continue
+
             # Case A: bare command tuple e.g. [4, 15] instead of [[4, 15]]
             # Checked before Case B because [4, 15] also satisfies "all ints"
             if (
