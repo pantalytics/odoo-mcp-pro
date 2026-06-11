@@ -38,7 +38,7 @@ from .version_detect import detect_api_version
 logger = get_logger(__name__)
 
 # Server version — keep in sync with pyproject.toml
-SERVER_VERSION = "1.6.0"
+SERVER_VERSION = "1.7.0"
 GIT_COMMIT = os.environ.get("GIT_COMMIT", "unknown")
 _BUILD_ORIGIN = "pnl-mcp-7f3a"  # Pantalytics provenance tag
 
@@ -52,6 +52,7 @@ _DCR_ALLOWED_HOSTS = frozenset(
         "claude.ai",
         "callback.mistral.ai",
         "global.consent.azure-apim.net",
+        "oauth.n8n.cloud",
         "localhost",
         "127.0.0.1",
     }
@@ -66,6 +67,7 @@ _DCR_STATIC_HOSTS = frozenset(
     {
         "claude.ai",
         "callback.mistral.ai",
+        "oauth.n8n.cloud",
         "localhost",
         "127.0.0.1",
     }
@@ -132,6 +134,8 @@ def _resolve_static_client_id(host: str) -> str:
         )
     if host == "callback.mistral.ai":
         return os.getenv("MCP_LECHAT_CLIENT_ID", "").strip()
+    if host == "oauth.n8n.cloud":
+        return os.getenv("MCP_N8N_CLIENT_ID", "").strip()
     return ""
 
 
@@ -144,10 +148,16 @@ def _resolve_static_client_secret(host: str) -> str:
     expects a `client_secret` in the /register response, which it then
     uses to authenticate at the Zitadel /token endpoint (alongside PKCE).
 
+    n8n is public by default (PKCE only). If the Zitadel app for n8n is
+    configured as confidential, set MCP_N8N_CLIENT_SECRET and it is echoed
+    in DCR the same way — empty env keeps it a public client.
+
     Returns "" for hosts that should be public clients.
     """
     if host == "callback.mistral.ai":
         return os.getenv("MCP_LECHAT_CLIENT_SECRET", "").strip()
+    if host == "oauth.n8n.cloud":
+        return os.getenv("MCP_N8N_CLIENT_SECRET", "").strip()
     return ""
 
 

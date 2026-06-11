@@ -89,6 +89,14 @@ class TestDCRAllowlist:
         # time — no DCR mutation needed.
         assert "callback.mistral.ai" in _DCR_STATIC_HOSTS
 
+    def test_n8n_is_allowed_and_static(self):
+        # n8n cloud uses one fixed callback (oauth.n8n.cloud/oauth2/callback),
+        # so its redirect URI is baked into the Zitadel app at setup time —
+        # static path, no DCR mutation.
+        assert "oauth.n8n.cloud" in _DCR_ALLOWED_HOSTS
+        assert "oauth.n8n.cloud" in _DCR_STATIC_HOSTS
+        assert "oauth.n8n.cloud" not in _DCR_DYNAMIC_ENV_PREFIXES
+
     def test_copilot_is_allowed(self):
         assert "global.consent.azure-apim.net" in _DCR_ALLOWED_HOSTS
 
@@ -162,6 +170,17 @@ class TestResolveStaticClientId:
         monkeypatch.delenv("MCP_LECHAT_CLIENT_ID", raising=False)
         assert _resolve_static_client_id("callback.mistral.ai") == ""
 
+    def test_n8n_uses_dedicated_env(self, monkeypatch):
+        monkeypatch.setenv("MCP_N8N_CLIENT_ID", "n8n-id")
+        monkeypatch.setenv("MCP_CLAUDE_CLIENT_ID", "claude-id")
+        monkeypatch.setenv("MCP_OIDC_CLIENT_ID", "old-claude-id")
+        # n8n must NOT pick up Claude's id via the old fallback.
+        assert _resolve_static_client_id("oauth.n8n.cloud") == "n8n-id"
+
+    def test_n8n_unset_env_returns_empty(self, monkeypatch):
+        monkeypatch.delenv("MCP_N8N_CLIENT_ID", raising=False)
+        assert _resolve_static_client_id("oauth.n8n.cloud") == ""
+
 
 class TestResolveStaticClientSecret:
     """Le Chat is the only confidential static client; everyone else is public."""
@@ -179,6 +198,16 @@ class TestResolveStaticClientSecret:
         monkeypatch.setenv("MCP_LECHAT_CLIENT_SECRET", "should-not-leak")
         assert _resolve_static_client_secret("claude.ai") == ""
         assert _resolve_static_client_secret("localhost") == ""
+
+    def test_n8n_returns_configured_secret(self, monkeypatch):
+        # n8n is public by default but supports a confidential Zitadel app
+        # via MCP_N8N_CLIENT_SECRET, echoed the same way as Le Chat.
+        monkeypatch.setenv("MCP_N8N_CLIENT_SECRET", "n8n-secret")
+        assert _resolve_static_client_secret("oauth.n8n.cloud") == "n8n-secret"
+
+    def test_n8n_unset_is_public_client(self, monkeypatch):
+        monkeypatch.delenv("MCP_N8N_CLIENT_SECRET", raising=False)
+        assert _resolve_static_client_secret("oauth.n8n.cloud") == ""
 
     def test_unknown_host_returns_empty(self):
         assert _resolve_static_client_secret("evil.com") == ""
