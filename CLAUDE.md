@@ -3,7 +3,7 @@
 ## What this project is
 
 **odoo-mcp-pro** -- an open source MCP server connecting AI to Odoo ERP.
-Supports Odoo 14-19+, stdio and streamable-http transport, OAuth 2.1.
+Supports Odoo 14-19+, stdio and streamable-http transport.
 
 This is the **public** package. The admin panel, billing, and deploy infrastructure
 live in the private repo: `pantalytics/odoo-mcp-pro-admin`.
@@ -19,39 +19,32 @@ live in the private repo: `pantalytics/odoo-mcp-pro-admin`.
 ## Key architecture facts
 
 - Connection factory: `OdooJSON2Connection` (Odoo 19+) / `OdooConnection` (Odoo 14-18, XML-RPC)
-- ConnectionRegistry caches connections per user (30 min TTL, multi-tenant only)
 - `odoo_knowledge.py` provides Odoo domain knowledge via MCP server instructions
-- Without `DATABASE_URL`: single-tenant mode (one Odoo instance from env vars, no OAuth)
-- With `DATABASE_URL`: multi-tenant mode (requires odoo-mcp-pro-admin package)
+- Single-tenant only: one Odoo instance from env vars (stdio or HTTP). The hosted
+  multi-tenant deployment lives in the private admin package.
 
 ## Open core boundary
 
 The public repo works standalone for single-tenant use (stdio or HTTP + API key).
 The SaaS features (multi-tenant, OAuth, admin UI, billing) live in the private
-`odoo-mcp-pro-admin` package and are overlaid onto this package at build time.
-
-**How the overlay works in production (Hetzner VPS):**
-- Dockerfile entry point is `python -m mcp_server_odoo` (public)
-- Admin repo's Dockerfile `COPY mcp_server_odoo_admin/` into
-  `site-packages/mcp_server_odoo/admin/` before starting
-- `DATABASE_URL` is set, which triggers public's `server.py` multi-tenant branch:
-  imports `mcp_server_odoo.admin.db.DatabaseManager`, mounts `admin/app.create_admin_app` at `/admin`
-- `oauth.py` (ZitadelTokenVerifier) and `registry.py` (ConnectionRegistry) are used
-  by public's `run_http` when `DATABASE_URL` is set
+`odoo-mcp-pro-admin` package, which has **its own entry point**
+(`python -m mcp_server_odoo_admin`) and imports this package as a normal,
+**tag-pinned** dependency. There is no file overlay anymore.
 
 **Implications for changes in this repo:**
-- `server.py` multi-tenant branch (lines ~430-495), `oauth.py`, `registry.py`,
-  and the registry-based paths in `tools.py` / `resources.py` are all production-critical.
-  Do not remove or refactor without coordinating with the admin repo Dockerfile and deploy.
-- `usage.py` has a stub `track_event` and `RateLimitExceeded` class. The admin package
-  replaces this file at build time with the full `UsageTracker`. Keep the module-level
-  API (`track_event`, `RateLimitExceeded`, `DEFAULT_DAILY_LIMIT`) stable.
-- Admin imports from public: `config.OdooConfig`, `odoo_connection.OdooConnection`,
-  `odoo_json2_connection.OdooJSON2Connection`, `performance.PerformanceManager`,
-  `version_detect.detect_api_version`, `usage.track_event`. Breaking any of these
-  signatures breaks admin.
-- Dev overlay: admin's `local-dev.sh` symlinks admin code into `mcp_server_odoo/admin/`.
-  These symlinks are `.gitignore`'d (or untracked) and should not be committed.
+- Public main never reaches production directly: the admin repo pins
+  `mcp-server-odoo @ git+...@vX.Y.Z`. Ship changes by tagging a release and
+  bumping the pin in the admin repo.
+- Admin imports from public: `config.OdooConfig`, `server.SERVER_VERSION`,
+  `server.create_fastmcp_app`, `odoo_connection.OdooConnection`,
+  `odoo_json2_connection.OdooJSON2Connection`, `connection_protocol`,
+  `access_control.AccessController`, `error_handling.ValidationError`,
+  `exceptions.OdooConnectionError`, `performance.PerformanceManager`,
+  `detection.detect_odoo`, `version_detect.detect_api_version`,
+  `xmlrpc_transport.{transport_for_url, DEFAULT_XMLRPC_TIMEOUT}`.
+  Breaking any of these signatures breaks admin.
+- `usage.py` is a no-op `track_event` stub so the public package works
+  standalone; the real tracker lives in the admin package.
 
 **Admin extension contract** (admin subclasses/imports these — rename only in
 coordination with the admin repo):
@@ -108,15 +101,13 @@ collection time).
 
 | File | Role |
 |------|------|
-| `server.py` | Factory pattern, OAuth wiring, FastMCP setup |
+| `server.py` | Factory pattern, FastMCP setup, stdio/HTTP runners |
 | `tools.py` | MCP tools (search, create, update, delete, import) |
 | `resources.py` | MCP resources (URI-based) |
 | `schemas.py` | Pydantic result models |
 | `odoo_json2_connection.py` | JSON/2 client (httpx, Odoo 19+) |
 | `odoo_connection.py` | XML-RPC client (stdlib, Odoo 14-18) |
 | `connection_protocol.py` | Protocol class for connection interface |
-| `registry.py` | ConnectionRegistry -- maps users to Odoo connections |
-| `oauth.py` | ZitadelTokenVerifier -- token introspection with caching |
 | `odoo_knowledge.py` | Odoo domain knowledge (server instructions) |
 | `config.py` | OdooConfig dataclass |
 | `usage.py` | Usage tracking stub (full version in admin package) |

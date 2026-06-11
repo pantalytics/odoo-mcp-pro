@@ -7,7 +7,7 @@ standardized URIs using FastMCP decorators.
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import unquote
 
 from mcp.server.fastmcp import FastMCP
@@ -29,9 +29,6 @@ from .uri_schema import (
     build_search_uri,
 )
 
-if TYPE_CHECKING:
-    from .registry import ConnectionRegistry
-
 logger = get_logger(__name__)
 
 
@@ -44,16 +41,9 @@ class OdooResourceHandler:
         connection: Optional[OdooConnectionProtocol] = None,
         access_controller: Optional[AccessController] = None,
         config: Optional[OdooConfig] = None,
-        registry: Optional[ConnectionRegistry] = None,
     ):
-        """Initialize resource handler.
-
-        Two modes:
-        - Multi-tenant (HTTP): pass registry, connection resolved per-request via auth context
-        - Single-tenant (stdio): pass connection + access_controller directly
-        """
+        """Initialize resource handler with a direct Odoo connection."""
         self.app = app
-        self.registry = registry
         self.connection = connection
         self.access_controller = access_controller
         self.config = config
@@ -64,9 +54,8 @@ class OdooResourceHandler:
     async def _get_user_context(self) -> Tuple[OdooConnectionProtocol, AccessController]:
         """Get connection and access controller for the current request.
 
-        In HTTP mode with OAuth, reads the authenticated user's subject ID
-        from the auth context and resolves the connection via the registry.
-        In stdio mode, returns the fallback connection.
+        Admin extension hook: the private SaaS package overrides this to
+        resolve a per-user connection from the authenticated subject.
 
         Returns:
             Tuple of (connection, access_controller)
@@ -74,17 +63,6 @@ class OdooResourceHandler:
         Raises:
             ValidationError: If no connection is available
         """
-        if self.registry is not None:
-            from mcp.server.auth.middleware.auth_context import get_access_token
-
-            access_token = get_access_token()
-            if access_token is None:
-                raise ValidationError("No authentication token available")
-            sub = access_token.client_id
-            cached = await self.registry.get_connection(sub)
-            return cached.connection, cached.access_controller
-
-        # Stdio mode: use direct connection
         if self.connection is not None and self.access_controller is not None:
             return self.connection, self.access_controller
 
@@ -758,23 +736,20 @@ def register_resources(
     connection: Optional[OdooConnectionProtocol] = None,
     access_controller: Optional[AccessController] = None,
     config: Optional[OdooConfig] = None,
-    registry: Optional[ConnectionRegistry] = None,
 ) -> OdooResourceHandler:
     """Register all Odoo resources with the FastMCP app.
 
     Args:
         app: FastMCP application instance
-        connection: Odoo connection instance (stdio/single-tenant mode)
-        access_controller: Access control instance (stdio/single-tenant mode)
+        connection: Odoo connection instance
+        access_controller: Access control instance
         config: Odoo configuration instance
-        registry: ConnectionRegistry for multi-tenant mode (HTTP)
 
     Returns:
         The resource handler instance
     """
     handler = OdooResourceHandler(
         app,
-        registry=registry,
         connection=connection,
         access_controller=access_controller,
         config=config,

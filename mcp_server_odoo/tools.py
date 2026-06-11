@@ -13,7 +13,7 @@ import contextvars
 import json
 import re
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
 import httpx
@@ -48,10 +48,6 @@ from .schemas import (
     UpdateResult,
 )
 
-if TYPE_CHECKING:
-    from .registry import ConnectionRegistry
-    from .usage import UsageTracker
-
 logger = get_logger(__name__)
 
 MAX_BULK_SIZE = 1000  # Maximum records per bulk operation
@@ -73,21 +69,12 @@ class OdooToolHandler:
         connection: Optional[OdooConnectionProtocol] = None,
         access_controller: Optional[AccessController] = None,
         config: Optional[OdooConfig] = None,
-        registry: Optional[ConnectionRegistry] = None,
-        usage_tracker: Optional[UsageTracker] = None,
     ):
-        """Initialize tool handler.
-
-        Two modes:
-        - Multi-tenant (HTTP): pass registry, connection resolved per-request via auth context
-        - Single-tenant (stdio): pass connection + access_controller directly
-        """
+        """Initialize tool handler with a direct Odoo connection."""
         self.app = app
-        self.registry = registry
         self.connection = connection
         self.access_controller = access_controller
         self.config = config
-        self.usage_tracker = usage_tracker
 
         # Register tools
         self._register_tools()
@@ -97,36 +84,15 @@ class OdooToolHandler:
     ) -> Tuple[OdooConnectionProtocol, AccessController, str]:
         """Get connection and access controller for the current request.
 
-        In HTTP mode with OAuth, reads the authenticated user's subject ID
-        from the auth context and resolves the connection via the registry.
-        In stdio mode, returns the fallback connection.
+        Admin extension hook: the private SaaS package overrides this to
+        resolve a per-user connection from the authenticated subject.
 
         Returns:
-            Tuple of (connection, access_controller, zitadel_sub)
+            Tuple of (connection, access_controller, sub)
 
         Raises:
             ValidationError: If no connection is available
-            RateLimitExceeded: If user has exceeded their daily limit
         """
-        if self.registry is not None:
-            from mcp.server.auth.middleware.auth_context import get_access_token
-
-            access_token = get_access_token()
-            if access_token is None:
-                raise ValidationError("No authentication token available")
-            sub = access_token.client_id
-            # Set early so callers that catch downstream errors (e.g. server_info)
-            # can still emit usage/diagnostic events tied to the right user.
-            _current_sub.set(sub)
-
-            # Check rate limit before doing any work
-            if self.usage_tracker:
-                await self.usage_tracker.check_rate_limit(sub)
-
-            cached = await self.registry.get_connection(sub)
-            return cached.connection, cached.access_controller, sub
-
-        # Stdio mode: use direct connection (no rate limiting)
         if self.connection is not None and self.access_controller is not None:
             _current_sub.set("stdio")
             return self.connection, self.access_controller, "stdio"
@@ -134,9 +100,7 @@ class OdooToolHandler:
         raise ValidationError("No Odoo connection available")
 
     def _track_usage(self, sub: str, tool_name: str) -> None:
-        """Fire-and-forget usage tracking. No-op if tracker not configured."""
-        if self.usage_tracker and sub != "stdio":
-            self.usage_tracker.record_usage_fire_and_forget(sub, tool_name)
+        """Usage tracking hook. No-op here; overridden by the SaaS layer."""
 
     def _format_datetime(self, value: str) -> str:
         """Format datetime values to ISO 8601 with timezone."""
@@ -2072,29 +2036,23 @@ def register_tools(
     connection: Optional[OdooConnectionProtocol] = None,
     access_controller: Optional[AccessController] = None,
     config: Optional[OdooConfig] = None,
-    registry: Optional[ConnectionRegistry] = None,
-    usage_tracker: Optional[UsageTracker] = None,
 ) -> OdooToolHandler:
     """Register all Odoo tools with the FastMCP app.
 
     Args:
         app: FastMCP application instance
-        connection: Odoo connection instance (stdio/single-tenant mode)
-        access_controller: Access control instance (stdio/single-tenant mode)
+        connection: Odoo connection instance
+        access_controller: Access control instance
         config: Odoo configuration instance
-        registry: ConnectionRegistry for multi-tenant mode (HTTP)
-        usage_tracker: UsageTracker for rate limiting and usage logging
 
     Returns:
         The tool handler instance
     """
     handler = OdooToolHandler(
         app,
-        registry=registry,
         connection=connection,
         access_controller=access_controller,
         config=config,
-        usage_tracker=usage_tracker,
     )
     logger.info("Registered Odoo MCP tools")
     return handler
