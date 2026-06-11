@@ -115,26 +115,6 @@ class OdooConnection:
         except Exception as e:
             raise OdooConnectionError(f"Failed to parse URL: {e}") from e
 
-    def _create_transport(self) -> xmlrpc.client.Transport:
-        """Create XML-RPC transport with timeout support.
-
-        Returns:
-            Configured Transport object
-        """
-
-        class TimeoutTransport(xmlrpc.client.Transport):
-            def __init__(self, timeout, *args, **kwargs):
-                self.timeout = timeout
-                super().__init__(*args, **kwargs)
-
-            def make_connection(self, host):
-                connection = super().make_connection(host)
-                if hasattr(connection, "sock") and connection.sock:
-                    connection.sock.settimeout(self.timeout)
-                return connection
-
-        return TimeoutTransport(self.timeout)
-
     def _build_endpoint_url(self, endpoint: str) -> str:
         """Build full URL for an MCP endpoint.
 

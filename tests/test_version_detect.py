@@ -194,10 +194,8 @@ class TestDetectApiVersion:
         ) as mock_cls:
             detect_api_version("https://mycompany.odoo.com/")
 
-        mock_cls.assert_called_once_with(
-            "https://mycompany.odoo.com/xmlrpc/2/common",
-            allow_none=True,
-        )
+        mock_cls.assert_called_once()
+        assert mock_cls.call_args.args[0] == "https://mycompany.odoo.com/xmlrpc/2/common"
 
     def test_json2_min_version_constant(self):
         """JSON2_MIN_VERSION should be 19."""
@@ -353,3 +351,50 @@ class TestConfigAutoApiVersion:
             os.environ.pop("ODOO_URL", None)
             os.environ.pop("ODOO_API_KEY", None)
             reset_config()
+
+
+class TestProbeTimeout:
+    """The xmlrpc probe must enforce its timeout (incident 2026-06-11: a
+    customer host that silently dropped packets held the probe for the
+    kernel TCP timeout, ~130s, freezing the server's event loop)."""
+
+    def test_silent_host_returns_none_within_timeout(self):
+        """A server that accepts but never responds must not hang the probe."""
+        import socket
+        import time
+
+        from mcp_server_odoo.version_detect import _detect_via_xmlrpc
+
+        srv = socket.socket()
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(1)
+        port = srv.getsockname()[1]
+        try:
+            start = time.monotonic()
+            result = _detect_via_xmlrpc(f"http://127.0.0.1:{port}", timeout=1)
+            elapsed = time.monotonic() - start
+        finally:
+            srv.close()
+
+        assert result is None
+        assert elapsed < 5, f"probe took {elapsed:.1f}s; timeout not applied"
+
+    def test_transport_for_url_picks_scheme(self):
+        from mcp_server_odoo.xmlrpc_transport import (
+            TimeoutSafeTransport,
+            TimeoutTransport,
+            transport_for_url,
+        )
+
+        https_transport = transport_for_url("https://mycompany.odoo.com", 10)
+        http_transport = transport_for_url("http://mycompany.odoo.com", 10)
+        assert isinstance(https_transport, TimeoutSafeTransport)
+        assert isinstance(http_transport, TimeoutTransport)
+        assert not isinstance(http_transport, TimeoutSafeTransport)
+
+    def test_transport_applies_timeout_to_connection(self):
+        from mcp_server_odoo.xmlrpc_transport import TimeoutTransport
+
+        transport = TimeoutTransport(7)
+        conn = transport.make_connection("127.0.0.1")
+        assert conn.timeout == 7

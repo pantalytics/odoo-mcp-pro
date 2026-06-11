@@ -25,6 +25,8 @@ from typing import Literal, Optional, Tuple
 from curl_cffi import requests as cffi_requests
 from curl_cffi.requests.errors import RequestsError
 
+from .xmlrpc_transport import transport_for_url
+
 logger = logging.getLogger(__name__)
 
 # Minimum Odoo major version that supports JSON/2 API
@@ -56,7 +58,11 @@ def _api_version_for(major: int) -> Literal["json2", "xmlrpc"]:
 def _detect_via_xmlrpc(url: str, timeout: int) -> Optional[Tuple[Literal["json2", "xmlrpc"], str]]:
     """P1: XML-RPC version() probe. Returns None on any failure."""
     try:
-        proxy = xmlrpc.client.ServerProxy(f"{url}/xmlrpc/2/common", allow_none=True)
+        proxy = xmlrpc.client.ServerProxy(
+            f"{url}/xmlrpc/2/common",
+            allow_none=True,
+            transport=transport_for_url(url, timeout),
+        )
         info = proxy.version()
     except Exception as e:
         logger.info(f"xmlrpc probe failed at {url}: {e}")

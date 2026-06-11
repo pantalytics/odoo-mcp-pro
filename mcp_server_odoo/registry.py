@@ -4,6 +4,7 @@ Maps authenticated users (Zitadel subject IDs) to their Odoo connections.
 Connections are lazily created and cached with a configurable TTL.
 """
 
+import asyncio
 import logging
 import os
 import time
@@ -95,9 +96,13 @@ class ConnectionRegistry:
                 f"you need your Odoo URL and an API key."
             )
 
-        # Auto-detect API version from Odoo server
+        # Auto-detect API version from Odoo server. The probes are blocking
+        # (xmlrpc.client + curl_cffi), so run them off the event loop: one
+        # unresponsive customer host must not stall every other tenant.
         try:
-            api_version, server_version = detect_api_version(user_conn.odoo_url)
+            api_version, server_version = await asyncio.to_thread(
+                detect_api_version, user_conn.odoo_url
+            )
         except Exception as e:
             track_event(
                 "connection_error",
