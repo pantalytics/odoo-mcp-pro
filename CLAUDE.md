@@ -53,6 +53,15 @@ The SaaS features (multi-tenant, OAuth, admin UI, billing) live in the private
 - Dev overlay: admin's `local-dev.sh` symlinks admin code into `mcp_server_odoo/admin/`.
   These symlinks are `.gitignore`'d (or untracked) and should not be committed.
 
+**Admin extension contract** (admin subclasses/imports these — rename only in
+coordination with the admin repo):
+- `server.create_fastmcp_app(*, auth=None, token_verifier=None)` — single source
+  of truth for FastMCP construction; admin's multi-tenant entry point uses it
+- `tools.OdooToolHandler._get_user_context` / `._track_usage` — hook methods the
+  admin package overrides for per-user connection resolution and usage tracking
+- `tools._current_sub` — contextvar carrying the authenticated subject
+- `resources.OdooResourceHandler._get_user_context` — same hook for resources
+
 ## JSON/2 API key points
 
 - Endpoint: `POST /json/2/{model}/{method}`
