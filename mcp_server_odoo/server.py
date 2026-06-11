@@ -71,6 +71,27 @@ _DCR_STATIC_HOSTS = frozenset(
 _DCR_MAX_URIS_PER_REQUEST = 5
 
 
+def create_fastmcp_app(*, auth=None, token_verifier=None) -> FastMCP:
+    """Create the FastMCP app with the canonical server settings.
+
+    Single source of truth for FastMCP construction — used by OdooMCPServer
+    and by the private admin package's multi-tenant entry point. stateless_http
+    so any replica can serve any request (blue/green deploys don't drop client
+    connections with "No transport found for sessionId").
+    """
+    app = FastMCP(
+        name="odoo-mcp-server",
+        instructions=SERVER_INSTRUCTIONS,
+        auth=auth,
+        token_verifier=token_verifier,
+        stateless_http=True,
+        json_response=True,
+    )
+    # Skill resources — markdown workflow guides, no DB connection needed
+    register_skills(app)
+    return app
+
+
 def _resolve_static_client_id(host: str) -> str:
     """Map a static-redirect host to its OIDC client_id from env.
 
@@ -246,18 +267,7 @@ class OdooMCPServer:
         # Configure OAuth if environment variables are set
         auth_settings, token_verifier = self._build_oauth_settings()
 
-        # Create FastMCP instance with server metadata.
-        # stateless_http=True so any replica can serve any request — sessions
-        # don't pin to a single container, so blue/green deploys don't drop
-        # client connections with "No transport found for sessionId".
-        self.app = FastMCP(
-            name="odoo-mcp-server",
-            instructions=SERVER_INSTRUCTIONS,
-            auth=auth_settings,
-            token_verifier=token_verifier,
-            stateless_http=True,
-            json_response=True,
-        )
+        self.app = create_fastmcp_app(auth=auth_settings, token_verifier=token_verifier)
 
         if auth_settings:
             logger.info(f"OAuth enabled (issuer: {auth_settings.issuer_url})")
