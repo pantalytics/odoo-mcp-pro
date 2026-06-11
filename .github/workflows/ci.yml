@@ -36,6 +36,9 @@ jobs:
       run: |
         ruff check . --output-format=github
 
+    - name: Enforce max 500 lines per Python file
+      run: python scripts/check_max_lines.py
+
   test:
     name: Test Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest

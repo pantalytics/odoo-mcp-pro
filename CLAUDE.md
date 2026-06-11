@@ -84,6 +84,7 @@ pytest tests/ -x -q         # unit tests (mocked), stop on first failure
 - No hardcoded fallbacks -- explicit config or clear errors
 - Self-hosted Odoo requires explicit database name (no auto-detection)
 - Odoo.sh determines database by hostname (no database name needed)
+- Max 500 lines per Python file (src and tests) — enforced by scripts/check_max_lines.py in CI
 
 ### Tests: open core split
 
@@ -102,12 +103,15 @@ collection time).
 | File | Role |
 |------|------|
 | `server.py` | Factory pattern, FastMCP setup, stdio/HTTP runners |
-| `tools.py` | MCP tools (search, create, update, delete, import) |
-| `resources.py` | MCP resources (URI-based) |
+| `tools/` | MCP tools as mixins on `OdooToolHandler` (crud, query, bulk, binary, messaging, introspection) |
+| `resources/` | MCP resources (URI-based): handler, retrieval, formatting |
 | `schemas.py` | Pydantic result models |
-| `odoo_json2_connection.py` | JSON/2 client (httpx, Odoo 19+) |
-| `odoo_connection.py` | XML-RPC client (stdlib, Odoo 14-18) |
+| `odoo_json2_connection.py` | JSON/2 client (httpx, Odoo 19+); ORM mixin in `odoo_json2_orm.py` |
+| `odoo_connection/` | XML-RPC client (stdlib, Odoo 14-18): core, auth, orm |
 | `connection_protocol.py` | Protocol class for connection interface |
+| `performance_cache.py` | Cache primitives backing `performance.py` |
+| `detection_probes.py` | HTTP probes backing `detection.py` |
+| `error_handler.py` | Error-handler internals backing `error_handling.py` |
 | `odoo_knowledge.py` | Odoo domain knowledge (server instructions) |
 | `config.py` | OdooConfig dataclass |
 | `usage.py` | Usage tracking stub (full version in admin package) |

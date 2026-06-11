@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 This is the open-source MCP server. Hosted-service features (billing, team
 management UI, admin dashboard, deploy infrastructure) live in the proprietary
-`odoo-mcp-pro-admin` overlay and are not tracked here.
+`odoo-mcp-pro-admin` package and are not tracked here.
 
 ## [Unreleased]
 
@@ -20,6 +20,16 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 - **Connection survives server deploys**: streamable-HTTP transport now runs in stateless mode (`stateless_http=True`, `json_response=True`). Previously the server kept session state in-memory per replica, so blue/green deploys dropped `Mcp-Session-Id` mappings and Claude/ChatGPT clients reported "connection lost". Stateless requests are independent, so any replica can serve any request and rolling deploys are invisible to clients. No server-initiated notifications were in use, so no feature loss.
 - **XML-RPC username resolution**: `registry.get_connection` now reads `user_conn.odoo_login` (when set) and falls back to `user_conn.email`. Odoo authenticates against `res.users.login`, which can differ from the user's email (e.g. `login="admin"`); the previous behavior locked everyone to the sign-up email.
 - **`server_info` observability**: `_current_sub` is now set before the registry/rate-limit calls in `_get_user_context`, so when those raise and a tool catches the exception (notably `server_info`), usage tracking still attributes the event to the correct user instead of silently no-op'ing as `"stdio"`.
+
+## [1.8.0] - 2026-06-11
+
+### Changed
+- **Open-core split completed**: multi-tenant support, OAuth/Zitadel token verification, Dynamic Client Registration, and the per-user `ConnectionRegistry` moved to the private `odoo-mcp-pro-admin` package, which now has its own entry point and imports this package as a normal dependency. `mcp_server_odoo/oauth.py` and `mcp_server_odoo/registry.py` are gone; the public package is single-tenant only (one Odoo instance from env vars).
+- **BREAKING**: single-tenant HTTP transport no longer supports `OAUTH_ISSUER_URL`. The HTTP transport itself is unauthenticated (your Odoo API key still protects every Odoo call); if you expose it beyond localhost, put a reverse proxy with authentication in front.
+- **Repo restructure**: `tools.py`, `odoo_connection.py`, and `resources.py` split into the `tools/`, `odoo_connection/`, and `resources/` packages; oversized modules and test files split alongside. A maximum of 500 lines per Python file is now enforced in CI (`scripts/check_max_lines.py`).
+
+### Removed
+- Dead `browse` resource code and stale top-level files (forum post draft, logo/grid test pages, stale TODO).
 
 ## [1.5.0] - 2026-04-28
 

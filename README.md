@@ -106,7 +106,7 @@ Or add to your Claude Desktop `claude_desktop_config.json`:
 }
 ```
 
-**Need multi-tenant, per-user connections, OAuth, or an admin UI?** That's SaaS territory. The [hosted version](https://pantalytics.com/en/apps/odoo-mcp-server) is faster to set up, auto-updates, and handles security patches for you -- and costs less than the time you'd spend self-hosting. These features live in a separate commercial package that overlays on top of this open-core server.
+**Need multi-tenant, per-user connections, OAuth, or an admin UI?** That's SaaS territory. The [hosted version](https://pantalytics.com/en/apps/odoo-mcp-server) is faster to set up, auto-updates, and handles security patches for you -- and costs less than the time you'd spend self-hosting. These features live in a separate commercial package that builds on top of this open-core server.
 
 ## How it works
 

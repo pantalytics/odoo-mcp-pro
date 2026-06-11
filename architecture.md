@@ -2,13 +2,20 @@
 
 Technical architecture of odoo-mcp-pro. For a product overview, see the [README](README.md).
 
+> **Scope note**: this document describes the full hosted (multi-tenant) architecture.
+> This repo ships only the **single-tenant** open-core package (one Odoo instance,
+> API-key auth, no OAuth). The multi-tenant components below — Postgres tenant
+> store, Zitadel/OAuth, ConnectionRegistry, admin panel — live in the private
+> `odoo-mcp-pro-admin` package that powers the Pantalytics hosted service and
+> cannot be deployed from this repo.
+
 ## Design principles
 
 1. **Odoo + AI, samen sterker.** Combine the power of Odoo as an ERP with the power of AI as an interface. Don't replace Odoo -- make it more accessible.
 2. **Use the interface that fits.** Some tasks are faster in the Odoo UI, others via a question to Claude. The user chooses.
 3. **Odoo is the boss.** All data, permissions, and business logic live in Odoo. The MCP server is a stateless proxy.
 4. **No setup barriers.** Self-service, auto-detection, minimal configuration. It should just work.
-5. **Open and transparent.** Open-source (MPL-2.0), no vendor lock-in, standard protocols (MCP, OAuth 2.1).
+5. **Open and transparent.** Source-available (Elastic License 2.0), no vendor lock-in, standard protocols (MCP, OAuth 2.1).
 
 ---
 
@@ -226,23 +233,20 @@ Results are cached per model for 5 minutes. This prevents unexpected 403s and gi
 
 ---
 
-## Key files
+## Key files (this repo)
 
 | File | Role |
 |------|------|
-| `server.py` | Entry point, factory pattern, OAuth wiring, FastMCP setup |
-| `registry.py` | ConnectionRegistry -- maps users to Odoo connections |
-| `admin/app.py` | Admin panel FastAPI app factory |
-| `admin/routes.py` | Admin CRUD routes + self-service setup |
-| `admin/db.py` | Postgres database manager (tenants, users, admins) |
-| `admin/auth.py` | OAuth login flow, session management, CSRF |
+| `server.py` | Entry point, factory pattern, FastMCP setup |
 | `odoo_json2_connection.py` | JSON/2 client (httpx, Odoo 19+) |
-| `odoo_connection.py` | XML-RPC client (stdlib, Odoo 14-18) |
+| `odoo_connection/` | XML-RPC client (stdlib, Odoo 14-18): core, auth, orm |
 | `connection_protocol.py` | Protocol class defining the connection interface |
-| `oauth.py` | ZitadelTokenVerifier -- token validation via introspection |
 | `config.py` | OdooConfig dataclass, loaded from env vars |
-| `tools.py` | 6 MCP tools with smart field selection |
-| `resources.py` | 4 MCP resources (URI-based read access) |
+| `tools/` | MCP tools (mixin package on `OdooToolHandler`) |
+| `resources/` | MCP resources (URI-based read access) |
 | `access_control.py` | Access control via check_access_rights |
+
+The multi-tenant pieces (`ConnectionRegistry`, ZitadelTokenVerifier, admin
+panel, tenant database) live in the private `odoo-mcp-pro-admin` package.
 
 All source files live in `mcp_server_odoo/`. Tests in `tests/`.
