@@ -181,6 +181,14 @@ class PostMessageResult(BaseModel):
         description="x_microsoft_message_id when pan_outlook_pro is installed and the send went via Graph",
     )
     record_url: str = Field(description="Direct URL to the record in Odoo")
+    degraded_details: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Detail sections that could not be read back after a successful post "
+            "(e.g. 'message details', 'notification status'). The message itself "
+            "was posted; only the follow-up enrichment failed."
+        ),
+    )
     message: str = Field(description="Human-readable summary")
 
 

@@ -212,6 +212,7 @@ class TestPostMessageUnit:
         assert result["notifications"][0]["status"] == "sent"
         assert result["notifications"][1]["partner_name"] == "Bob"
         assert result["notifications"][1]["type"] == "inbox"
+        assert result["degraded_details"] == []
 
 
 # ---------------------------------------------------------------------------

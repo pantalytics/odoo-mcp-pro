@@ -170,57 +170,93 @@ class MessagingToolsMixin:
                 if not isinstance(message_id, int):
                     raise ValidationError(f"Unexpected message_post return: {raw!r}")
 
-                # Read message back for subtype/attachment summary
-                msg_fields = ["subtype_id", "attachment_ids"]
-                # x_microsoft_message_id only exists when pan_outlook_pro is installed
-                outlook_field = "x_microsoft_message_id"
-                try:
-                    available = connection.fields_get(
-                        "mail.message", [outlook_field], allfields=False
-                    )
-                except TypeError:
-                    available = connection.fields_get("mail.message", [outlook_field])
-                except Exception:
-                    available = {}
-                if outlook_field in (available or {}):
-                    msg_fields.append(outlook_field)
+                # From here on the message exists in Odoo. The reads below only
+                # enrich the response; they must never turn a successful post into
+                # a reported failure. Some Odoo builds cannot serialise
+                # mail.message-related responses over RPC (e.g. server-side
+                # "TypeError: cannot marshal <class 'File'> objects" from Odoo's
+                # OdooMarshaller, seen on Odoo Online), so each follow-up read is
+                # tolerated individually: log the underlying error loudly and
+                # degrade the detail instead of raising.
+                degraded: List[str] = []
 
-                msg_rows = connection.read("mail.message", [message_id], msg_fields)
-                msg = msg_rows[0] if msg_rows else {}
-                subtype_pair = msg.get("subtype_id")
-                subtype_name = (
-                    subtype_pair[1]
-                    if isinstance(subtype_pair, list) and len(subtype_pair) > 1
-                    else None
-                )
-                attachments = msg.get("attachment_ids") or []
-                outlook_msg_id = msg.get(outlook_field) if outlook_field in msg_fields else None
-                if outlook_msg_id is False:
-                    outlook_msg_id = None
+                # Read message back for subtype/attachment summary
+                subtype_name: Optional[str] = None
+                attachments: List[Any] = []
+                outlook_msg_id: Optional[Any] = None
+                try:
+                    msg_fields = ["subtype_id", "attachment_ids"]
+                    # x_microsoft_message_id only exists when pan_outlook_pro is installed
+                    outlook_field = "x_microsoft_message_id"
+                    try:
+                        available = connection.fields_get(
+                            "mail.message", [outlook_field], allfields=False
+                        )
+                    except TypeError:
+                        available = connection.fields_get("mail.message", [outlook_field])
+                    except Exception:
+                        available = {}
+                    if outlook_field in (available or {}):
+                        msg_fields.append(outlook_field)
+
+                    msg_rows = connection.read("mail.message", [message_id], msg_fields)
+                    msg = msg_rows[0] if msg_rows else {}
+                    subtype_pair = msg.get("subtype_id")
+                    subtype_name = (
+                        subtype_pair[1]
+                        if isinstance(subtype_pair, list) and len(subtype_pair) > 1
+                        else None
+                    )
+                    attachments = msg.get("attachment_ids") or []
+                    outlook_msg_id = msg.get(outlook_field) if outlook_field in msg_fields else None
+                    if outlook_msg_id is False:
+                        outlook_msg_id = None
+                except Exception:
+                    logger.error(
+                        "post_message: mail.message %s was posted to %s:%s but reading "
+                        "the message back failed; returning success with degraded detail",
+                        message_id,
+                        model,
+                        record_id,
+                        exc_info=True,
+                    )
+                    degraded.append("message details")
 
                 # Read notifications fan-out
-                notif_rows = connection.search_read(
-                    "mail.notification",
-                    [("mail_message_id", "=", message_id)],
-                    [
-                        "res_partner_id",
-                        "notification_type",
-                        "notification_status",
-                        "failure_reason",
-                    ],
-                )
                 notifications: List[Dict[str, Any]] = []
-                for n in notif_rows:
-                    p = n.get("res_partner_id") or [None, ""]
-                    notifications.append(
-                        {
-                            "partner_id": p[0] if isinstance(p, list) else None,
-                            "partner_name": p[1] if isinstance(p, list) and len(p) > 1 else "",
-                            "type": n.get("notification_type") or "",
-                            "status": n.get("notification_status") or "",
-                            "failure_reason": n.get("failure_reason") or None,
-                        }
+                try:
+                    notif_rows = connection.search_read(
+                        "mail.notification",
+                        [("mail_message_id", "=", message_id)],
+                        [
+                            "res_partner_id",
+                            "notification_type",
+                            "notification_status",
+                            "failure_reason",
+                        ],
                     )
+                    for n in notif_rows:
+                        p = n.get("res_partner_id") or [None, ""]
+                        notifications.append(
+                            {
+                                "partner_id": p[0] if isinstance(p, list) else None,
+                                "partner_name": p[1] if isinstance(p, list) and len(p) > 1 else "",
+                                "type": n.get("notification_type") or "",
+                                "status": n.get("notification_status") or "",
+                                "failure_reason": n.get("failure_reason") or None,
+                            }
+                        )
+                except Exception:
+                    logger.error(
+                        "post_message: mail.message %s was posted to %s:%s but reading "
+                        "the notification fan-out failed; returning success with "
+                        "degraded detail",
+                        message_id,
+                        model,
+                        record_id,
+                        exc_info=True,
+                    )
+                    degraded.append("notification status")
 
                 base_url = (
                     getattr(connection, "_base_url", None)
@@ -237,6 +273,11 @@ class MessagingToolsMixin:
                     )
                 if outlook_msg_id:
                     summary_bits.append("sent via Microsoft Graph")
+                if degraded:
+                    summary_bits.append(
+                        "the message was posted, but Odoo could not return "
+                        f"{' and '.join(degraded)} (see server logs)"
+                    )
 
                 return {
                     "success": True,
@@ -246,6 +287,7 @@ class MessagingToolsMixin:
                     "notifications": notifications,
                     "outlook_pro_message_id": outlook_msg_id,
                     "record_url": record_url,
+                    "degraded_details": degraded,
                     "message": "; ".join(summary_bits),
                 }
 
