@@ -3,17 +3,14 @@
 The full UsageTracker (Postgres + PostHog) lives in odoo-mcp-pro-admin
 and is tested there. This file only covers what the open source package
 exposes: DEFAULT_DAILY_LIMIT, RateLimitExceeded, track_event,
-SessionLifecycleMiddleware, and OdooToolHandler's tracker integration.
+and OdooToolHandler's tracker integration.
 """
 
-from unittest.mock import AsyncMock, MagicMock
-
-import pytest
+from unittest.mock import MagicMock
 
 from mcp_server_odoo.usage import (
     DEFAULT_DAILY_LIMIT,
     RateLimitExceeded,
-    SessionLifecycleMiddleware,
     track_event,
 )
 
@@ -40,20 +37,6 @@ class TestTrackEvent:
         """Stub is a no-op; install admin package for real tracking."""
         assert track_event("test_event") is None
         assert track_event("test_event", distinct_id="user-1", properties={"k": "v"}) is None
-
-
-class TestSessionLifecycleMiddleware:
-    @pytest.mark.asyncio
-    async def test_passes_through(self):
-        app = AsyncMock()
-        middleware = SessionLifecycleMiddleware(app)
-
-        scope = {"type": "http"}
-        receive = AsyncMock()
-        send = AsyncMock()
-
-        await middleware(scope, receive, send)
-        app.assert_awaited_once_with(scope, receive, send)
 
 
 class TestToolHandlerTracking:

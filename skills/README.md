@@ -60,6 +60,7 @@ odoo_modules_any: [sale_management, crm]
 | `cleaning` | Deduplicate, enrich, fix data quality |
 | `permissions` | Groups, access rights, record rules |
 | `communications` | Chatter messages, notes, activities, attachments, followers (mail.thread API) |
+| `humanizer` | Strip AI tells from user-facing copy (emails, descriptions, website text) |
 
 ### Flagship skills
 

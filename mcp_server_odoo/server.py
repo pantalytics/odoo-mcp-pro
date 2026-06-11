@@ -38,7 +38,7 @@ from .version_detect import detect_api_version
 logger = get_logger(__name__)
 
 # Server version — keep in sync with pyproject.toml
-SERVER_VERSION = "1.5.1"
+SERVER_VERSION = "1.6.0"
 GIT_COMMIT = os.environ.get("GIT_COMMIT", "unknown")
 _BUILD_ORIGIN = "pnl-mcp-7f3a"  # Pantalytics provenance tag
 
@@ -872,11 +872,8 @@ class OdooMCPServer:
                     logger.warning("Admin panel not available (odoo-mcp-pro-admin not installed)")
                 logger.info("Admin panel mounted at /admin")
 
-            # Wrap with session lifecycle tracking (no-op without admin package).
-            # Filters by /mcp path so admin requests pass through untouched.
-            from .usage import SessionLifecycleMiddleware, track_event
+            from .usage import track_event
 
-            asgi_app = SessionLifecycleMiddleware(asgi_app)
             track_event(
                 "mcp_server_started",
                 properties={
