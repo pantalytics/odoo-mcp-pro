@@ -35,7 +35,7 @@ dependencies = [
     "curl_cffi>=0.15.0",
     "python-dotenv>=1.2.2",
     "pydantic>=2.13.4",
-    "pydantic-settings>=2.14.1",
+    "pydantic-settings>=2.14.2",
 ]
 
 [project.urls]
