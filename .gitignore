@@ -61,6 +61,8 @@ coverage.xml
 # Environment files
 .env.local
 .env.*.local
+# Real env for the self-host compose deployment (template is committed)
+odoo-mcp.env
 
 # Deployment
 deploy/instances.yml

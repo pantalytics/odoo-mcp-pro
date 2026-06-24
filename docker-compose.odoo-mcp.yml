@@ -1,0 +1,58 @@
+# Snippet to merge into your existing docker-compose.yml on the server.
+# Assumes Traefik is the reverse proxy, already attached to an external network
+# named `traefik` (rename to match yours), with TLS via a resolver called
+# `letsencrypt` (rename to match your Traefik config).
+#
+# AUTH: the public odoo-mcp-pro package has NO built-in HTTP auth, so this gate
+# lives in Traefik. The middleware below enforces a static bearer API key —
+# works with Claude Code via `--header "Authorization: Bearer <KEY>"`.
+# (claude.ai web Custom Connectors require OAuth instead — see notes.)
+
+services:
+  odoo-mcp:
+    # Built and pushed in CI; pull by digest/tag. Replace with your registry path.
+    image: registry.example.com/odoo-mcp-pro:2.2.0
+    container_name: odoo-mcp
+    restart: unless-stopped
+    env_file:
+      - ./odoo-mcp.env
+    environment:
+      ODOO_MCP_TRANSPORT: streamable-http
+      ODOO_MCP_HOST: 0.0.0.0
+      ODOO_MCP_PORT: "8000"
+    expose:
+      - "8000"                         # internal only; never publish ports for an authless app
+    networks:
+      - traefik
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1',8000),3).close()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+
+      # --- Router (change the Host() to your domain) ---
+      - "traefik.http.routers.odoo-mcp.rule=Host(`mcp.example.com`)"
+      - "traefik.http.routers.odoo-mcp.entrypoints=websecure"
+      - "traefik.http.routers.odoo-mcp.tls=true"
+      - "traefik.http.routers.odoo-mcp.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.odoo-mcp.service=odoo-mcp"
+      - "traefik.http.routers.odoo-mcp.middlewares=odoo-mcp-auth@docker"
+
+      # --- Backend port (container-internal) ---
+      - "traefik.http.services.odoo-mcp.loadbalancer.server.port=8000"
+
+      # --- API-key gate via BasicAuth (built-in, label-only) ---
+      # The API key is the password. Generate the hash with:
+      #   htpasswd -nbB mcp 'YOUR_API_KEY'
+      # then paste it below, DOUBLING every `$` (compose treats `$` as a var):
+      #   e.g. $2y$05$... becomes $$2y$$05$$...
+      - "traefik.http.middlewares.odoo-mcp-auth.basicauth.users=mcp:$$2y$$05$$REPLACE_WITH_HASHED_KEY"
+      - "traefik.http.middlewares.odoo-mcp-auth.basicauth.realm=odoo-mcp"
+
+networks:
+  traefik:
+    external: true
