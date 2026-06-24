@@ -10,8 +10,8 @@
 
 services:
   odoo-mcp:
-    # Built and pushed in CI; pull by digest/tag. Replace with your registry path.
-    image: registry.example.com/odoo-mcp-pro:2.2.0
+    # Built and pushed to GHCR by .github/workflows/docker.yml on each release.
+    image: ghcr.io/abate/odoo-mcp-pro:2.2.0
     container_name: odoo-mcp
     restart: unless-stopped
     env_file:

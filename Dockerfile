@@ -28,8 +28,12 @@ RUN useradd --create-home --uid 10001 app
 WORKDIR /app
 COPY --from=builder --chown=app:app /app /app
 
+# Commit the image was built from; surfaced by the server's health/version output.
+ARG GIT_COMMIT=unknown
+
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
+    GIT_COMMIT=${GIT_COMMIT} \
     ODOO_MCP_TRANSPORT=streamable-http \
     ODOO_MCP_HOST=0.0.0.0 \
     ODOO_MCP_PORT=8000
