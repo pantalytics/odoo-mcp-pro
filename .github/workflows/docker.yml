@@ -34,6 +34,30 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
+    # Build a single-arch image into the local Docker daemon and run it, so a
+    # missing/broken dependency (e.g. a stale uv.lock) fails CI here instead of
+    # shipping a broken image. The multi-arch push below reuses this build cache.
+    - name: Build image for smoke test
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        platforms: linux/amd64
+        push: false
+        load: true
+        tags: odoo-mcp-smoke:test
+        build-args: |
+          GIT_COMMIT=${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Smoke test (imports resolve, entrypoint runs)
+      run: |
+        # All module-level imports must resolve (this is where curl_cffi failed).
+        docker run --rm odoo-mcp-smoke:test \
+          python -c "import mcp_server_odoo.server, curl_cffi; print('imports ok')"
+        # The CLI entrypoint must load without import/config errors.
+        docker run --rm odoo-mcp-smoke:test mcp-server-odoo --help > /dev/null
+
     - name: Extract image metadata (tags, labels)
       id: meta
       uses: docker/metadata-action@v5
