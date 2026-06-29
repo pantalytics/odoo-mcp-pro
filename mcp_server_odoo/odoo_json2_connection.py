@@ -187,7 +187,11 @@ class OdooJSON2Connection(Json2OrmMixin):
             self._client = cffi_requests.Session(
                 impersonate="chrome",
                 timeout=self.timeout,
-                allow_redirects=True,
+                # SSRF: the host was SSRF-checked before we got here, but a
+                # redirect would re-dial an unchecked target (e.g. cloud
+                # metadata). Don't follow them; a real Odoo API base does not
+                # redirect its /json/2 calls.
+                allow_redirects=False,
             )
 
             # Test connection by fetching server version

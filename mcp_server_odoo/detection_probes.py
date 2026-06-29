@@ -127,7 +127,7 @@ def _probe_web_version(url: str, timeout: int) -> ProbeResult:
         f"{url}/web/version",
         impersonate=_IMPERSONATE,
         timeout=timeout,
-        allow_redirects=True,
+        allow_redirects=False,  # SSRF: never follow a redirect to an unchecked host
     )
     summary: Dict[str, Any] = {}
     if r.status_code == 200:
@@ -159,7 +159,7 @@ def _probe_web_health(url: str, timeout: int) -> ProbeResult:
         f"{url}/web/health",
         impersonate=_IMPERSONATE,
         timeout=timeout,
-        allow_redirects=True,
+        allow_redirects=False,  # SSRF: never follow a redirect to an unchecked host
     )
     text = (r.text or "")[:300]
     is_odoo_health = r.status_code == 200 and "pass" in text
@@ -180,7 +180,7 @@ def _probe_web_login(url: str, timeout: int) -> ProbeResult:
         f"{url}/web/login",
         impersonate=_IMPERSONATE,
         timeout=timeout,
-        allow_redirects=True,
+        allow_redirects=False,  # SSRF: never follow a redirect to an unchecked host
     )
     text_low = (r.text or "").lower()
     has_o_login = "o_login" in text_low or "o_database_list" in text_low
@@ -213,7 +213,7 @@ def _probe_root_headers(url: str, timeout: int) -> ProbeResult:
         url,
         impersonate=_IMPERSONATE,
         timeout=timeout,
-        allow_redirects=True,
+        allow_redirects=False,  # SSRF: never follow a redirect to an unchecked host
     )
     server = ""
     try:
@@ -243,7 +243,7 @@ def _probe_jsonrpc_version(url: str, timeout: int) -> ProbeResult:
         json=body,
         impersonate=_IMPERSONATE,
         timeout=timeout,
-        allow_redirects=True,
+        allow_redirects=False,  # SSRF: never follow a redirect to an unchecked host
     )
     summary: Dict[str, Any] = {}
     if r.status_code == 200:
@@ -282,7 +282,7 @@ def _probe_json2_unauth(url: str, timeout: int) -> ProbeResult:
         json={},
         impersonate=_IMPERSONATE,
         timeout=timeout,
-        allow_redirects=True,
+        allow_redirects=False,  # SSRF: never follow a redirect to an unchecked host
     )
     summary: Dict[str, Any] = {"status_code": r.status_code}
     supports_json2 = False
