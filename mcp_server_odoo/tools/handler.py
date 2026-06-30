@@ -57,6 +57,8 @@ class OdooToolHandler(
     async def _get_user_context(
         self,
         connection: Optional[str] = None,
+        *,
+        writes: bool = False,
     ) -> Tuple[OdooConnectionProtocol, AccessController, str]:
         """Get connection and access controller for the current request.
 
@@ -66,6 +68,10 @@ class OdooToolHandler(
         Args:
             connection: optional connection selector, honored only by the
                 multi-tenant hosted handler; ignored in single-connection mode.
+            writes: True for tools that mutate Odoo. The multi-tenant handler
+                uses it to refuse an ambiguous write (several connections active,
+                none named) so it cannot hit the wrong database; ignored in
+                single-connection mode, where there is nothing to disambiguate.
 
         Returns:
             Tuple of (connection, access_controller, sub)

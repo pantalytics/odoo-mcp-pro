@@ -130,7 +130,9 @@ class MessagingToolsMixin:
     ) -> Dict[str, Any]:
         """Handle post_message tool request."""
         try:
-            connection, access_controller, sub = await self._get_user_context(connection_selector)
+            connection, access_controller, sub = await self._get_user_context(
+                connection_selector, writes=True
+            )
             with perf_logger.track_operation("tool_post_message", model=model):
                 # Posting to chatter requires write access on the model
                 access_controller.validate_model_access(model, "write")

@@ -113,7 +113,7 @@ class BinaryToolsMixin:
         try:
             async with _BINARY_UPLOAD_SEMAPHORE:
                 connection, access_controller, sub = await self._get_user_context(
-                    connection_selector
+                    connection_selector, writes=True
                 )
                 with perf_logger.track_operation("tool_set_binary_field", model=model):
                     access_controller.validate_model_access(model, "write")

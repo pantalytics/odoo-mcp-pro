@@ -121,7 +121,9 @@ class CrudToolsMixin:
     ) -> Dict[str, Any]:
         """Handle create record tool request."""
         try:
-            connection, access_controller, sub = await self._get_user_context(connection_selector)
+            connection, access_controller, sub = await self._get_user_context(
+                connection_selector, writes=True
+            )
             with perf_logger.track_operation("tool_create_record", model=model):
                 # Check model access
                 access_controller.validate_model_access(model, "create")
@@ -200,7 +202,9 @@ class CrudToolsMixin:
     ) -> Dict[str, Any]:
         """Handle update record tool request."""
         try:
-            connection, access_controller, sub = await self._get_user_context(connection_selector)
+            connection, access_controller, sub = await self._get_user_context(
+                connection_selector, writes=True
+            )
             with perf_logger.track_operation("tool_update_record", model=model):
                 # Check model access
                 access_controller.validate_model_access(model, "write")
@@ -289,7 +293,9 @@ class CrudToolsMixin:
     ) -> Dict[str, Any]:
         """Handle delete record tool request."""
         try:
-            connection, access_controller, sub = await self._get_user_context(connection_selector)
+            connection, access_controller, sub = await self._get_user_context(
+                connection_selector, writes=True
+            )
             with perf_logger.track_operation("tool_delete_record", model=model):
                 # Check model access
                 access_controller.validate_model_access(model, "unlink")

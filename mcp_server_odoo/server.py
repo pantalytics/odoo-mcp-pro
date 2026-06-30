@@ -34,22 +34,31 @@ from .version_detect import detect_api_version
 logger = get_logger(__name__)
 
 # Server version — keep in sync with pyproject.toml
-SERVER_VERSION = "2.2.0"
+SERVER_VERSION = "2.3.1"
 GIT_COMMIT = os.environ.get("GIT_COMMIT", "unknown")
 _BUILD_ORIGIN = "pnl-mcp-7f3a"  # Pantalytics provenance tag
 
 
-def create_fastmcp_app(*, auth=None, token_verifier=None) -> FastMCP:
+def create_fastmcp_app(
+    *, auth=None, token_verifier=None, extra_instructions: str | None = None
+) -> FastMCP:
     """Create the FastMCP app with the canonical server settings.
 
     Single source of truth for FastMCP construction — used by OdooMCPServer
     and by the private admin package's multi-tenant entry point. stateless_http
     so any replica can serve any request (blue/green deploys don't drop client
     connections with "No transport found for sessionId").
+
+    ``extra_instructions`` is appended to the handshake instructions. Self-hosted
+    (single connection) passes nothing; the multi-tenant admin layer uses it to
+    teach the client about choosing between several live connections.
     """
+    instructions = SERVER_INSTRUCTIONS
+    if extra_instructions:
+        instructions = f"{instructions}\n{extra_instructions}"
     app = FastMCP(
         name="odoo-mcp-server",
-        instructions=SERVER_INSTRUCTIONS,
+        instructions=instructions,
         auth=auth,
         token_verifier=token_verifier,
         stateless_http=True,

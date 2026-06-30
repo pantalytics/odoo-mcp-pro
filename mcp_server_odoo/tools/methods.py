@@ -149,7 +149,9 @@ class MethodsToolsMixin:
     ) -> Dict[str, Any]:
         """Handle execute_method tool request."""
         try:
-            connection, access_controller, sub = await self._get_user_context(connection_selector)
+            connection, access_controller, sub = await self._get_user_context(
+                connection_selector, writes=True
+            )
             with perf_logger.track_operation("tool_execute_method", model=model):
                 if not method or not method.strip():
                     raise ValidationError("method is required")

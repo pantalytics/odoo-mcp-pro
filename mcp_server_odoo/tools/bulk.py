@@ -191,7 +191,9 @@ class BulkToolsMixin:
     ) -> Dict[str, Any]:
         """Handle bulk create tool request."""
         try:
-            connection, access_controller, sub = await self._get_user_context(connection_selector)
+            connection, access_controller, sub = await self._get_user_context(
+                connection_selector, writes=True
+            )
             with perf_logger.track_operation("tool_create_records", model=model):
                 access_controller.validate_model_access(model, "create")
                 if not connection.is_authenticated:
@@ -235,7 +237,9 @@ class BulkToolsMixin:
     ) -> Dict[str, Any]:
         """Handle bulk update tool request."""
         try:
-            connection, access_controller, sub = await self._get_user_context(connection_selector)
+            connection, access_controller, sub = await self._get_user_context(
+                connection_selector, writes=True
+            )
             with perf_logger.track_operation("tool_update_records", model=model):
                 access_controller.validate_model_access(model, "write")
                 if not connection.is_authenticated:
@@ -278,7 +282,9 @@ class BulkToolsMixin:
     ) -> Dict[str, Any]:
         """Handle bulk delete tool request."""
         try:
-            connection, access_controller, sub = await self._get_user_context(connection_selector)
+            connection, access_controller, sub = await self._get_user_context(
+                connection_selector, writes=True
+            )
             with perf_logger.track_operation("tool_delete_records", model=model):
                 access_controller.validate_model_access(model, "unlink")
                 if not connection.is_authenticated:
@@ -321,7 +327,9 @@ class BulkToolsMixin:
     ) -> Dict[str, Any]:
         """Handle import_records tool request using Odoo's load() method."""
         try:
-            connection, access_controller, sub = await self._get_user_context(connection_selector)
+            connection, access_controller, sub = await self._get_user_context(
+                connection_selector, writes=True
+            )
             with perf_logger.track_operation("tool_import_records", model=model):
                 access_controller.validate_model_access(model, "create")
                 access_controller.validate_model_access(model, "write")

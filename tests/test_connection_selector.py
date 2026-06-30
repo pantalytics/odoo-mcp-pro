@@ -6,7 +6,9 @@ mode there is a single connection, so the selector is ignored. These tests pin
 two contracts:
 
 1. Every tool that resolves a connection forwards its `connection` argument
-   (and None when omitted) to `_get_user_context`.
+   (and None when omitted) to `_get_user_context`. Mutating tools also pass
+   `writes=True` so the hosted layer can refuse an ambiguous write; read tools
+   do not.
 2. server_info exposes a `connections` list iff `_available_connections`
    returns one, and omits it (None) otherwise.
 
@@ -101,7 +103,7 @@ class TestSelectorForwarding:
             model="res.partner", values={"name": "x"}, connection="7"
         )
 
-        ctx.assert_awaited_once_with("7")
+        ctx.assert_awaited_once_with("7", writes=True)
 
     @pytest.mark.asyncio
     async def test_update_record_forwards_selector(
@@ -116,7 +118,7 @@ class TestSelectorForwarding:
             model="res.partner", record_id=1, values={"name": "y"}, connection="7"
         )
 
-        ctx.assert_awaited_once_with("7")
+        ctx.assert_awaited_once_with("7", writes=True)
 
     @pytest.mark.asyncio
     async def test_delete_record_forwards_selector(
@@ -128,7 +130,7 @@ class TestSelectorForwarding:
 
         await mock_app._tools["delete_record"](model="res.partner", record_id=1, connection="7")
 
-        ctx.assert_awaited_once_with("7")
+        ctx.assert_awaited_once_with("7", writes=True)
 
     @pytest.mark.asyncio
     async def test_create_records_forwards_selector(
@@ -141,7 +143,7 @@ class TestSelectorForwarding:
             model="res.partner", vals_list=[{"name": "a"}, {"name": "b"}], connection="7"
         )
 
-        ctx.assert_awaited_once_with("7")
+        ctx.assert_awaited_once_with("7", writes=True)
 
     @pytest.mark.asyncio
     async def test_update_records_forwards_selector(
@@ -154,7 +156,7 @@ class TestSelectorForwarding:
             model="res.partner", record_ids=[1, 2], values={"name": "y"}, connection="7"
         )
 
-        ctx.assert_awaited_once_with("7")
+        ctx.assert_awaited_once_with("7", writes=True)
 
     @pytest.mark.asyncio
     async def test_delete_records_forwards_selector(
@@ -167,7 +169,7 @@ class TestSelectorForwarding:
             model="res.partner", record_ids=[1, 2], connection="7"
         )
 
-        ctx.assert_awaited_once_with("7")
+        ctx.assert_awaited_once_with("7", writes=True)
 
     @pytest.mark.asyncio
     async def test_import_records_forwards_selector(
@@ -183,7 +185,7 @@ class TestSelectorForwarding:
             connection="7",
         )
 
-        ctx.assert_awaited_once_with("7")
+        ctx.assert_awaited_once_with("7", writes=True)
 
     @pytest.mark.asyncio
     async def test_list_models_forwards_selector(
@@ -209,7 +211,7 @@ class TestSelectorForwarding:
             model="sale.order", method="action_confirm", ids=[1], connection="7"
         )
 
-        ctx.assert_awaited_once_with("7")
+        ctx.assert_awaited_once_with("7", writes=True)
 
 
 class TestServerInfoConnections:
