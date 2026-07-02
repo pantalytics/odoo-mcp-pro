@@ -22,11 +22,12 @@ context as an unevaluated string).
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, Field
 
 from ..connection_protocol import OdooConnectionProtocol
+from ..error_handling import ValidationError
 
 # --- Per-wizard decision schemas (primitive fields only, per the MCP
 #     elicitation spec: no nested objects or arrays of objects). ---
@@ -78,6 +79,21 @@ class ReverseMovesDecision(BaseModel):
     )
     journal_id: Optional[int] = Field(
         default=None, description="Journal for the credit note. Omit for the move's own journal."
+    )
+
+
+class MergePartnersDecision(BaseModel):
+    """Decision for the base.partner.merge.automatic.wizard (merge duplicate
+    contacts). The contacts to merge are the recordset passed in `ids`; the one
+    field here is which of them survives."""
+
+    dst_partner_id: int = Field(
+        description=(
+            "Id of the contact to KEEP (the survivor). Must be one of the ids "
+            "passed in `ids`. Every other contact in `ids` is merged into it "
+            "(their messages, activities and references are moved over) and then "
+            "removed. This CANNOT be undone."
+        ),
     )
 
 
@@ -217,6 +233,55 @@ def _apply_reverse_moves(
     }
 
 
+def _apply_merge_partners(
+    connection: OdooConnectionProtocol,
+    action: Dict[str, Any],
+    data: Dict[str, Any],
+    origin_model: str,
+    origin_ids: List[int],
+) -> Dict[str, Any]:
+    """Merge duplicate res.partner records via Odoo's own merge wizard.
+
+    Unlike the follow-up wizards above, this is an ENTRY wizard: no upstream
+    method hands us an action, so `origin_ids` are the CONTACT ids to merge (the
+    recordset the caller aimed the merge at), not wizard ids. We create the
+    transient wizard with those partners and the chosen survivor, then call the
+    wizard's own action_merge. action_merge performs the merge and returns an
+    act_window that just reopens the (now finished) wizard -- the merge is done
+    by the time it returns. Validated against live Odoo (see PR).
+    """
+    partner_ids = list(origin_ids or [])
+    if len(partner_ids) < 2:
+        raise ValidationError(
+            "Merging contacts needs at least two contact ids in `ids` "
+            "(the duplicates to merge together)."
+        )
+    dst = data.get("dst_partner_id")
+    if dst not in partner_ids:
+        raise ValidationError(
+            f"dst_partner_id ({dst}) must be one of the contact ids in `ids` "
+            f"{partner_ids} -- it is the contact to keep."
+        )
+    # default_get of the merge wizard reads active_ids (res.partner) to populate
+    # partner_ids; we also pass partner_ids explicitly so it is self-contained.
+    ctx = {
+        "active_model": "res.partner",
+        "active_ids": partner_ids,
+        "active_id": partner_ids[0],
+    }
+    vals = {"partner_ids": [(6, 0, partner_ids)], "dst_partner_id": dst}
+    wiz_id = connection.create("base.partner.merge.automatic.wizard", vals, context=ctx)
+    result = connection.call_method(
+        "base.partner.merge.automatic.wizard", "action_merge", ids=[wiz_id], context=ctx
+    )
+    merged = len(partner_ids) - 1
+    return {
+        "completion_method": "action_merge",
+        "result": result,
+        "message": f"Merged {merged} duplicate contact(s) into contact {dst}.",
+    }
+
+
 class WizardHandler:
     """Knows how to ask the follow-up and how to complete one wizard."""
 
@@ -266,6 +331,30 @@ def get_handler(action: Optional[Dict[str, Any]]) -> Optional[WizardHandler]:
     if not isinstance(action, dict):
         return None
     return WIZARD_REGISTRY.get(action.get("res_model"))
+
+
+# --- Entry wizards: driven by a direct (model, method) call, not by an action
+#     Odoo hands back. These do the work inside their own action_* method (Odoo's
+#     merge wizard merges, then returns an act_window that just reopens itself),
+#     so we intercept the call BEFORE hitting Odoo and route it through the same
+#     discover/complete flow. Kept out of WIZARD_REGISTRY so the reopen action
+#     they return is NOT mistaken for a further follow-up. ---
+
+ENTRY_WIZARD_REGISTRY: Dict[Tuple[str, str], WizardHandler] = {
+    ("base.partner.merge.automatic.wizard", "action_merge"): WizardHandler(
+        "base.partner.merge.automatic.wizard",
+        MergePartnersDecision,
+        _apply_merge_partners,
+        "Merge these contacts into one? Pass the contacts as `ids` and "
+        "dst_partner_id (the contact to keep); the others are merged in and "
+        "removed. This cannot be undone.",
+    ),
+}
+
+
+def get_entry_handler(model: str, method: str) -> Optional[WizardHandler]:
+    """Return the handler for a wizard invoked directly, or None if unknown."""
+    return ENTRY_WIZARD_REGISTRY.get((model, method))
 
 
 def followup_descriptor(handler: WizardHandler) -> Dict[str, Any]:

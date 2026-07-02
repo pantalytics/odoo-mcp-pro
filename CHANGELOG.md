@@ -11,6 +11,9 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+### Added
+- **Merge duplicate contacts via `execute_method`**: `base.partner.merge.automatic.wizard` / `action_merge` is now a supported entry wizard. Pass the contacts to merge in `ids`; omit `decision` to be told the one choice (`dst_partner_id`, the contact to keep), then re-call with `decision={"dst_partner_id": <id>}`. Odoo's merge method does its work and then returns an action that only reopens the (finished) wizard, so previously the caller saw a false "not supported, nothing changed" while the merge had in fact happened, a dangerous false negative on an irreversible action. The call is now intercepted before the raw method fires (so discovery never merges), driven to completion, and reported as `completed`. It refuses clearly when fewer than two contacts are given or the survivor is not among them.
+
 ## [2.2.0] - 2026-06-18
 
 ### Added
