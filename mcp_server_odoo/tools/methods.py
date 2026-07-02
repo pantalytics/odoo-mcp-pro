@@ -24,7 +24,7 @@ from ..logging_config import perf_logger
 from ..odoo_connection import OdooConnectionError
 from ..schemas import ExecuteMethodResult
 from ._common import _current_sub, logger, run_blocking
-from .wizards import WizardHandler, followup_descriptor, get_handler
+from .wizards import WizardHandler, followup_descriptor, get_entry_handler, get_handler
 
 _ACTION_SHAPE_KEYS = ("view_mode", "views", "target", "res_id", "domain")
 
@@ -107,6 +107,12 @@ class MethodsToolsMixin:
             re-call with `decision` filled in. This two-step flow is stateless: it
             needs no live back-and-forth with your client.
 
+            Merging duplicate contacts uses the same flow: call
+            model='base.partner.merge.automatic.wizard', method='action_merge'
+            with `ids` set to the contact ids to merge. Omit `decision` to be told
+            the one choice (dst_partner_id, the contact to keep), then re-call with
+            decision={"dst_partner_id": <id>}. The merge cannot be undone.
+
             Args:
                 model: Odoo model name, e.g. 'sale.order', 'account.move'.
                 method: Public method to call, e.g. 'action_confirm',
@@ -169,6 +175,29 @@ class MethodsToolsMixin:
 
                 if not connection.is_authenticated:
                     raise ValidationError("Not authenticated with Odoo")
+
+                # Entry wizards (e.g. contact merge) do their work inside their
+                # own action_* method and only return an act_window that reopens
+                # themselves. We must NOT fire that raw method to "discover" it --
+                # that would already perform the merge. Intercept before the RPC
+                # and route through the same discover/complete flow instead.
+                entry_handler = get_entry_handler(model, method)
+                if entry_handler is not None:
+                    synthetic_action = {
+                        "type": "ir.actions.act_window",
+                        "res_model": entry_handler.res_model,
+                    }
+                    return await run_blocking(
+                        connection,
+                        self._drive_wizard,
+                        connection,
+                        entry_handler,
+                        synthetic_action,
+                        decision,
+                        model,
+                        method,
+                        ids or [],
+                    )
 
                 value = await run_blocking(
                     connection, connection.call_method, model, method, ids=ids, **(kwargs or {})

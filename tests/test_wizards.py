@@ -373,3 +373,106 @@ class TestUndoWizards:
             "account.move.reversal",
             "reverse_moves",
         )
+
+
+class TestMergeContactsEntryWizard:
+    """Contact merge is an ENTRY wizard: the caller invokes the wizard's
+    action_merge directly (no upstream Odoo action), `ids` are the contacts to
+    merge, and the single decision is which one survives. The raw method is NEVER
+    fired to 'discover' -- that would already perform the merge."""
+
+    @pytest.fixture
+    def mock_app(self):
+        app = Mock()
+        app.tool = Mock(side_effect=lambda **kwargs: lambda func: func)
+        return app
+
+    @pytest.fixture
+    def mock_connection(self):
+        conn = Mock()
+        conn.is_authenticated = True
+        conn._base_url = "http://localhost:8069"
+        return conn
+
+    @pytest.fixture
+    def handler(self, mock_app, mock_connection):
+        ac = Mock()
+        ac.validate_model_access = Mock()
+        config = Mock()
+        config.url = "http://localhost:8069"
+        return OdooToolHandler(mock_app, mock_connection, ac, config)
+
+    @pytest.mark.asyncio
+    async def test_no_decision_defers_without_touching_odoo(self, handler, mock_connection):
+        """Discover must NOT call the wizard (no merge on discovery)."""
+        result = await handler._handle_execute_method_tool(
+            "base.partner.merge.automatic.wizard", "action_merge", ids=[35, 36]
+        )
+
+        assert result["result_kind"] == "action"
+        assert result["followup"]["wizard"] == "base.partner.merge.automatic.wizard"
+        assert "dst_partner_id" in result["followup"]["decision_fields"]
+        mock_connection.call_method.assert_not_called()
+        mock_connection.create.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_decision_merges_into_survivor(self, handler, mock_connection):
+        """A decision creates the wizard with the contacts + survivor and calls
+        action_merge once. action_merge returns a reopen action; the merge is
+        already done, so we report 'completed', not 'unsupported'."""
+        reopen = {
+            "type": "ir.actions.act_window",
+            "res_model": "base.partner.merge.automatic.wizard",
+            "res_id": 1,
+        }
+        mock_connection.call_method.return_value = reopen
+        mock_connection.create.return_value = 1
+
+        result = await handler._handle_execute_method_tool(
+            "base.partner.merge.automatic.wizard",
+            "action_merge",
+            ids=[35, 36],
+            decision={"dst_partner_id": 35},
+        )
+
+        assert result["result_kind"] == "completed"
+        model_arg, vals_arg = mock_connection.create.call_args.args
+        assert model_arg == "base.partner.merge.automatic.wizard"
+        assert vals_arg == {"partner_ids": [(6, 0, [35, 36])], "dst_partner_id": 35}
+        ctx = mock_connection.create.call_args.kwargs["context"]
+        assert ctx["active_model"] == "res.partner"
+        assert ctx["active_ids"] == [35, 36]
+        # Exactly one wizard call: action_merge on the created wizard.
+        assert mock_connection.call_method.call_count == 1
+        assert mock_connection.call_method.call_args.args[:2] == (
+            "base.partner.merge.automatic.wizard",
+            "action_merge",
+        )
+        assert mock_connection.call_method.call_args.kwargs["ids"] == [1]
+
+    @pytest.mark.asyncio
+    async def test_survivor_must_be_in_ids(self, handler, mock_connection):
+        """dst_partner_id outside `ids` is refused before any merge runs."""
+        with pytest.raises(ValidationError, match="must be one of the contact ids"):
+            await handler._handle_execute_method_tool(
+                "base.partner.merge.automatic.wizard",
+                "action_merge",
+                ids=[35, 36],
+                decision={"dst_partner_id": 99},
+            )
+
+        mock_connection.create.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_needs_at_least_two_contacts(self, handler, mock_connection):
+        """A single id (e.g. someone passing a wizard id the old way) cannot
+        silently merge; it errors before creating anything."""
+        with pytest.raises(ValidationError, match="at least two contact ids"):
+            await handler._handle_execute_method_tool(
+                "base.partner.merge.automatic.wizard",
+                "action_merge",
+                ids=[1],
+                decision={"dst_partner_id": 1},
+            )
+
+        mock_connection.create.assert_not_called()
