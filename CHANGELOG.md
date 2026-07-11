@@ -11,6 +11,18 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+## [2.3.2] - 2026-07-11
+
+### Changed
+- Licensing now reflects the project's origins. odoo-mcp-pro is a fork of
+  [mcp-server-odoo](https://github.com/ivnvxd/mcp-server-odoo) by Andrey Ivanov
+  (MPL-2.0). The files derived from that project keep their Mozilla Public
+  License 2.0, each with an `SPDX-License-Identifier: MPL-2.0` header, and the
+  full text now ships as `LICENSE.MPL-2.0`. A new `NOTICE` file lists every
+  MPL-covered file. The code Pantalytics added on top (for example
+  `execute_method`, the merge wizards, bulk import, and `post_message`) stays
+  under the Elastic License 2.0. No runtime behavior changes.
+
 ## [2.2.0] - 2026-06-18
 
 ### Added
