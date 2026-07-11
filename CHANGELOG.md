@@ -11,6 +11,15 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+## [2.3.3] - 2026-07-11
+
+### Fixed
+- The reported server version (shown in the admin footer, the `server_info`
+  tool, and `--version`) was stuck at 2.3.1 because `SERVER_VERSION` in
+  `server.py` was a separate constant that lagged the package version. All
+  version strings now read 2.3.3, and a test keeps `SERVER_VERSION`,
+  `__version__`, and `pyproject.toml` in lockstep so they cannot drift again.
+
 ## [2.3.2] - 2026-07-11
 
 ### Changed
