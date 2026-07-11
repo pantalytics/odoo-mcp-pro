@@ -1,10 +1,15 @@
+# SPDX-License-Identifier: MPL-2.0
+# SPDX-FileCopyrightText: 2025 Andrey Ivanov <ivnv.xd@gmail.com>
+# SPDX-FileCopyrightText: 2025-2026 Pantalytics B.V.
+#
+# Derived from mcp-server-odoo (https://github.com/ivnvxd/mcp-server-odoo).
+# This file stays under the Mozilla Public License 2.0; see LICENSE.MPL-2.0.
 """Error message sanitizer for Odoo MCP Server.
 
 This module provides utilities to sanitize error messages before they are
 returned to users, removing internal implementation details while maintaining
 useful information for debugging.
 
-odoo-mcp-pro (c) Pantalytics B.V. -- ref:pnl-4d8b
 """
 
 import re

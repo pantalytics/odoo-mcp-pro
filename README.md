@@ -179,13 +179,18 @@ Hosted, unless you have a strong reason not to. Hosted is running in 5 minutes, 
 
 ## License
 
-[Elastic License 2.0](LICENSE). In plain terms:
+This project is dual-licensed:
+
+- Files derived from the original [mcp-server-odoo](https://github.com/ivnvxd/mcp-server-odoo) by Andrey Ivanov stay under the **Mozilla Public License 2.0** ([LICENSE.MPL-2.0](LICENSE.MPL-2.0)). These files carry an `SPDX-License-Identifier: MPL-2.0` header, and [NOTICE](NOTICE) lists them.
+- Everything else -- the code Pantalytics added on top -- is under the **[Elastic License 2.0](LICENSE)**.
+
+For the Elastic-licensed parts, in plain terms:
 
 - **You may** use, copy, modify, and distribute this software -- including for your own commercial purposes (running it inside your own company, your own Odoo instance, your own projects).
 - **You may not** offer it to third parties as a hosted or managed service that provides them with access to a substantial set of its features -- that's what [Pantalytics](https://pantalytics.com) does, and what the license protects.
 - **You may not** remove license notices or circumvent license key functionality.
 
-Source-available, not OSI-open-source. See the full text in [LICENSE](LICENSE).
+The Elastic-licensed parts are source-available, not OSI-open-source. See [LICENSE](LICENSE), [LICENSE.MPL-2.0](LICENSE.MPL-2.0), and [NOTICE](NOTICE) for the full picture.
 
 ## For Odoo Implementation Partners
 
@@ -197,7 +202,7 @@ Interested? Contact [rutger@pantalytics.com](mailto:rutger@pantalytics.com) for 
 
 **odoo-mcp-pro** is built and maintained by [Pantalytics](https://pantalytics.com), an Odoo implementation partner based in Utrecht, Netherlands.
 
-Originally forked from [mcp-server-odoo](https://github.com/ivnvxd/mcp-server-odoo) by Andrey Ivanov (originally MPL-2.0).
+Originally forked from [mcp-server-odoo](https://github.com/ivnvxd/mcp-server-odoo) by Andrey Ivanov. The files that came from that project remain under the Mozilla Public License 2.0; see [NOTICE](NOTICE).
 
 ---
 

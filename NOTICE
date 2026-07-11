@@ -1,0 +1,66 @@
+odoo-mcp-pro
+============
+
+This project is a derivative of mcp-server-odoo by Andrey Ivanov
+(https://github.com/ivnvxd/mcp-server-odoo), which is licensed under the
+Mozilla Public License 2.0 (MPL-2.0).
+
+Licensing
+---------
+
+odoo-mcp-pro is dual-licensed:
+
+1. Files derived from mcp-server-odoo remain licensed under the Mozilla Public
+   License 2.0. Each such file carries an "SPDX-License-Identifier: MPL-2.0"
+   header. The full license text is in LICENSE.MPL-2.0.
+
+2. All other files -- the parts Pantalytics B.V. added on top -- are licensed
+   under the Elastic License 2.0. The full text is in LICENSE.
+
+Under MPL-2.0, the source of the MPL-covered files (including any modifications
+Pantalytics made to them) stays available under MPL-2.0. The Elastic License 2.0
+applies only to the newly added, non-MPL files.
+
+MPL-2.0 covered files
+---------------------
+
+The following files are derived from mcp-server-odoo and are licensed under
+MPL-2.0. Copyright 2025 Andrey Ivanov <ivnv.xd@gmail.com>, with modifications
+copyright 2025-2026 Pantalytics B.V.
+
+  mcp_server_odoo/__init__.py
+  mcp_server_odoo/__main__.py
+  mcp_server_odoo/access_control.py
+  mcp_server_odoo/config.py
+  mcp_server_odoo/error_handling.py
+  mcp_server_odoo/error_handler.py
+  mcp_server_odoo/error_sanitizer.py
+  mcp_server_odoo/exceptions.py
+  mcp_server_odoo/formatters.py
+  mcp_server_odoo/logging_config.py
+  mcp_server_odoo/performance.py
+  mcp_server_odoo/performance_cache.py
+  mcp_server_odoo/schemas.py
+  mcp_server_odoo/server.py
+  mcp_server_odoo/uri_schema.py
+  mcp_server_odoo/odoo_connection/__init__.py
+  mcp_server_odoo/odoo_connection/auth.py
+  mcp_server_odoo/odoo_connection/core.py
+  mcp_server_odoo/odoo_connection/orm.py
+  mcp_server_odoo/resources/__init__.py
+  mcp_server_odoo/resources/formatting.py
+  mcp_server_odoo/resources/handler.py
+  mcp_server_odoo/resources/retrieval.py
+  mcp_server_odoo/tools/__init__.py
+  mcp_server_odoo/tools/_common.py
+  mcp_server_odoo/tools/crud.py
+  mcp_server_odoo/tools/formatting.py
+  mcp_server_odoo/tools/handler.py
+  mcp_server_odoo/tools/introspection.py
+  mcp_server_odoo/tools/query.py
+
+The SPDX header on each file is authoritative; if this list and the headers ever
+disagree, the header wins. New tools added by Pantalytics (for example
+tools/methods.py, tools/wizards.py, tools/binary.py, tools/bulk.py,
+tools/messaging.py) and other new modules are Elastic License 2.0 and do not
+carry an MPL header.
