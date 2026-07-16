@@ -22,6 +22,13 @@ def _fail(name: str, status_code=None) -> ProbeResult:
     return ProbeResult(name=name, ok=False, latency_ms=100, status_code=status_code)
 
 
+# The aggregator reads the URL: *.odoo.com rules out self-hosting, which is what
+# makes an absent Odoo.sh header point at Online. Default to a host outside
+# Odoo's platform so a test only opts into that logic by passing an odoo.com URL.
+SELF_HOSTED_URL = "https://odoo.acme.example"
+PLATFORM_URL = "https://acme.odoo.com"
+
+
 class TestAggregator:
     """The aggregator is a pure function over ProbeResult lists."""
 
@@ -33,14 +40,17 @@ class TestAggregator:
             _ok("json2_unauth", supports_json2=True),
             _ok("root_headers", server="nginx"),
             _ok("dns_cloudflare", ip="1.2.3.4", is_cloudflare=False),
+            _ok("enterprise_asset", serves_enterprise_asset=True),
         ]
-        r = _aggregate(probes)
+        r = _aggregate(probes, PLATFORM_URL)
         assert r.is_odoo
         assert r.api_version == "json2"
         assert r.major == 19
         assert r.server_version == "saas~19.2+e"
         assert r.hosting == "online"
+        assert r.hosting_confidence == "high"
         assert r.edition == "enterprise"
+        assert r.edition_confidence == "high"
         assert not r.behind_waf
         assert r.confidence == "high"
         assert r.conflicts == []
@@ -53,22 +63,29 @@ class TestAggregator:
             _ok("root_headers", server="Werkzeug"),
             _ok("dns_cloudflare", is_cloudflare=False),
         ]
-        r = _aggregate(probes)
+        r = _aggregate(probes, SELF_HOSTED_URL)
         assert r.api_version == "xmlrpc"
         assert r.major == 18
         assert r.hosting == "self_hosted"
         assert r.edition == "enterprise"
 
-    def test_behind_cloudflare_by_dns(self):
+    def test_behind_cloudflare_keeps_the_real_hosting(self):
+        """A WAF sits on the network path; it is not where the software runs.
+
+        Reporting hosting='behind_waf' overwrote the answer we already had: this
+        instance says saas~, so it is Odoo Online whether or not Cloudflare
+        fronts it. behind_waf rides alongside as its own fact.
+        """
         probes = [
             _ok("web_version", server_version="saas~19.2+e", major=19),
             _ok("json2_unauth", supports_json2=True),
             _ok("dns_cloudflare", ip="104.21.13.7", is_cloudflare=True),
             _ok("root_headers", server="cloudflare"),
         ]
-        r = _aggregate(probes)
+        r = _aggregate(probes, PLATFORM_URL)
         assert r.behind_waf
-        assert r.hosting == "behind_waf"
+        assert r.hosting == "online"
+        assert r.hosting_confidence == "high"
         assert r.api_version == "json2"
 
     def test_odoo_sh_via_server_header(self):
@@ -77,7 +94,7 @@ class TestAggregator:
             _ok("root_headers", server="Odoo.sh"),
             _ok("dns_cloudflare", is_cloudflare=False),
         ]
-        r = _aggregate(probes)
+        r = _aggregate(probes, SELF_HOSTED_URL)
         assert r.hosting == "sh"
 
     def test_json2_endpoint_overrides_version_vote(self):
@@ -88,7 +105,7 @@ class TestAggregator:
             _ok("json2_unauth", supports_json2=True),
             _ok("root_headers", server="nginx"),
         ]
-        r = _aggregate(probes)
+        r = _aggregate(probes, SELF_HOSTED_URL)
         assert r.api_version == "json2"
         assert r.major >= 19
         assert any("json2_endpoint_live" in c for c in r.conflicts)
@@ -99,7 +116,7 @@ class TestAggregator:
             _ok("web_version", server_version="18.0+e", major=18),
             _fail("json2_unauth"),
         ]
-        r = _aggregate(probes)
+        r = _aggregate(probes, SELF_HOSTED_URL)
         # Tie broken by max
         assert r.major == 19
         assert any("disagreement" in c for c in r.conflicts)
@@ -115,7 +132,7 @@ class TestAggregator:
             _fail("root_headers"),
             _fail("dns_cloudflare"),
         ]
-        r = _aggregate(probes)
+        r = _aggregate(probes, SELF_HOSTED_URL)
         assert not r.is_odoo
         assert r.api_version == "unknown"
         assert r.major is None
@@ -130,7 +147,7 @@ class TestAggregator:
             _ok("dns_cloudflare", ip="1.2.3.4", is_cloudflare=False),
             _ok("root_headers", server="Apache"),
         ]
-        r = _aggregate(probes)
+        r = _aggregate(probes, SELF_HOSTED_URL)
         assert not r.is_odoo
         assert r.api_version == "unknown"
 
@@ -141,12 +158,12 @@ class TestAggregator:
             _fail("web_version"),
             _fail("json2_unauth"),
         ]
-        r = _aggregate(probes)
+        r = _aggregate(probes, SELF_HOSTED_URL)
         assert r.confidence == "medium"
 
     def test_to_dict_round_trips(self):
         probes = [_ok("xmlrpc_version", server_version="19.0+e", major=19)]
-        r = _aggregate(probes)
+        r = _aggregate(probes, SELF_HOSTED_URL)
         d = r.to_dict()
         # major=19 -> json2 even without a live json2 probe; the json2
         # endpoint becomes the override when present, not a requirement.
