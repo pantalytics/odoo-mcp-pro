@@ -22,9 +22,15 @@ Probes implemented (see `detection_probes`):
   7. json2_unauth         — POST /json/2/res.users/context_get unauthenticated
                             (401 "Invalid apikey" → JSON/2 endpoint live → v19+)
   8. dns_cloudflare       — DNS A lookup + Cloudflare IP-range check
+  9. enterprise_asset     — GET a web_enterprise static file + a control file
+                            (Community does not ship web_enterprise)
 
 The aggregator turns this into a DetectionResult with api_version,
-server_version, hosting, edition, behind_waf, and a confidence label.
+server_version, hosting, edition, behind_waf, and confidence labels.
+
+Edition and hosting are separate questions and are answered separately, each
+from its own probes -- see `classification` for why deriving one from the other
+loses information. behind_waf is orthogonal to both.
 """
 
 from __future__ import annotations
@@ -35,11 +41,21 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
+from .classification import (  # noqa: F401  (types re-exported for callers)
+    Confidence,
+    Edition,
+    Hosting,
+    combined_confidence,
+    decide_edition,
+    decide_hosting,
+    taxonomy_conflicts,
+)
 from .detection_probes import (  # noqa: F401  (ProbeResult/_parse_major re-exported)
     PROBE_TIMEOUT_SECONDS,
     ProbeResult,
     _parse_major,
     _probe_dns_cloudflare,
+    _probe_enterprise_asset,
     _probe_json2_unauth,
     _probe_jsonrpc_version,
     _probe_root_headers,
@@ -55,9 +71,6 @@ JSON2_MIN_VERSION = 19
 
 
 ApiVersion = Literal["json2", "xmlrpc", "unknown"]
-Hosting = Literal["online", "sh", "self_hosted", "behind_waf", "unknown"]
-Edition = Literal["community", "enterprise"]
-Confidence = Literal["high", "medium", "low"]
 
 
 @dataclass
@@ -72,6 +85,11 @@ class DetectionResult:
     confidence: Confidence
     probes: List[ProbeResult]
     conflicts: List[str]
+    # Per axis, because they are not equally knowable on the same server: a v14
+    # yields a confident hosting and an edition we can only read off "+e".
+    # `confidence` stays the weaker of the two for callers wanting one number.
+    edition_confidence: Confidence = "low"
+    hosting_confidence: Confidence = "low"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -80,7 +98,9 @@ class DetectionResult:
             "server_version": self.server_version,
             "major": self.major,
             "hosting": self.hosting,
+            "hosting_confidence": self.hosting_confidence,
             "edition": self.edition,
+            "edition_confidence": self.edition_confidence,
             "behind_waf": self.behind_waf,
             "confidence": self.confidence,
             "conflicts": self.conflicts,
@@ -97,6 +117,7 @@ _PROBES = (
     _probe_jsonrpc_version,
     _probe_json2_unauth,
     _probe_dns_cloudflare,
+    _probe_enterprise_asset,
 )
 
 
@@ -105,7 +126,7 @@ _PROBES = (
 # ---------------------------------------------------------------------------
 
 
-def _aggregate(probes: List[ProbeResult]) -> DetectionResult:
+def _aggregate(probes: List[ProbeResult], url: str) -> DetectionResult:
     """Rule-based fusion of probe outputs into a single conclusion.
 
     Voting strategy:
@@ -115,13 +136,10 @@ def _aggregate(probes: List[ProbeResult]) -> DetectionResult:
       Ties broken by preferring the highest version (forward-compat: we'd
       rather try json2 on a v18-v19 boundary instance).
     - api_version: json2 if json2_unauth said so OR majority major >= 19.
-    - hosting: Cloudflare server-header or CF IP range → behind_waf.
-      Server header "Odoo.sh" → sh. "saas~" version prefix → online.
-      Otherwise unknown.
-    - edition: "+e" suffix in any server_version → enterprise, else community
-      (only when at least one version probe succeeded; otherwise None).
-    - confidence: high if ≥3 probes contributed congruent signals;
-      medium with 2; low with 0 or 1.
+    - edition / hosting: see `classification`. Independent axes, each with its
+      own probes and its own confidence.
+    - behind_waf: Cloudflare server-header or CF IP range. Orthogonal to
+      hosting, never a substitute for it.
     """
     by_name = {p.name: p for p in probes}
     conflicts: List[str] = []
@@ -179,56 +197,28 @@ def _aggregate(probes: List[ProbeResult]) -> DetectionResult:
 
     server_version = server_versions[0] if server_versions else None
 
-    # Hosting
+    # A WAF sits on the network path; it is not a place the software runs. It
+    # is reported next to the hosting, never instead of it -- overwriting the
+    # hosting with "behind_waf" is what left the column unable to answer a
+    # hosting question for every Cloudflare-fronted customer.
     headers_probe = by_name.get("root_headers")
     server_hdr = (headers_probe.summary.get("server") if headers_probe else "") or ""
     dns_probe = by_name.get("dns_cloudflare")
-    is_cf_ip = bool(dns_probe and dns_probe.summary.get("is_cloudflare"))
-    is_cf_hdr = "cloudflare" in server_hdr.lower()
-    behind_waf = is_cf_ip or is_cf_hdr
-
-    hosting: Hosting
-    if behind_waf:
-        hosting = "behind_waf"
-    elif "Odoo.sh" in server_hdr:
-        hosting = "sh"
-    elif any("saas~" in sv for sv in server_versions):
-        hosting = "online"
-    elif is_odoo:
-        # nginx + non-saas version is ambiguous (could be Online or .sh).
-        # Don't claim certainty — see reference_odoo_taxonomy.md.
-        hosting = "self_hosted"
-    else:
-        hosting = "unknown"
-
-    # Edition (only meaningful when we have a version string)
-    edition: Optional[Edition] = None
-    if server_versions:
-        edition = "enterprise" if any("+e" in sv for sv in server_versions) else "community"
-
-    # Confidence: count probes that contributed to the conclusion
-    contributing = sum(
-        1
-        for p in probes
-        if p.ok
-        and p.name
-        in {
-            "xmlrpc_version",
-            "web_version",
-            "jsonrpc_version",
-            "json2_unauth",
-            "web_health",
-            "web_login",
-            "root_headers",
-            "dns_cloudflare",
-        }
+    behind_waf = bool(dns_probe and dns_probe.summary.get("is_cloudflare")) or (
+        "cloudflare" in server_hdr.lower()
     )
-    if contributing >= 3:
-        confidence: Confidence = "high"
-    elif contributing == 2:
-        confidence = "medium"
-    else:
-        confidence = "low"
+
+    # Two axes, decided from their own probes and blind to each other. The
+    # taxonomy is checked afterwards and only reports contradictions: both
+    # answers were measured, so an impossible pair means a probe lied and we
+    # cannot tell which.
+    edition, edition_confidence, edition_notes = decide_edition(by_name, major, server_versions)
+    hosting, hosting_confidence, hosting_notes = decide_hosting(
+        by_name, url, server_versions, is_odoo
+    )
+    conflicts.extend(edition_notes)
+    conflicts.extend(hosting_notes)
+    conflicts.extend(taxonomy_conflicts(edition, hosting))
 
     return DetectionResult(
         is_odoo=is_odoo,
@@ -238,7 +228,9 @@ def _aggregate(probes: List[ProbeResult]) -> DetectionResult:
         hosting=hosting,
         edition=edition,
         behind_waf=behind_waf,
-        confidence=confidence,
+        confidence=combined_confidence(edition_confidence, hosting_confidence),
+        edition_confidence=edition_confidence,
+        hosting_confidence=hosting_confidence,
         probes=list(probes),
         conflicts=conflicts,
     )
@@ -256,15 +248,17 @@ async def detect_odoo(url: str, timeout: int = PROBE_TIMEOUT_SECONDS) -> Detecti
     with ThreadPoolExecutor(max_workers=len(_PROBES)) as pool:
         tasks = [loop.run_in_executor(pool, p, url, timeout) for p in _PROBES]
         probes: List[ProbeResult] = list(await asyncio.gather(*tasks))
-    result = _aggregate(probes)
+    result = _aggregate(probes, url)
     logger.info(
-        "Detected %s: api=%s major=%s hosting=%s waf=%s confidence=%s (probes_ok=%d/%d)",
+        "Detected %s: api=%s major=%s hosting=%s(%s) edition=%s(%s) waf=%s (probes_ok=%d/%d)",
         url,
         result.api_version,
         result.major,
         result.hosting,
+        result.hosting_confidence,
+        result.edition,
+        result.edition_confidence,
         result.behind_waf,
-        result.confidence,
         sum(1 for p in probes if p.ok),
         len(probes),
     )

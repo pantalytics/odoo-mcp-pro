@@ -310,6 +310,76 @@ def _probe_json2_unauth(url: str, timeout: int) -> ProbeResult:
     )
 
 
+# web_enterprise ships only with Enterprise, and Odoo serves addon static files
+# without auth, so fetching one answers the edition question directly instead of
+# reading it off the version string. Two paths because the layout moved: both
+# exist from v15 (measured on v15/v16/v17/v18/v19, across Online, Odoo.sh and
+# self-hosted), and neither exists on v14 -- there the probe abstains rather than
+# call a v14 Enterprise "community".
+_ENTERPRISE_ASSETS = (
+    "/web_enterprise/static/src/main.js",
+    "/web_enterprise/static/src/webclient/webclient.js",
+)
+
+# Control: ships with every edition and every version we support. Without it a
+# 404 on the enterprise assets is unreadable -- it could mean Community, or it
+# could mean this host does not serve addon static files the way we assume
+# (measured: a v14 returns 404 for /web/static/src/main.js but 200 for jquery).
+_EDITION_CONTROL_ASSETS = (
+    "/web/static/lib/jquery/jquery.js",
+    "/web/static/src/main.js",
+)
+
+# The enterprise asset paths only exist from this major on. Below it, a 404
+# proves nothing about the edition.
+ENTERPRISE_ASSET_MIN_VERSION = 15
+
+
+def _asset_status(url: str, path: str, timeout: int) -> Optional[int]:
+    """GET an addon static file, no redirects. None when the request failed."""
+    try:
+        return cffi_requests.get(
+            f"{url}{path}",
+            impersonate=_IMPERSONATE,
+            timeout=timeout,
+            allow_redirects=False,
+        ).status_code
+    except Exception:
+        return None
+
+
+@_timed
+def _probe_enterprise_asset(url: str, timeout: int) -> ProbeResult:
+    """Fetch a web_enterprise static file, plus a control that both editions ship.
+
+    Reports what it saw and lets the aggregator conclude: the probe cannot see
+    the major version, and a 404 only means Community from v15 on. `ok` means
+    the probe produced a readable answer, not that the server is Enterprise.
+    """
+    t0 = perf_counter()
+    enterprise_hits = {p: _asset_status(url, p, timeout) for p in _ENTERPRISE_ASSETS}
+    serves_enterprise = any(s == 200 for s in enterprise_hits.values())
+
+    control_hits: Dict[str, Optional[int]] = {}
+    if not serves_enterprise:
+        # Only needed to read a negative; skip the extra round trips otherwise.
+        for p in _EDITION_CONTROL_ASSETS:
+            control_hits[p] = _asset_status(url, p, timeout)
+    serves_control = any(s == 200 for s in control_hits.values())
+
+    return ProbeResult(
+        name="enterprise_asset",
+        ok=serves_enterprise or serves_control,
+        latency_ms=int((perf_counter() - t0) * 1000),
+        summary={
+            "serves_enterprise_asset": serves_enterprise,
+            "serves_control_asset": serves_control,
+            "enterprise_paths": {p: s for p, s in enterprise_hits.items()},
+            "control_paths": {p: s for p, s in control_hits.items()},
+        },
+    )
+
+
 @_timed
 def _probe_dns_cloudflare(url: str, timeout: int) -> ProbeResult:
     """Resolve the hostname and check if the IP falls in Cloudflare's ranges."""
