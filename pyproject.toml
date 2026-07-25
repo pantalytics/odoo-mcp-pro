@@ -51,7 +51,11 @@ dev = [
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
     "ty>=0.0.49",
-    "ruff>=0.15.16",
+    # Upper bound on purpose: ruff 0.16 widens the default rule set and starts
+    # formatting python blocks inside markdown, so it fails the lint job on files
+    # a PR never touched. CI installs whatever this range allows. Raise the bound
+    # deliberately, with the cleanup in the same change.
+    "ruff>=0.15.16,<0.16",
     "requests>=2.34.2",
 ]
 
