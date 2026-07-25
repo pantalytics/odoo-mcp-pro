@@ -36,7 +36,8 @@ class OdooConfig:
     host: str = "localhost"
     port: int = 8000
 
-    # API version: set by auto-detection after connecting (json2 for Odoo 19+, xmlrpc for 14-18)
+    # API version: "auto" auto-detects on connect (json2 for Odoo 19+, xmlrpc for
+    # 14-18); set ODOO_API_VERSION to "xmlrpc"/"json2" to force it and skip detection.
     api_version: Literal["auto", "xmlrpc", "json2"] = "auto"
 
     # Skip validation for multi-tenant mode (no Odoo config at startup)
@@ -94,6 +95,14 @@ class OdooConfig:
         # Validate port
         if self.port <= 0 or self.port > 65535:
             raise ValueError("Port must be between 1 and 65535")
+
+        # Validate API version
+        valid_api_versions = {"auto", "xmlrpc", "json2"}
+        if self.api_version not in valid_api_versions:
+            raise ValueError(
+                f"Invalid ODOO_API_VERSION: {self.api_version}. "
+                f"Must be one of: {', '.join(sorted(valid_api_versions))}"
+            )
 
     @property
     def uses_api_key(self) -> bool:
@@ -191,6 +200,7 @@ def load_config(env_file: Optional[Path] = None) -> OdooConfig:
         transport=os.getenv("ODOO_MCP_TRANSPORT", "stdio").strip(),
         host=os.getenv("ODOO_MCP_HOST", "localhost").strip(),
         port=get_int_env("ODOO_MCP_PORT", 8000),
+        api_version=os.getenv("ODOO_API_VERSION", "auto").strip().lower() or "auto",
     )
 
     return config

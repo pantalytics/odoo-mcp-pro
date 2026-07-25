@@ -129,6 +129,25 @@ class TestServerFoundation:
         assert server.connection == server._mock_connection
         assert server.access_controller is not None
 
+    def test_explicit_api_version_skips_detection(self, valid_config):
+        """An explicit ODOO_API_VERSION must bypass auto-detection entirely."""
+        valid_config.api_version = "json2"
+        mock_connection = Mock()
+
+        with (
+            patch("mcp_server_odoo.server.detect_api_version") as mock_detect,
+            patch(
+                "mcp_server_odoo.server.OdooJSON2Connection",
+                return_value=mock_connection,
+            ) as mock_json2_class,
+        ):
+            server = OdooMCPServer(valid_config)
+            server._ensure_connection()
+
+        mock_detect.assert_not_called()
+        mock_json2_class.assert_called_once()
+        assert server.config.api_version == "json2"
+
     def test_ensure_connection_failure(self, server_with_mock_connection):
         """Test connection establishment failure."""
         server = server_with_mock_connection

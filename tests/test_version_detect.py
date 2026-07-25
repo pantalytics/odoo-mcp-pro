@@ -332,20 +332,19 @@ class TestConfigAutoApiVersion:
         with pytest.raises(ValueError, match="Authentication required"):
             OdooConfig(url="https://odoo.example.com")
 
-    def test_no_odoo_api_version_env_var(self):
-        """ODOO_API_VERSION env var should not affect config."""
+    def test_odoo_api_version_env_var_overrides(self):
+        """ODOO_API_VERSION, when set, forces the api_version and skips detection."""
         import os
 
         from mcp_server_odoo.config import load_config, reset_config
 
         reset_config()
-        # Even if the env var is set, load_config ignores it
         os.environ["ODOO_URL"] = "https://odoo.example.com"
         os.environ["ODOO_API_KEY"] = "test-key"
-        os.environ["ODOO_API_VERSION"] = "json2"  # should be ignored
+        os.environ["ODOO_API_VERSION"] = "json2"
         try:
             config = load_config()
-            assert config.api_version == "auto"
+            assert config.api_version == "json2"
         finally:
             os.environ.pop("ODOO_API_VERSION", None)
             os.environ.pop("ODOO_URL", None)

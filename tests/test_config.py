@@ -96,6 +96,24 @@ class TestOdooConfig:
         # Config should validate successfully
         assert config.log_level == "debug"
 
+    def test_api_version_defaults_to_auto(self):
+        """api_version defaults to auto when not specified."""
+        config = OdooConfig(url="http://localhost:8069", api_key="test-key")
+        assert config.api_version == "auto"
+
+    def test_valid_api_version_override(self):
+        """Explicit xmlrpc/json2 values are accepted."""
+        for version in ("xmlrpc", "json2"):
+            config = OdooConfig(
+                url="http://localhost:8069", api_key="test-key", api_version=version
+            )
+            assert config.api_version == version
+
+    def test_invalid_api_version_raises_error(self):
+        """An unknown api_version is rejected."""
+        with pytest.raises(ValueError, match="Invalid ODOO_API_VERSION"):
+            OdooConfig(url="http://localhost:8069", api_key="test-key", api_version="grpc")
+
 
 class TestLoadConfig:
     """Test the load_config function."""
@@ -117,6 +135,18 @@ class TestLoadConfig:
         assert config.log_level == "DEBUG"
         assert config.default_limit == 20
         assert config.max_limit == 200
+        # Not set -> auto-detect
+        assert config.api_version == "auto"
+
+    def test_load_config_reads_api_version_env(self, monkeypatch):
+        """ODOO_API_VERSION is wired into the config (case-insensitive)."""
+        monkeypatch.setenv("ODOO_URL", "http://test.odoo.com")
+        monkeypatch.setenv("ODOO_API_KEY", "env-api-key")
+        monkeypatch.setenv("ODOO_API_VERSION", "JSON2")
+
+        config = load_config()
+
+        assert config.api_version == "json2"
 
     def test_load_config_from_env_file(self, monkeypatch):
         """Test loading configuration from .env file."""
