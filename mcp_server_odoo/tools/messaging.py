@@ -207,14 +207,6 @@ class MessagingToolsMixin:
                     outlook_field = "x_microsoft_message_id"
                     try:
                         available = await run_blocking(
-                            connection,
-                            connection.fields_get,
-                            "mail.message",
-                            [outlook_field],
-                            allfields=False,
-                        )
-                    except TypeError:
-                        available = await run_blocking(
                             connection, connection.fields_get, "mail.message", [outlook_field]
                         )
                     except Exception:

@@ -11,6 +11,15 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+### Fixed
+- `post_message` no longer raises a `TypeError` on every call. The probe that
+  checks whether `mail.message` carries `x_microsoft_message_id` passed an
+  `allfields` keyword that no connection implementation accepts, then caught
+  the resulting `TypeError` and retried with the supported signature. The post
+  itself still succeeded, so nobody noticed, but anything watching the
+  connection recorded a failed Odoo call. The probe now uses the declared
+  signature directly.
+
 ## [2.3.3] - 2026-07-11
 
 ### Fixed
