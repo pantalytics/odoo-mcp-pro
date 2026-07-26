@@ -11,6 +11,8 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+## [2.4.1] - 2026-07-26
+
 ### Fixed
 - `post_message` no longer raises a `TypeError` on every call. The probe that
   checks whether `mail.message` carries `x_microsoft_message_id` passed an

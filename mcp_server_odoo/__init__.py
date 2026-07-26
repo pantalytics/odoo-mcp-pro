@@ -6,7 +6,7 @@
 # This file stays under the Mozilla Public License 2.0; see LICENSE.MPL-2.0.
 """MCP Server for Odoo - Model Context Protocol server for Odoo ERP systems."""
 
-__version__ = "2.4.0"
+__version__ = "2.4.1"
 __author__ = "Andrey Ivanov"
 __license__ = "MPL-2.0"
 
