@@ -154,6 +154,29 @@ class TestPostMessageUnit:
         assert result["outlook_pro_message_id"] == "<AAMkAG...>"
 
     @pytest.mark.asyncio
+    async def test_outlook_probe_uses_the_supported_signature(self, handler, mock_connection):
+        """The probe must call fields_get the way the connection protocol
+        declares it: fields_get(model, attributes). It used to pass an
+        allfields kwarg first and catch the resulting TypeError as a fallback,
+        which no implementation ever accepted, so every post_message raised a
+        TypeError that callers then swallowed. Anything watching the connection
+        (SaaS failure telemetry) recorded that as a failed Odoo call.
+        """
+        mock_connection.read.side_effect = [
+            [{"id": 7}],
+            [{"subtype_id": [1, "Discussions"], "attachment_ids": []}],
+        ]
+        mock_connection.fields_get.return_value = {}
+        mock_connection.call_method.return_value = 42
+        mock_connection.search_read.return_value = []
+
+        await handler._handle_post_message_tool(model="res.partner", record_id=7, body="<p>hi</p>")
+
+        probe = mock_connection.fields_get.call_args
+        assert probe.args == ("mail.message", ["x_microsoft_message_id"])
+        assert probe.kwargs == {}
+
+    @pytest.mark.asyncio
     async def test_record_not_found(self, handler, mock_connection):
         mock_connection.read.return_value = []
         with pytest.raises(ValidationError, match="Record not found"):
