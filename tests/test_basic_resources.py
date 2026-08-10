@@ -318,3 +318,37 @@ class TestResourceIntegration:
 
         finally:
             connection.disconnect()
+
+
+class TestResourceCallsRunOffLoop:
+    """Resource data calls must not run on the event loop (issue #109).
+
+    A hanging customer Odoo used to block every tenant for the duration of
+    the RPC timeout because the resource handlers called the connection
+    synchronously. This pins that they now run in a worker thread.
+    """
+
+    @pytest.mark.asyncio
+    async def test_record_retrieval_runs_connection_calls_off_loop(
+        self, resource_handler, mock_connection
+    ):
+        import threading
+
+        calling_threads = []
+
+        def search(*args, **kwargs):
+            calling_threads.append(threading.current_thread())
+            return [1]
+
+        def read(*args, **kwargs):
+            calling_threads.append(threading.current_thread())
+            return [{"id": 1, "name": "Test Partner"}]
+
+        mock_connection.search = search
+        mock_connection.read = read
+        mock_connection.fields_get = lambda *a, **k: {}
+
+        await resource_handler._handle_record_retrieval("res.partner", "1")
+
+        assert calling_threads, "connection was never called"
+        assert all(t is not threading.main_thread() for t in calling_threads)

@@ -11,6 +11,11 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+### Fixed
+- Resource reads (record, search, count, fields) now run in a worker thread
+  like tool calls do, so a hanging customer Odoo can no longer stall other
+  users for the duration of the RPC timeout while a resource is being read.
+
 ## [2.4.2] - 2026-08-10
 
 ### Fixed
