@@ -19,6 +19,7 @@ from ..error_handling import (
 )
 from ..logging_config import get_logger, perf_logger
 from ..odoo_connection import OdooConnectionError
+from ..tools._common import validate_access
 
 logger = get_logger(__name__)
 
@@ -60,7 +61,7 @@ class RetrievalMixin:
 
                 # Check model access permissions
                 try:
-                    access_controller.validate_model_access(model, "read")
+                    await validate_access(connection, access_controller, model, "read")
                 except AccessControlError as e:
                     logger.warning(f"Access denied for {model}.read: {e}")
                     raise PermissionError(f"Access denied: {e}", context=context) from e
@@ -158,7 +159,7 @@ class RetrievalMixin:
             connection, access_controller = await self._get_user_context()
             # Check model access permissions
             try:
-                access_controller.validate_model_access(model, "read")
+                await validate_access(connection, access_controller, model, "read")
             except AccessControlError as e:
                 logger.warning(f"Access denied for {model}.read: {e}")
                 raise PermissionError(f"Access denied: {e}") from e
@@ -239,7 +240,7 @@ class RetrievalMixin:
             connection, access_controller = await self._get_user_context()
             # Check model access permissions
             try:
-                access_controller.validate_model_access(model, "read")
+                await validate_access(connection, access_controller, model, "read")
             except AccessControlError as e:
                 logger.warning(f"Access denied for {model}.read: {e}")
                 raise PermissionError(f"Access denied: {e}") from e
@@ -289,7 +290,7 @@ class RetrievalMixin:
             connection, access_controller = await self._get_user_context()
             # Check model access permissions
             try:
-                access_controller.validate_model_access(model, "read")
+                await validate_access(connection, access_controller, model, "read")
             except AccessControlError as e:
                 logger.warning(f"Access denied for {model}.read: {e}")
                 raise PermissionError(f"Access denied: {e}") from e

@@ -11,6 +11,14 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+### Fixed
+- One user with an unreachable Odoo could briefly stall the whole server.
+  Model access checks ran on the event loop and probed all four CRUD
+  operations even when the first probe timed out (up to 2 minutes of
+  freeze per check). Access checks now run in a worker thread like every
+  other Odoo call, stop at the first timeout, and report "Odoo unreachable"
+  instead of a misleading "operation not allowed".
+
 ## [2.4.1] - 2026-07-26
 
 ### Fixed

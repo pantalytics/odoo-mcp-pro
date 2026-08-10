@@ -5,6 +5,7 @@ for both JSON/2 and XML-RPC connections.
 """
 
 import os
+import threading
 from unittest.mock import MagicMock
 
 import pytest
@@ -14,6 +15,10 @@ from mcp_server_odoo.access_control import (
     AccessController,
 )
 from mcp_server_odoo.config import OdooConfig
+from mcp_server_odoo.exceptions import OdooConnectionError, OdooTimeoutError
+from mcp_server_odoo.odoo_connection.orm import OdooConnectionOrmMixin
+from mcp_server_odoo.odoo_json2_orm import Json2OrmMixin
+from mcp_server_odoo.tools._common import validate_access
 
 from .conftest import ODOO_SERVER_AVAILABLE
 
@@ -325,3 +330,96 @@ class TestAccessControlJSON2:
 if __name__ == "__main__":
     # Run integration tests when executed directly
     pytest.main([__file__, "-v", "-k", "Integration"])
+
+
+class TestAccessCheckTimeouts:
+    """Fail-fast when the customer's Odoo stops answering (2026-08-10 incident).
+
+    A hanging Odoo used to cost 4x the RPC timeout per permissions fetch (one
+    per CRUD probe) and the checks ran on the event loop, freezing the whole
+    server. These tests pin the new behavior: stop after the first timeout,
+    surface OdooTimeoutError, and run checks off the loop via validate_access.
+    """
+
+    @pytest.fixture
+    def config(self):
+        return OdooConfig(
+            url="http://localhost:8069",
+            api_key="test_key",
+            database="testdb",
+            api_version="json2",
+        )
+
+    def test_permissions_fetch_stops_after_first_timeout(self, config):
+        conn = MagicMock()
+        conn.check_access_rights.side_effect = OdooTimeoutError(
+            "Operation timeout after 30 seconds"
+        )
+        ctrl = AccessController(config, connection=conn)
+
+        with pytest.raises(OdooTimeoutError):
+            ctrl.validate_model_access("res.partner", "read")
+
+        # One probe, not one per CRUD operation
+        assert conn.check_access_rights.call_count == 1
+
+    def test_timeout_is_not_cached_as_denial(self, config):
+        conn = MagicMock()
+        conn.check_access_rights.side_effect = OdooTimeoutError("timeout")
+        ctrl = AccessController(config, connection=conn)
+
+        with pytest.raises(OdooTimeoutError):
+            ctrl.validate_model_access("res.partner", "read")
+
+        # Once the server answers again, permissions are fetched fresh
+        conn.check_access_rights.side_effect = None
+        conn.check_access_rights.return_value = True
+        perms = ctrl.get_model_permissions("res.partner")
+        assert perms.can_read is True
+
+    def test_xmlrpc_check_access_rights_propagates_timeout(self):
+        conn = MagicMock()
+        conn.execute_kw.side_effect = OdooTimeoutError("Operation timeout after 30 seconds")
+
+        with pytest.raises(OdooTimeoutError):
+            OdooConnectionOrmMixin.check_access_rights(conn, "res.partner", "read")
+
+    def test_xmlrpc_check_access_rights_other_errors_still_allow(self):
+        # Non-timeout network errors keep the old behavior: assume allowed,
+        # let the real operation fail with a clear error.
+        conn = MagicMock()
+        conn.execute_kw.side_effect = OdooConnectionError("Operation failed: boom")
+        assert OdooConnectionOrmMixin.check_access_rights(conn, "res.partner", "read") is True
+
+        conn.execute_kw.side_effect = OdooConnectionError("Model doesn't exist")
+        assert OdooConnectionOrmMixin.check_access_rights(conn, "res.partner", "read") is False
+
+    def test_json2_check_access_rights_propagates_timeout(self):
+        conn = MagicMock()
+        conn._call.side_effect = OdooTimeoutError("Request timeout after 30s")
+
+        with pytest.raises(OdooTimeoutError):
+            Json2OrmMixin.check_access_rights(conn, "res.partner", "read")
+
+    async def test_validate_access_runs_off_the_event_loop(self, config):
+        calls = []
+
+        def record_thread(model, operation):
+            calls.append(threading.current_thread())
+
+        ctrl = MagicMock()
+        ctrl.validate_model_access.side_effect = record_thread
+        conn = MagicMock()
+
+        await validate_access(conn, ctrl, "res.partner", "read")
+
+        ctrl.validate_model_access.assert_called_once_with("res.partner", "read")
+        assert calls[0] is not threading.main_thread()
+
+    async def test_validate_access_propagates_denial(self, config):
+        ctrl = MagicMock()
+        ctrl.validate_model_access.side_effect = AccessControlError("denied")
+        conn = MagicMock()
+
+        with pytest.raises(AccessControlError):
+            await validate_access(conn, ctrl, "res.partner", "write")

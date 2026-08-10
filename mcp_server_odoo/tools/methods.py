@@ -23,7 +23,7 @@ from ..error_sanitizer import ErrorSanitizer
 from ..logging_config import perf_logger
 from ..odoo_connection import OdooConnectionError
 from ..schemas import ExecuteMethodResult
-from ._common import _current_sub, logger, run_blocking
+from ._common import _current_sub, logger, run_blocking, validate_access
 from .wizards import WizardHandler, followup_descriptor, get_handler
 
 _ACTION_SHAPE_KEYS = ("view_mode", "views", "target", "res_id", "domain")
@@ -165,7 +165,7 @@ class MethodsToolsMixin:
 
                 # Touching a model at all needs read access; everything beyond that
                 # is enforced by Odoo when the method runs.
-                access_controller.validate_model_access(model, "read")
+                await validate_access(connection, access_controller, model, "read")
 
                 if not connection.is_authenticated:
                     raise ValidationError("Not authenticated with Odoo")

@@ -13,7 +13,7 @@ from ..error_sanitizer import ErrorSanitizer
 from ..logging_config import perf_logger
 from ..odoo_connection import OdooConnectionError
 from ..schemas import PostMessageResult
-from ._common import _current_sub, logger, run_blocking
+from ._common import _current_sub, logger, run_blocking, validate_access
 
 
 class MessagingToolsMixin:
@@ -135,7 +135,7 @@ class MessagingToolsMixin:
             )
             with perf_logger.track_operation("tool_post_message", model=model):
                 # Posting to chatter requires write access on the model
-                access_controller.validate_model_access(model, "write")
+                await validate_access(connection, access_controller, model, "write")
 
                 if not connection.is_authenticated:
                     raise ValidationError("Not authenticated with Odoo")

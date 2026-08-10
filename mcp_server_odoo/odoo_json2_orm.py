@@ -12,7 +12,7 @@ Transport code (HTTP client, _call, error parsing) lives in
 import logging
 from typing import Any, Dict, List, Optional, Union
 
-from .exceptions import OdooConnectionError
+from .exceptions import OdooConnectionError, OdooTimeoutError
 
 logger = logging.getLogger(__name__)
 
@@ -237,6 +237,10 @@ class Json2OrmMixin:
                 raise_exception=False,
             )
             return bool(result)
+        except OdooTimeoutError:
+            # The server is not answering; the other CRUD probes would each
+            # eat the same full timeout. Propagate so the caller stops probing.
+            raise
         except OdooConnectionError as e:
             # If check_access_rights returns 404, the method may not be exposed
             # via JSON/2 on this Odoo instance. Assume access is granted and let

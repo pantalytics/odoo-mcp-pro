@@ -17,7 +17,7 @@ from ..schemas import (
     BulkUpdateResult,
     ImportResult,
 )
-from ._common import MAX_BULK_SIZE, _current_sub, logger, run_blocking
+from ._common import MAX_BULK_SIZE, _current_sub, logger, run_blocking, validate_access
 
 
 class BulkToolsMixin:
@@ -195,7 +195,7 @@ class BulkToolsMixin:
                 connection_selector, writes=True
             )
             with perf_logger.track_operation("tool_create_records", model=model):
-                access_controller.validate_model_access(model, "create")
+                await validate_access(connection, access_controller, model, "create")
                 if not connection.is_authenticated:
                     raise ValidationError("Not authenticated with Odoo")
                 if not vals_list:
@@ -241,7 +241,7 @@ class BulkToolsMixin:
                 connection_selector, writes=True
             )
             with perf_logger.track_operation("tool_update_records", model=model):
-                access_controller.validate_model_access(model, "write")
+                await validate_access(connection, access_controller, model, "write")
                 if not connection.is_authenticated:
                     raise ValidationError("Not authenticated with Odoo")
                 if not record_ids:
@@ -286,7 +286,7 @@ class BulkToolsMixin:
                 connection_selector, writes=True
             )
             with perf_logger.track_operation("tool_delete_records", model=model):
-                access_controller.validate_model_access(model, "unlink")
+                await validate_access(connection, access_controller, model, "unlink")
                 if not connection.is_authenticated:
                     raise ValidationError("Not authenticated with Odoo")
                 if not record_ids:
@@ -331,8 +331,8 @@ class BulkToolsMixin:
                 connection_selector, writes=True
             )
             with perf_logger.track_operation("tool_import_records", model=model):
-                access_controller.validate_model_access(model, "create")
-                access_controller.validate_model_access(model, "write")
+                await validate_access(connection, access_controller, model, "create")
+                await validate_access(connection, access_controller, model, "write")
                 if not connection.is_authenticated:
                     raise ValidationError("Not authenticated with Odoo")
                 if not fields:
