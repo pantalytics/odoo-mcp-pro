@@ -11,6 +11,8 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+## [2.4.2] - 2026-08-10
+
 ### Fixed
 - One user with an unreachable Odoo could briefly stall the whole server.
   Model access checks ran on the event loop and probed all four CRUD
