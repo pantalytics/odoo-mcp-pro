@@ -18,7 +18,7 @@ import xmlrpc.client
 from typing import Any, Dict, List, Optional, Union
 
 from ..error_sanitizer import ErrorSanitizer
-from ..exceptions import OdooConnectionError
+from ..exceptions import OdooConnectionError, OdooTimeoutError
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +120,7 @@ class OdooConnectionOrmMixin:
             raise OdooConnectionError(f"Operation failed: {sanitized_message}") from e
         except socket.timeout:
             logger.error(f"Timeout during {method} on {model}")
-            raise OdooConnectionError(f"Operation timeout after {self.timeout} seconds") from None
+            raise OdooTimeoutError(f"Operation timeout after {self.timeout} seconds") from None
         except Exception as e:
             logger.error(f"Error during {method} on {model}: {e}")
             # Sanitize generic errors as well
@@ -394,6 +394,12 @@ class OdooConnectionOrmMixin:
                 model, "check_access_rights", [operation], {"raise_exception": False}
             )
             return bool(result)
+        except OdooTimeoutError:
+            # The server is not answering; the other CRUD probes would each
+            # eat the same full timeout. Propagate so the caller stops probing
+            # and the user sees "Odoo unreachable" instead of a 4x-timeout
+            # stall ending in a misleading "not allowed".
+            raise
         except Exception as e:
             # If model doesn't exist (module not installed), assume no access
             error_str = str(e).lower()

@@ -22,6 +22,7 @@ from ._common import (
     _current_sub,
     logger,
     run_blocking,
+    validate_access,
 )
 
 
@@ -116,7 +117,7 @@ class BinaryToolsMixin:
                     connection_selector, writes=True
                 )
                 with perf_logger.track_operation("tool_set_binary_field", model=model):
-                    access_controller.validate_model_access(model, "write")
+                    await validate_access(connection, access_controller, model, "write")
                     if not connection.is_authenticated:
                         raise ValidationError("Not authenticated with Odoo")
                     if not field_name:

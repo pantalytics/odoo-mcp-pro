@@ -18,7 +18,7 @@ from ..error_sanitizer import ErrorSanitizer
 from ..logging_config import perf_logger
 from ..odoo_connection import OdooConnectionError
 from ..schemas import CreateResult, DeleteResult, UpdateResult
-from ._common import _current_sub, logger, run_blocking
+from ._common import _current_sub, logger, run_blocking, validate_access
 
 
 class CrudToolsMixin:
@@ -132,7 +132,7 @@ class CrudToolsMixin:
             )
             with perf_logger.track_operation("tool_create_record", model=model):
                 # Check model access
-                access_controller.validate_model_access(model, "create")
+                await validate_access(connection, access_controller, model, "create")
 
                 # Ensure we're connected
                 if not connection.is_authenticated:
@@ -213,7 +213,7 @@ class CrudToolsMixin:
             )
             with perf_logger.track_operation("tool_update_record", model=model):
                 # Check model access
-                access_controller.validate_model_access(model, "write")
+                await validate_access(connection, access_controller, model, "write")
 
                 # Ensure we're connected
                 if not connection.is_authenticated:
@@ -304,7 +304,7 @@ class CrudToolsMixin:
             )
             with perf_logger.track_operation("tool_delete_record", model=model):
                 # Check model access
-                access_controller.validate_model_access(model, "unlink")
+                await validate_access(connection, access_controller, model, "unlink")
 
                 # Ensure we're connected
                 if not connection.is_authenticated:

@@ -19,7 +19,7 @@ from ..error_sanitizer import ErrorSanitizer
 from ..logging_config import perf_logger
 from ..odoo_connection import OdooConnectionError
 from ..schemas import FieldSelectionMetadata, RecordResult, SearchResult
-from ._common import _current_sub, logger, run_blocking
+from ._common import _current_sub, logger, run_blocking, validate_access
 
 
 class QueryToolsMixin:
@@ -147,7 +147,7 @@ class QueryToolsMixin:
             connection, access_controller, sub = await self._get_user_context(connection_selector)
             with perf_logger.track_operation("tool_search", model=model):
                 # Check model access
-                access_controller.validate_model_access(model, "read")
+                await validate_access(connection, access_controller, model, "read")
 
                 # Ensure we're connected
                 if not connection.is_authenticated:
@@ -284,7 +284,7 @@ class QueryToolsMixin:
             connection, access_controller, sub = await self._get_user_context(connection_selector)
             with perf_logger.track_operation("tool_get_record", model=model):
                 # Check model access
-                access_controller.validate_model_access(model, "read")
+                await validate_access(connection, access_controller, model, "read")
 
                 # Ensure we're connected
                 if not connection.is_authenticated:

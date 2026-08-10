@@ -77,3 +77,20 @@ async def run_blocking(connection: Any, func: Callable[..., T], /, *args: Any, *
     """
     async with _lock_for(connection):
         return await asyncio.to_thread(func, *args, **kwargs)
+
+
+async def validate_access(
+    connection: Any, access_controller: Any, model: str, operation: str
+) -> None:
+    """Run a model access check off the event loop.
+
+    On a cache miss the access controller probes the customer's Odoo over the
+    network (one check_access_rights call per CRUD operation), so it must run
+    via `run_blocking` like every other Odoo call. Running it inline froze the
+    whole event loop for up to 4x the RPC timeout when a customer's Odoo hung
+    (2026-08-10 incident), and bypassed the per-connection transport lock.
+
+    Raises AccessControlError if access is denied, OdooTimeoutError if the
+    customer's Odoo does not answer.
+    """
+    await run_blocking(connection, access_controller.validate_model_access, model, operation)

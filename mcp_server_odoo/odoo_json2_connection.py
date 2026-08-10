@@ -18,7 +18,7 @@ from curl_cffi.requests.errors import RequestsError
 
 from .config import OdooConfig
 from .error_sanitizer import ErrorSanitizer
-from .exceptions import OdooConnectionError  # noqa: F401
+from .exceptions import OdooConnectionError, OdooTimeoutError  # noqa: F401
 from .odoo_json2_orm import Json2OrmMixin
 
 logger = logging.getLogger(__name__)
@@ -124,7 +124,7 @@ class OdooJSON2Connection(Json2OrmMixin):
         except RequestsError as e:
             msg = str(e).lower()
             if "timeout" in msg or "timed out" in msg:
-                raise OdooConnectionError(
+                raise OdooTimeoutError(
                     f"Request timeout after {self.timeout}s: {model}/{method}"
                 ) from None
             if "resolve" in msg or "connect" in msg:
