@@ -11,6 +11,8 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+## [2.4.3] - 2026-08-10
+
 ### Fixed
 - Resource reads (record, search, count, fields) now run in a worker thread
   like tool calls do, so a hanging customer Odoo can no longer stall other
