@@ -19,7 +19,7 @@ from ..error_handling import (
 )
 from ..logging_config import get_logger, perf_logger
 from ..odoo_connection import OdooConnectionError
-from ..tools._common import validate_access
+from ..tools._common import run_blocking, validate_access
 
 logger = get_logger(__name__)
 
@@ -71,7 +71,9 @@ class RetrievalMixin:
                     raise ValidationError("Not authenticated with Odoo", context=context)
 
             # Search for the record to check if it exists
-            record_ids = connection.search(model, [("id", "=", record_id_int)])
+            record_ids = await run_blocking(
+                connection, connection.search, model, [("id", "=", record_id_int)]
+            )
 
             if not record_ids:
                 raise NotFoundError(
@@ -81,7 +83,7 @@ class RetrievalMixin:
             # Read the record with smart field selection to avoid serialization issues
             # Get field metadata to determine which fields to fetch
             try:
-                fields_info = connection.fields_get(model)
+                fields_info = await run_blocking(connection, connection.fields_get, model)
                 # Filter out fields that might cause serialization issues
                 safe_fields = []
                 for field_name, field_info in fields_info.items():
@@ -97,14 +99,16 @@ class RetrievalMixin:
                         safe_fields.append(field_name)
 
                 if safe_fields:
-                    records = connection.read(model, record_ids, safe_fields)
+                    records = await run_blocking(
+                        connection, connection.read, model, record_ids, safe_fields
+                    )
                 else:
                     # Fallback to all fields if we can't determine safe fields
-                    records = connection.read(model, record_ids)
+                    records = await run_blocking(connection, connection.read, model, record_ids)
             except Exception as e:
                 logger.debug(f"Could not get field metadata, reading all fields: {e}")
                 # If we can't get field info, try to read all fields
-                records = connection.read(model, record_ids)
+                records = await run_blocking(connection, connection.read, model, record_ids)
 
             if not records:
                 raise NotFoundError(f"Record not found: {model} with ID {record_id} does not exist")
@@ -176,21 +180,31 @@ class RetrievalMixin:
             order_value = self._parse_order(order)
 
             # Get total count for pagination
-            total_count = connection.search_count(model, parsed_domain)
+            total_count = await run_blocking(
+                connection, connection.search_count, model, parsed_domain
+            )
 
             # Perform search
-            record_ids = connection.search(
-                model, parsed_domain, limit=limit_value, offset=offset_value, order=order_value
+            record_ids = await run_blocking(
+                connection,
+                connection.search,
+                model,
+                parsed_domain,
+                limit=limit_value,
+                offset=offset_value,
+                order=order_value,
             )
 
             # Read records if any found
             records = []
             if record_ids:
-                records = connection.read(model, record_ids, fields_list)
+                records = await run_blocking(
+                    connection, connection.read, model, record_ids, fields_list
+                )
 
             # Get field metadata for formatting
             try:
-                fields_metadata = connection.fields_get(model)
+                fields_metadata = await run_blocking(connection, connection.fields_get, model)
             except Exception as e:
                 logger.debug(f"Could not retrieve field metadata: {e}")
                 fields_metadata = None
@@ -253,7 +267,7 @@ class RetrievalMixin:
             parsed_domain = self._parse_domain(domain)
 
             # Get count
-            count = connection.search_count(model, parsed_domain)
+            count = await run_blocking(connection, connection.search_count, model, parsed_domain)
 
             # Format result
             formatted_result = self._format_count_result(model, count, parsed_domain)
@@ -300,7 +314,7 @@ class RetrievalMixin:
                 raise ValidationError("Not authenticated with Odoo")
 
             # Get field definitions
-            fields = connection.fields_get(model)
+            fields = await run_blocking(connection, connection.fields_get, model)
 
             # Format result
             formatted_result = self._format_fields_result(model, fields)
