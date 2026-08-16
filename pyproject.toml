@@ -55,7 +55,7 @@ dev = [
     # formatting python blocks inside markdown, so it fails the lint job on files
     # a PR never touched. CI installs whatever this range allows. Raise the bound
     # deliberately, with the cleanup in the same change.
-    "ruff>=0.15.16,<0.16",
+    "ruff>=0.16.2,<0.17",
     "requests>=2.34.2",
 ]
 
