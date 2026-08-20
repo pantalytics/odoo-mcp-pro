@@ -265,11 +265,15 @@ def _resolve_image_field(
         if is_binary(candidate):
             return candidate
 
-    available = sorted(name for name in fields_info if fields_info[name].get("type") == "image")
+    # Odoo does not report a consistent type here: odoo.com hands back "binary"
+    # for the very same image_128 that a self-hosted 17 calls "image". So the
+    # hint lists both, or the caller of a custom model is told "no image fields"
+    # while x_photo sits right there.
+    available = sorted(name for name in fields_info if is_binary(name))
     if available:
         raise ValidationError(
             f"Model '{model}' has no standard image_* variant. Pass field_name explicitly; "
-            f"image fields on this model: {', '.join(available[:10])}"
+            f"binary/image fields on this model: {', '.join(available[:10])}"
         )
     raise ValidationError(f"Model '{model}' has no image fields")
 

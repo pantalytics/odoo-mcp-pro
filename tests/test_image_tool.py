@@ -159,6 +159,29 @@ class TestGetImage:
             await handler._handle_get_image_tool("x.model", 7)
 
     @pytest.mark.asyncio
+    async def test_binary_typed_image_fields_still_resolve(self, handler, mock_connection):
+        """odoo.com reports image_128 as type 'binary', self-hosted as 'image'."""
+        mock_connection.fields_get.return_value = {
+            "name": {"type": "char"},
+            "image_512": {"type": "binary"},
+        }
+
+        result = await handler._handle_get_image_tool("product.template", 7)
+
+        assert result["field"] == "image_512"
+
+    @pytest.mark.asyncio
+    async def test_binary_field_is_named_in_the_hint(self, handler, mock_connection):
+        """A model with binary fields but no image_* variant says which to try."""
+        mock_connection.fields_get.return_value = {
+            "name": {"type": "char"},
+            "datas": {"type": "binary"},
+        }
+
+        with pytest.raises(ValidationError, match="binary/image fields on this model: datas"):
+            await handler._handle_get_image_tool("ir.attachment", 7)
+
+    @pytest.mark.asyncio
     async def test_invalid_size_is_refused(self, handler):
         with pytest.raises(ValidationError, match="size must be one of"):
             await handler._handle_get_image_tool("product.template", 7, size=300)
