@@ -11,6 +11,16 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+### Added
+- `get_image` tool: reads an Odoo image field (product photo, contact avatar,
+  company logo) and returns it as a real picture instead of the base64 blob
+  that every other read path filters out. Picks the Odoo image variant matching
+  the requested `size` (128/256/512/1024/1920, default 512), sniffs the format
+  from the bytes, and refuses anything a client cannot display. Read-only, ACL
+  checked like every other tool, capped at 5 MB per image.
+- ADR 0003 sets out the wider plan for visuals, including the MCP Apps
+  extension (`io.modelcontextprotocol/ui`) as the next phase.
+
 ## [2.4.3] - 2026-08-10
 
 ### Fixed

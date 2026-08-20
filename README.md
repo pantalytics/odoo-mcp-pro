@@ -122,6 +122,7 @@ odoo-mcp-pro is an Odoo connector that implements [MCP (Model Context Protocol)]
 | `update_record` / `update_records` | Update one or multiple records |
 | `delete_record` / `delete_records` | Delete one or multiple records |
 | `import_records` | Idempotent upsert via external IDs (same as Odoo CSV import) |
+| `get_image` | Show a record's picture: product photo, contact avatar, logo |
 | `server_info` | Server version, connection status |
 
 **Supports Odoo 14-19+** -- uses the JSON/2 API for Odoo 19+ and XML-RPC for older versions. The right protocol is selected automatically.

@@ -21,6 +21,7 @@ from ._common import (
     MAX_BINARY_SIZE_BYTES,
     MAX_BULK_SIZE,
     MAX_CONCURRENT_BINARY_UPLOADS,
+    MAX_IMAGE_BYTES,
     _current_sub,
     logger,
 )
@@ -30,6 +31,7 @@ __all__ = [
     "MAX_BINARY_SIZE_BYTES",
     "MAX_BULK_SIZE",
     "MAX_CONCURRENT_BINARY_UPLOADS",
+    "MAX_IMAGE_BYTES",
     "OdooToolHandler",
     "ValidationError",
     "register_tools",

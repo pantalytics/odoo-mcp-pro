@@ -103,7 +103,7 @@ collection time).
 | File | Role |
 |------|------|
 | `server.py` | Factory pattern, FastMCP setup, stdio/HTTP runners |
-| `tools/` | MCP tools as mixins on `OdooToolHandler` (crud, query, bulk, binary, messaging, introspection) |
+| `tools/` | MCP tools as mixins on `OdooToolHandler` (crud, query, bulk, binary, images, messaging, introspection) |
 | `resources/` | MCP resources (URI-based): handler, retrieval, formatting |
 | `schemas.py` | Pydantic result models |
 | `odoo_json2_connection.py` | JSON/2 client (httpx, Odoo 19+); ORM mixin in `odoo_json2_orm.py` |
