@@ -26,6 +26,7 @@ from .binary import BinaryToolsMixin
 from .bulk import BulkToolsMixin
 from .crud import CrudToolsMixin
 from .formatting import FormattingMixin
+from .images import ImageToolsMixin
 from .introspection import IntrospectionToolsMixin
 from .messaging import MessagingToolsMixin
 from .methods import MethodsToolsMixin
@@ -39,6 +40,7 @@ class OdooToolHandler(
     CrudToolsMixin,
     BulkToolsMixin,
     BinaryToolsMixin,
+    ImageToolsMixin,
     MessagingToolsMixin,
     MethodsToolsMixin,
 ):
@@ -115,6 +117,7 @@ class OdooToolHandler(
         self._register_crud_tools()
         self._register_bulk_tools()
         self._register_binary_tools()
+        self._register_image_tools()
         self._register_messaging_tools()
         self._register_methods_tools()
 
