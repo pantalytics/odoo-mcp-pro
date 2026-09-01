@@ -1,6 +1,6 @@
 # ADR 0003: One error contract for failed tool calls
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-09-01
 - Deciders: Rutger
 - Scope: `error_sanitizer.py`, `error_handling.py`, `tools/*.py`, both
