@@ -111,7 +111,7 @@ collection time).
 | File | Role |
 |------|------|
 | `server.py` | Factory pattern, `MCPServer` setup, stdio/HTTP runners |
-| `tools/` | MCP tools as mixins on `OdooToolHandler` (crud, query, bulk, binary, messaging, introspection) |
+| `tools/` | MCP tools as mixins on `OdooToolHandler` (crud, query, bulk, binary, messaging, introspection, methods); `apps.py` + `register_payment.html` are the one MCP App, `input_required.py` the 2026-07-28 form round trip |
 | `resources/` | MCP resources (URI-based): handler, retrieval, formatting |
 | `schemas.py` | Pydantic result models |
 | `odoo_json2_connection.py` | JSON/2 client (httpx, Odoo 19+); ORM mixin in `odoo_json2_orm.py` |

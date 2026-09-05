@@ -12,6 +12,13 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 ## [Unreleased]
 
 ### Added
+- `register_payment` tool, the first MCP App (extension
+  `io.modelcontextprotocol/ui`): in a client that renders MCP Apps, Odoo's
+  register-payment wizard appears as a form in the chat with journal, amount,
+  date and memo, and submitting it registers the payment. Clients without
+  Apps get the same tool as a plain `execute_method` call on
+  `account.move.action_register_payment`, with the `followup` dict or the
+  `input_required` form below.
 - `execute_method` asks a wizard's question through MCP's own round trip when
   the client can show a form (protocol 2026-07-28, `input_required`): the user
   answers the backorder / register-payment / cancel / reversal form directly,

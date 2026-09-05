@@ -22,6 +22,7 @@ from ..config import OdooConfig
 from ..connection_protocol import OdooConnectionProtocol
 from ..error_handling import ValidationError, as_tool_error
 from ._common import _current_sub, logger
+from .apps import RegisterPaymentToolsMixin
 from .binary import BinaryToolsMixin
 from .bulk import BulkToolsMixin
 from .crud import CrudToolsMixin
@@ -41,6 +42,7 @@ class OdooToolHandler(
     BinaryToolsMixin,
     MessagingToolsMixin,
     MethodsToolsMixin,
+    RegisterPaymentToolsMixin,
 ):
     """Handles MCP tool requests for Odoo operations."""
 
@@ -131,6 +133,7 @@ class OdooToolHandler(
         self._register_binary_tools()
         self._register_messaging_tools()
         self._register_methods_tools()
+        self._register_payment_tools()
 
 
 def register_tools(
