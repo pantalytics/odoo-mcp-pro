@@ -47,7 +47,7 @@ Changelog = "https://github.com/ivnvxd/mcp-server-odoo/releases"
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=9.1.0",
+    "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
     "ty>=0.0.49",
