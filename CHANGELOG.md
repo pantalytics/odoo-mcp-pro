@@ -11,6 +11,14 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+### Added
+- `execute_method` asks a wizard's question through MCP's own round trip when
+  the client can show a form (protocol 2026-07-28, `input_required`): the user
+  answers the backorder / register-payment / cancel / reversal form directly,
+  and the retry completes the wizard. Declining it changes nothing and reports
+  `result_kind: declined`. Older clients keep the `followup` dict and the
+  explicit `decision` re-call, unchanged.
+
 ## [3.0.0] - 2026-09-05
 
 Major because the `mcp` dependency moves from 1.x to 2.x: anything installed

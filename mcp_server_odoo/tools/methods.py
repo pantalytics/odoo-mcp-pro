@@ -13,9 +13,10 @@ stay out of the way.
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
-from mcp.types import ToolAnnotations
+from mcp.server.mcpserver import Context
+from mcp.types import InputRequiredResult, ToolAnnotations
 
 from ..access_control import AccessControlError
 from ..error_handling import ValidationError
@@ -24,6 +25,7 @@ from ..logging_config import perf_logger
 from ..odoo_connection import OdooConnectionError
 from ..schemas import ExecuteMethodResult
 from ._common import _current_sub, logger, run_blocking, validate_access
+from .input_required import answered_decision, ask_decision, client_can_answer
 from .wizards import WizardHandler, followup_descriptor, get_handler
 
 _ACTION_SHAPE_KEYS = ("view_mode", "views", "target", "res_id", "domain")
@@ -91,7 +93,8 @@ class MethodsToolsMixin:
             kwargs: Optional[Dict[str, Any]] = None,
             decision: Optional[Dict[str, Any]] = None,
             connection: Optional[str] = None,
-        ) -> ExecuteMethodResult:
+            ctx: Optional[Context] = None,  # injected by the SDK, never by the model
+        ) -> Union[ExecuteMethodResult, InputRequiredResult]:
             """Call a public method on an Odoo model or recordset.
 
             This is the standard Odoo way to trigger an action that is not plain
@@ -103,8 +106,10 @@ class MethodsToolsMixin:
             delivery that is short on stock asks whether to create a backorder).
             For known wizards this tool finishes them with Odoo's own wizard when
             you pass the answer in `decision`. If you call without a decision, the
-            wizard's fields are returned (`followup`) so you can read them and
-            re-call with `decision` filled in. This two-step flow is stateless: it
+            wizard's question is put to the user as a form when your client can
+            show one (MCP 2026-07-28 input_required); otherwise the wizard's
+            fields are returned (`followup`) so you can read them and re-call
+            with `decision` filled in. Either way the flow is stateless: it
             needs no live back-and-forth with your client.
 
             Args:
@@ -133,9 +138,17 @@ class MethodsToolsMixin:
                 a known wizard was driven to the end for you.
             """
             result = await self._handle_execute_method_tool(
-                model, method, ids, kwargs, decision=decision, connection_selector=connection
+                model,
+                method,
+                ids,
+                kwargs,
+                decision=decision,
+                connection_selector=connection,
+                ctx=ctx,
             )
             self._track_usage(_current_sub.get(), "execute_method")
+            if isinstance(result, InputRequiredResult):
+                return result
             return ExecuteMethodResult(**result)
 
     async def _handle_execute_method_tool(
@@ -146,9 +159,33 @@ class MethodsToolsMixin:
         kwargs: Optional[Dict[str, Any]] = None,
         decision: Optional[Dict[str, Any]] = None,
         connection_selector: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        ctx: Optional[Context] = None,
+    ) -> Union[Dict[str, Any], InputRequiredResult]:
         """Handle execute_method tool request."""
         try:
+            if decision is None:
+                # A retry of the form we asked for (input_required) carries the
+                # answer here; it is the `decision` the caller would have passed.
+                answer = answered_decision(ctx)
+                if answer is not None and answer.decision is None:
+                    verb = "declined" if answer.action == "decline" else "cancelled"
+                    return {
+                        "success": False,
+                        "model": model,
+                        "method": method,
+                        "result_kind": "declined",
+                        "result": None,
+                        "action": None,
+                        "followup": None,
+                        "message": (
+                            f"{model}.{method} was not completed: the user {verb} the "
+                            f"wizard, so nothing was changed."
+                        ),
+                    }
+                if answer is not None:
+                    decision = answer.decision
+            interactive = decision is None and client_can_answer(ctx)
+
             connection, access_controller, sub = await self._get_user_context(
                 connection_selector, writes=True
             )
@@ -193,6 +230,7 @@ class MethodsToolsMixin:
                             model,
                             method,
                             ids or [],
+                            interactive,
                         )
                     # Known method, but it needs a follow-up wizard we have NOT
                     # validated. We refuse rather than guess: an un-vetted
@@ -253,17 +291,18 @@ class MethodsToolsMixin:
         model: str,
         method: str,
         ids: List[int],
-    ) -> Dict[str, Any]:
+        interactive: bool = False,
+    ) -> Union[Dict[str, Any], InputRequiredResult]:
         """Two-step follow-up for a known wizard, stateless by design.
 
-        Mirrors the MCP 2026-07-28 stateless-elicitation shape (SEP-2322): a first
-        call with no answer returns what to fill in (our `followup`, the analogue
-        of `InputRequiredResult.inputRequests`); the caller re-issues the SAME
-        call with the answer (our `decision`, the analogue of `inputResponses`).
+        The MCP 2026-07-28 shape (SEP-2322): a first call with no answer returns
+        what to fill in; the caller re-issues the SAME call with the answer.
         Any replica can serve either call, so this works on stateless HTTP and
-        survives blue-green deploys. When the SDK ships InputRequiredResult we
-        rename `followup`->inputRequests and `decision`->inputResponses; the flow
-        is already this.
+        survives blue-green deploys. With `interactive` (the client speaks
+        2026-07-28 and can show a form) the question goes out as the protocol's
+        own `InputRequiredResult`, and the answer comes back as `decision`
+        through `input_required.answered_decision`; otherwise it is our
+        `followup` dict and the caller re-calls with `decision` by hand.
 
         The discover-vs-complete signal is *presence*, not truthiness:
         - `decision is None`  -> discover (return the fields to fill).
@@ -293,6 +332,10 @@ class MethodsToolsMixin:
             if _classify_result(comp_result) == "action":
                 next_handler = get_handler(comp_result)
                 if next_handler is not None:
+                    # Not asked as a form on purpose: the retry re-runs the
+                    # method, which hands back the FIRST wizard, so an answer to
+                    # the second would be applied to the wrong one. The dict
+                    # says another decision is needed and leaves it there.
                     res_model = comp_result.get("res_model")
                     return {
                         "success": True,
@@ -332,7 +375,10 @@ class MethodsToolsMixin:
                 "message": f"{model}.{method} -> {completion.get('message')} {via}",
             }
 
-        # Discover: return the fields to fill (re-call with `decision` to complete).
+        # Discover: ask the client outright, or return the fields to fill
+        # (re-call with `decision` to complete).
+        if interactive:
+            return ask_decision(handler)
         return {
             "success": True,
             "model": model,
