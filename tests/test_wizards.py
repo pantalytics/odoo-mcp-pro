@@ -1,8 +1,10 @@
 """Tests for the wizard follow-up layer on execute_method.
 
 Two-step, stateless: a decision either completes the wizard or, when omitted,
-the wizard's fields are returned so the caller re-calls with `decision`. There
-is no elicitation (see docs/adr/0001-stateless-no-elicitation.md).
+the wizard's fields are returned so the caller re-calls with `decision`. A
+client that speaks MCP 2026-07-28 is asked through the protocol's own
+input_required round trip instead; that path is covered in
+tests/test_execute_method_input_required.py (see ADR 0004).
 
 Mock-based: they assert the create + completion call SEQUENCE matches the
 Odoo 19 wizard API. They do NOT prove real Odoo behaviour (no live instance).
