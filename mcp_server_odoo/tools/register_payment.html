@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Register payment</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff; --fg: #1f2328; --muted: #656d76; --line: #d0d7de;
+    --accent: #5b58d8; --accent-fg: #ffffff; --ok-bg: #eaf7ee; --ok-fg: #1a7f37;
+    --err-bg: #fdecea; --err-fg: #b42318; --field-bg: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #0d1117; --fg: #e6edf3; --muted: #8b949e; --line: #30363d;
+    --ok-bg: #12261a; --ok-fg: #3fb950; --err-bg: #2d1416; --err-fg: #f85149; --field-bg: #161b22;
+  } }
+  :root[data-theme="dark"] {
+    --bg: #0d1117; --fg: #e6edf3; --muted: #8b949e; --line: #30363d;
+    --ok-bg: #12261a; --ok-fg: #3fb950; --err-bg: #2d1416; --err-fg: #f85149; --field-bg: #161b22;
+  }
+  html, body { margin: 0; background: var(--bg); color: var(--fg);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { padding: 16px; max-width: 520px; }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  p { margin: 0 0 12px; }
+  .muted { color: var(--muted); }
+  form { display: grid; gap: 10px; }
+  label { display: grid; gap: 4px; font-weight: 600; }
+  label small { font-weight: 400; color: var(--muted); }
+  input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--field-bg); color: var(--fg); font: inherit; }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .row { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+  button { padding: 8px 14px; border-radius: 6px; border: 1px solid var(--line);
+    background: var(--field-bg); color: var(--fg); font: inherit; cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  button[disabled] { opacity: .6; cursor: default; }
+  .card { padding: 12px 14px; border-radius: 8px; border: 1px solid var(--line); }
+  .ok { background: var(--ok-bg); color: var(--ok-fg); border-color: transparent; }
+  .err { background: var(--err-bg); color: var(--err-fg); border-color: transparent; }
+  code { font-size: 12px; }
+</style>
+</head>
+<body>
+<main id="root"><p class="muted">Waiting for Odoo…</p></main>
+<script>
+(function () {
+  "use strict";
+  // Minimal MCP Apps client: JSON-RPC 2.0 over postMessage to the host.
+  // See https://modelcontextprotocol.io/extensions/apps/overview
+  var nextId = 1, pending = {}, host = null, toolArgs = null, submitting = false;
+  var root = document.getElementById("root");
+
+  function post(msg) { window.parent.postMessage(msg, "*"); }
+  function request(method, params) {
+    var id = nextId++;
+    return new Promise(function (resolve, reject) {
+      pending[id] = { resolve: resolve, reject: reject };
+      post({ jsonrpc: "2.0", id: id, method: method, params: params || {} });
+    });
+  }
+  function notify(method, params) { post({ jsonrpc: "2.0", method: method, params: params || {} }); }
+
+  window.addEventListener("message", function (ev) {
+    var m = ev.data;
+    if (!m || m.jsonrpc !== "2.0") return;
+    if (m.id !== undefined && m.method === undefined) {           // a response to us
+      var p = pending[m.id]; if (!p) return; delete pending[m.id];
+      if (m.error) p.reject(m.error); else p.resolve(m.result);
+      return;
+    }
+    if (m.method === "ui/notifications/tool-input") { toolArgs = m.params && m.params.arguments || {}; }
+    else if (m.method === "ui/notifications/tool-result") { onToolResult(m.params || {}); }
+    else if (m.method === "ui/notifications/tool-cancelled") { show(card("err", "Cancelled: " + ((m.params || {}).reason || ""))); }
+    else if (m.method === "ui/notifications/host-context-changed") { applyContext(m.params || {}); }
+    else if (m.id !== undefined) { post({ jsonrpc: "2.0", id: m.id, result: {} }); }  // unknown request: answer, never hang
+  });
+
+  function applyContext(ctx) {
+    if (!ctx) return;
+    if (ctx.theme) document.documentElement.setAttribute("data-theme", ctx.theme);
+    var vars = ctx.styles && ctx.styles.variables;
+    if (vars) for (var k in vars) if (k.indexOf("--") === 0) document.documentElement.style.setProperty(k, vars[k]);
+  }
+  function resize() {
+    var h = document.documentElement.scrollHeight, w = document.documentElement.scrollWidth;
+    notify("ui/notifications/size-changed", { width: w, height: h });
+  }
+  function show(node) { root.innerHTML = ""; root.appendChild(node); requestAnimationFrame(resize); }
+  function el(tag, attrs, children) {
+    var n = document.createElement(tag);
+    for (var k in (attrs || {})) { if (k === "text") n.textContent = attrs[k]; else n.setAttribute(k, attrs[k]); }
+    (children || []).forEach(function (c) { n.appendChild(c); });
+    return n;
+  }
+  function card(kind, text) { return el("div", { "class": "card " + kind, text: text }); }
+
+  function structured(params) {
+    if (params.structuredContent) return params.structuredContent;
+    var text = ((params.content || []).filter(function (c) { return c.type === "text"; })[0] || {}).text;
+    try { return text ? JSON.parse(text) : null; } catch (e) { return { message: text }; }
+  }
+
+  function onToolResult(params) {
+    if (params.isError) { show(card("err", (((params.content || [])[0]) || {}).text || "The call failed.")); return; }
+    var r = structured(params); if (!r) { show(card("err", "No result received.")); return; }
+    if (r.result_kind === "action" && r.followup && r.followup.wizard === "account.payment.register") { renderForm(r); return; }
+    renderOutcome(r);
+  }
+
+  function renderOutcome(r) {
+    var kind = r.result_kind === "completed" ? "ok" : (r.success === false ? "err" : "");
+    var box = el("div", { "class": "card " + kind }, [ el("p", { text: r.message || (kind === "ok" ? "Done." : "Nothing changed.") }) ]);
+    if (r.result_kind === "completed" && r.result && typeof r.result === "object") {
+      box.appendChild(el("p", { "class": "muted", text: "Odoo returned: " + JSON.stringify(r.result).slice(0, 200) }));
+    }
+    show(box);
+  }
+
+  function field(name, label, hint, type, extra) {
+    var input = el("input", { name: name, type: type || "text", placeholder: "Odoo's default" });
+    if (extra) for (var k in extra) input.setAttribute(k, extra[k]);
+    return el("label", {}, [ el("span", { text: label }), el("small", { text: hint }), input ]);
+  }
+
+  function renderForm(r) {
+    var fields = (r.followup && r.followup.decision_fields) || {};
+    var form = el("form", {}, [
+      el("h1", { text: "Register payment" }),
+      el("p", { "class": "muted", text: (r.message || "").replace(/ Re-call with decision.*$/, "") }),
+      el("p", { "class": "muted", text: "Leave a field empty to take Odoo's default." }),
+      field("journal_id", "Journal", (fields.journal_id || {}).description || "Payment journal id", "number", { min: "1", step: "1" }),
+      field("amount", "Amount", (fields.amount || {}).description || "Amount to register", "number", { min: "0", step: "0.01" }),
+      field("payment_date", "Payment date", (fields.payment_date || {}).description || "YYYY-MM-DD", "date"),
+      field("communication", "Memo", (fields.communication || {}).description || "Memo on the payment", "text")
+    ]);
+    // type=button, not submit: a sandbox without allow-forms (the host's
+    // default) blocks native submission before any submit event fires.
+    var submit = el("button", { type: "button", "class": "primary", text: "Register payment" });
+    var status = el("span", { "class": "muted" });
+    form.appendChild(el("div", { "class": "row" }, [ submit, status ]));
+    var canCall = !!(host && host.hostCapabilities && host.hostCapabilities.serverTools);
+    if (!canCall) {
+      submit.disabled = true;
+      status.textContent = "This client cannot submit from here; ask the assistant to pass the decision.";
+    }
+    function onSubmit() {
+      if (submitting || !canCall) return;
+      var fd = new FormData(form), decision = {};
+      var j = fd.get("journal_id"), a = fd.get("amount"), d = fd.get("payment_date"), c = fd.get("communication");
+      if (j) decision.journal_id = parseInt(j, 10);
+      if (a) decision.amount = parseFloat(a);
+      if (d) decision.payment_date = d;
+      if (c) decision.communication = c;
+      var args = { model: (toolArgs && toolArgs.model) || r.model, ids: (toolArgs && toolArgs.ids) || [], decision: decision };
+      if (toolArgs && toolArgs.connection) args.connection = toolArgs.connection;
+      submitting = true; submit.disabled = true; status.textContent = "Registering…";
+      request("tools/call", { name: "register_payment", arguments: args }).then(function (res) {
+        submitting = false;
+        var out = res.isError ? null : structured(res);
+        if (!out) { status.textContent = ""; submit.disabled = false; show(card("err", (((res.content || [])[0]) || {}).text || "The call failed.")); return; }
+        renderOutcome(out);
+        // Tell the model what happened, so the conversation can carry on from it.
+        request("ui/update-model-context", {
+          content: [{ type: "text", text: out.message || "Payment registered." }],
+          structuredContent: out
+        }).catch(function () {});
+      }).catch(function (err) {
+        submitting = false; submit.disabled = false; status.textContent = "";
+        show(card("err", (err && err.message) || "The call failed."));
+      });
+    }
+    submit.addEventListener("click", onSubmit);
+    form.addEventListener("keydown", function (ev) { if (ev.key === "Enter") { ev.preventDefault(); onSubmit(); } });
+    show(form);
+  }
+
+  request("ui/initialize", {
+    protocolVersion: "2026-01-26",
+    clientInfo: { name: "odoo-mcp-pro register-payment", version: "1" },
+    appCapabilities: {}
+  }).then(function (result) {
+    host = result || {};
+    applyContext(host.hostContext);
+    notify("ui/notifications/initialized", {});
+    show(el("p", { "class": "muted", text: "Waiting for Odoo…" }));
+  }).catch(function (err) {
+    show(card("err", "Could not connect to the host: " + ((err && err.message) || "")));
+  });
+})();
+</script>
+</body>
+</html>

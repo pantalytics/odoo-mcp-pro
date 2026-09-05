@@ -34,6 +34,7 @@ from .performance import PerformanceManager
 from .resources import register_resources
 from .skills import register_skills
 from .tools import register_tools
+from .tools.apps import odoo_apps
 from .version_detect import detect_api_version
 
 # Set up logging
@@ -79,6 +80,8 @@ def create_fastmcp_app(
         instructions=instructions,
         auth=auth,
         token_verifier=token_verifier,
+        # MCP Apps: advertises the extension and serves our ui:// form(s).
+        extensions=[odoo_apps()],
     )
     # Skill resources — markdown workflow guides, no DB connection needed
     register_skills(app)
