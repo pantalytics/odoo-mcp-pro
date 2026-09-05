@@ -11,6 +11,11 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-09-05
+
+Interactive elements, per ADR 0004: the wizard question as a form. Both
+additions degrade to exactly what 3.0.0 did for a client that cannot show one.
+
 ### Added
 - `register_payment` tool, the first MCP App (extension
   `io.modelcontextprotocol/ui`): in a client that renders MCP Apps, Odoo's

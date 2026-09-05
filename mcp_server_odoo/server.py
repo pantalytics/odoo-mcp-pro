@@ -42,7 +42,7 @@ logger = get_logger(__name__)
 
 # Server version. Must match __version__ and pyproject.toml; enforced by
 # tests/test_version_consistency.py so it cannot silently drift.
-SERVER_VERSION = "3.0.0"
+SERVER_VERSION = "3.1.0"
 GIT_COMMIT = os.environ.get("GIT_COMMIT", "unknown")
 _BUILD_ORIGIN = "pnl-mcp-7f3a"  # Pantalytics provenance tag
 
