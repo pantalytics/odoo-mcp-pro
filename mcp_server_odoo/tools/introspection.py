@@ -23,15 +23,15 @@ class IntrospectionToolsMixin:
     """list_models, list_resource_templates and server_info tools."""
 
     def _register_introspection_tools(self):
-        """Register introspection tool handlers with FastMCP."""
+        """Register introspection tool handlers with the MCP server."""
 
-        @self.app.tool(
+        @self.tool(
             title="List Models",
             annotations=ToolAnnotations(
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=True,
-                openWorldHint=False,
+                read_only_hint=True,
+                destructive_hint=False,
+                idempotent_hint=True,
+                open_world_hint=False,
             ),
         )
         async def list_models(connection: Optional[str] = None) -> ModelsResult:
@@ -50,13 +50,13 @@ class IntrospectionToolsMixin:
             self._track_usage(_current_sub.get(), "list_models")
             return ModelsResult(**result)
 
-        @self.app.tool(
+        @self.tool(
             title="List Resource Templates",
             annotations=ToolAnnotations(
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=True,
-                openWorldHint=False,
+                read_only_hint=True,
+                destructive_hint=False,
+                idempotent_hint=True,
+                open_world_hint=False,
             ),
         )
         async def list_resource_templates() -> ResourceTemplatesResult:
@@ -73,13 +73,13 @@ class IntrospectionToolsMixin:
             self._track_usage(_current_sub.get(), "list_resource_templates")
             return ResourceTemplatesResult(**result)
 
-        @self.app.tool(
+        @self.tool(
             title="Server Info",
             annotations=ToolAnnotations(
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=True,
-                openWorldHint=False,
+                read_only_hint=True,
+                destructive_hint=False,
+                idempotent_hint=True,
+                open_world_hint=False,
             ),
         )
         async def server_info() -> ServerInfoResult:

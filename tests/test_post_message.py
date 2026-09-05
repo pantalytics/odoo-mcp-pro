@@ -276,7 +276,7 @@ def _make_handler_for(target: str):
     """
     import socket
 
-    from mcp.server.fastmcp import FastMCP
+    from mcp.server import MCPServer
 
     from mcp_server_odoo.access_control import AccessController
     from mcp_server_odoo.config import OdooConfig
@@ -313,7 +313,7 @@ def _make_handler_for(target: str):
     conn = OdooConnection(config)
     conn.connect()
     conn.authenticate()
-    app = FastMCP("test")
+    app = MCPServer("test")
     handler = OdooToolHandler(app, conn, AccessController(config), config)
     return handler, url, db
 

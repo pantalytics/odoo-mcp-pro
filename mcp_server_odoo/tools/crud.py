@@ -25,15 +25,15 @@ class CrudToolsMixin:
     """create_record, update_record and delete_record tools."""
 
     def _register_crud_tools(self):
-        """Register CRUD tool handlers with FastMCP."""
+        """Register CRUD tool handlers with the MCP server."""
 
-        @self.app.tool(
+        @self.tool(
             title="Create Record",
             annotations=ToolAnnotations(
-                readOnlyHint=False,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
+                read_only_hint=False,
+                destructive_hint=False,
+                idempotent_hint=False,
+                open_world_hint=True,
             ),
         )
         async def create_record(
@@ -57,13 +57,13 @@ class CrudToolsMixin:
             self._track_usage(_current_sub.get(), "create_record")
             return CreateResult(**result)
 
-        @self.app.tool(
+        @self.tool(
             title="Update Record",
             annotations=ToolAnnotations(
-                readOnlyHint=False,
-                destructiveHint=False,
-                idempotentHint=True,
-                openWorldHint=True,
+                read_only_hint=False,
+                destructive_hint=False,
+                idempotent_hint=True,
+                open_world_hint=True,
             ),
         )
         async def update_record(
@@ -89,13 +89,13 @@ class CrudToolsMixin:
             self._track_usage(_current_sub.get(), "update_record")
             return UpdateResult(**result)
 
-        @self.app.tool(
+        @self.tool(
             title="Delete Record",
             annotations=ToolAnnotations(
-                readOnlyHint=False,
-                destructiveHint=True,
-                idempotentHint=False,
-                openWorldHint=False,
+                read_only_hint=False,
+                destructive_hint=True,
+                idempotent_hint=False,
+                open_world_hint=False,
             ),
         )
         async def delete_record(

@@ -71,17 +71,17 @@ class MethodsToolsMixin:
     """execute_method tool."""
 
     def _register_methods_tools(self):
-        """Register the execute_method tool with FastMCP."""
+        """Register the execute_method tool with the MCP server."""
 
-        @self.app.tool(
+        @self.tool(
             title="Execute Odoo Method (call a standard Odoo action)",
             annotations=ToolAnnotations(
                 # A method can do anything from read-only to destructive; we cannot
                 # know in advance, so we flag the cautious defaults.
-                readOnlyHint=False,
-                destructiveHint=True,
-                idempotentHint=False,
-                openWorldHint=True,
+                read_only_hint=False,
+                destructive_hint=True,
+                idempotent_hint=False,
+                open_world_hint=True,
             ),
         )
         async def execute_method(

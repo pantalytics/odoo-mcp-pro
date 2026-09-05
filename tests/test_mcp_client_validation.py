@@ -142,7 +142,7 @@ class TestMCPProtocolCompliance:
                     assert isinstance(tool, Tool)
                     assert hasattr(tool, "name")
                     assert hasattr(tool, "description")
-                    assert hasattr(tool, "inputSchema")
+                    assert hasattr(tool, "input_schema")
 
     @pytest.mark.asyncio
     async def test_read_resource_success(self, test_env):
@@ -355,9 +355,9 @@ class TestMCPInspectorCompatibility:
             # If tools exist, validate their schema
             if tools:
                 for tool in tools:
-                    assert tool.inputSchema is not None
-                    assert "type" in tool.inputSchema
-                    assert tool.inputSchema["type"] == "object"
+                    assert tool.input_schema is not None
+                    assert "type" in tool.input_schema
+                    assert tool.input_schema["type"] == "object"
 
 
 # Test with real Odoo server if available

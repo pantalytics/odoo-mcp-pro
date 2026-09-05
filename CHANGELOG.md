@@ -11,6 +11,18 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+### Changed
+- Moved to the MCP Python SDK 2.x (`mcp>=2.1.1,<3`), which speaks the final
+  2026-07-28 protocol: stateless requests with no handshake, and Multi
+  Round-Trip Requests for mid-call questions. The 1.x line the server was
+  pinned to now receives security fixes only. `create_fastmcp_app` keeps its
+  name; the streamable-HTTP flags it used to set on the server now travel as
+  `STREAMABLE_HTTP_OPTIONS` into `streamable_http_app()`.
+- On SDK 2.x only a `ToolError` / `ResourceError` carries its message to the
+  model, so every Odoo tool and resource handler is registered through a
+  wrapper that re-raises our own exceptions (business rules, permissions,
+  connection failures) as that kind. What the client reads is unchanged.
+
 ## [2.4.3] - 2026-08-10
 
 ### Fixed

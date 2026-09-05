@@ -30,17 +30,17 @@ class BinaryToolsMixin:
     """set_binary_field tool."""
 
     def _register_binary_tools(self):
-        """Register binary field tool handlers with FastMCP."""
+        """Register binary field tool handlers with the MCP server."""
 
         # --- Binary Field Upload ---
 
-        @self.app.tool(
+        @self.tool(
             title="Set Binary Field (Upload Image/File to a Record Field)",
             annotations=ToolAnnotations(
-                readOnlyHint=False,
-                destructiveHint=False,
-                idempotentHint=True,
-                openWorldHint=True,
+                read_only_hint=False,
+                destructive_hint=False,
+                idempotent_hint=True,
+                open_world_hint=True,
             ),
         )
         async def set_binary_field(

@@ -14,7 +14,7 @@ import re
 from pathlib import Path
 from typing import Dict, List, Optional, Pattern, Tuple
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 from mcp.types import Annotations, ToolAnnotations
 
 from .logging_config import get_logger
@@ -113,7 +113,7 @@ def _companion_files(skill_dir: Path) -> List[Path]:
 def _make_reader(path: Path, fn_name: str):
     """Build a zero-arg async reader bound to `path`.
 
-    FastMCP's resource decorator requires the handler signature to match the
+    The resource decorator requires the handler signature to match the
     URI template — concrete URIs (no `{param}`) need a no-arg function. Using
     a default-arg closure is interpreted as a parameter, so we use a factory.
     The `fn_name` is surfaced via `__name__` so resources list with a real name
@@ -127,7 +127,7 @@ def _make_reader(path: Path, fn_name: str):
     return _read
 
 
-def register_skills(app: FastMCP) -> int:
+def register_skills(app: MCPServer) -> int:
     """Register skills as MCP resources AND tools.
 
     Resources (skill://{name}) are discoverable by MCP clients that
@@ -196,10 +196,10 @@ def register_skills(app: FastMCP) -> int:
     @app.tool(
         title="Find Relevant Odoo Skill",
         annotations=ToolAnnotations(
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=True,
-            openWorldHint=False,
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=False,
         ),
     )
     async def find_skill(question: str) -> Dict[str, object]:
@@ -249,10 +249,10 @@ def register_skills(app: FastMCP) -> int:
     @app.tool(
         title="Get Odoo Skill",
         annotations=ToolAnnotations(
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=True,
-            openWorldHint=False,
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=False,
         ),
     )
     async def get_skill(name: str) -> str:

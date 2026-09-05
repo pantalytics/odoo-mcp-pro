@@ -5,6 +5,7 @@ lifecycle management, and connection to Odoo. Server integration,
 main entry point, and FastMCP app tests live in tests/test_server_runtime.py.
 """
 
+import asyncio
 import os
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -68,16 +69,31 @@ class TestServerFoundation:
         json_response=True since we use no server-initiated notifications.
         Reverting either flag is the regression we are guarding against.
         """
-        server = OdooMCPServer(valid_config)
+        from mcp_server_odoo.server import STREAMABLE_HTTP_OPTIONS
 
-        assert server.app.settings.stateless_http is True, (
-            "FastMCP must be stateless_http=True; otherwise sessions pin to a "
-            "single replica and deploys disconnect every client."
+        assert STREAMABLE_HTTP_OPTIONS["stateless_http"] is True, (
+            "streamable-http must be stateless_http=True; otherwise sessions pin "
+            "to a single replica and deploys disconnect every client."
         )
-        assert server.app.settings.json_response is True, (
-            "FastMCP must be json_response=True; SSE GET streams are pointless "
-            "in stateless mode and break json-only HTTP clients."
+        assert STREAMABLE_HTTP_OPTIONS["json_response"] is True, (
+            "streamable-http must be json_response=True; SSE GET streams are "
+            "pointless in stateless mode and break json-only HTTP clients."
         )
+
+        # And run_http actually hands them to the SDK (mcp 2.x takes them on
+        # streamable_http_app(), not on the server).
+        server = OdooMCPServer(valid_config)
+        with (
+            patch.object(server, "_ensure_connection"),
+            patch.object(server, "_register_resources"),
+            patch.object(server, "_register_tools"),
+            patch.object(server.app, "streamable_http_app") as build,
+            patch("uvicorn.Server") as uv,
+        ):
+            uv.return_value.serve = AsyncMock()
+            asyncio.run(server.run_http(host="127.0.0.1", port=8000))
+        assert build.call_args.kwargs["stateless_http"] is True
+        assert build.call_args.kwargs["json_response"] is True
 
     def test_server_initialization_with_env_config(self, monkeypatch, tmp_path):
         """Test server initialization loading config from environment."""

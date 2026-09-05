@@ -2,9 +2,14 @@
 
 Split out of tests/test_tools.py to keep file sizes manageable.
 Shared fixtures live in tests/helpers/tool_fixtures.py.
+
+The registered tool functions raise ``ToolError`` (mcp 2.x shows the model
+only that kind's message) with our own exception as ``__cause__``; the
+handler methods underneath still raise ``ValidationError`` directly.
 """
 
 import pytest
+from mcp.server.mcpserver.exceptions import ToolError
 
 from mcp_server_odoo.access_control import AccessControlError
 from mcp_server_odoo.error_handling import (
@@ -46,10 +51,12 @@ class TestOdooToolHandlerErrors:
         search_records = mock_app._tools["search_records"]
 
         # Call the tool and expect error
-        with pytest.raises(ValidationError) as exc_info:
+        with pytest.raises(ToolError) as exc_info:
             await search_records(model="res.partner", domain=[], fields=None, limit=10)
 
         assert "Access denied" in str(exc_info.value)
+
+        assert isinstance(exc_info.value.__cause__, ValidationError)
 
     @pytest.mark.asyncio
     async def test_search_records_not_authenticated(
@@ -63,10 +70,12 @@ class TestOdooToolHandlerErrors:
         search_records = mock_app._tools["search_records"]
 
         # Call the tool and expect error
-        with pytest.raises(ValidationError) as exc_info:
+        with pytest.raises(ToolError) as exc_info:
             await search_records(model="res.partner")
 
         assert "Not authenticated" in str(exc_info.value)
+
+        assert isinstance(exc_info.value.__cause__, ValidationError)
 
     @pytest.mark.asyncio
     async def test_search_records_connection_error(
@@ -80,10 +89,12 @@ class TestOdooToolHandlerErrors:
         search_records = mock_app._tools["search_records"]
 
         # Call the tool and expect error
-        with pytest.raises(ValidationError) as exc_info:
+        with pytest.raises(ToolError) as exc_info:
             await search_records(model="res.partner")
 
         assert "Connection error" in str(exc_info.value)
+
+        assert isinstance(exc_info.value.__cause__, ValidationError)
 
     @pytest.mark.asyncio
     async def test_search_records_with_invalid_json_domain(
@@ -100,10 +111,12 @@ class TestOdooToolHandlerErrors:
         invalid_domain = '[["is_company", "=", true'  # Missing closing brackets
 
         # Should raise ValidationError
-        with pytest.raises(ValidationError) as exc_info:
+        with pytest.raises(ToolError) as exc_info:
             await search_records(model="res.partner", domain=invalid_domain, limit=5)
 
         assert "Invalid search criteria format" in str(exc_info.value)
+
+        assert isinstance(exc_info.value.__cause__, ValidationError)
 
     @pytest.mark.asyncio
     async def test_get_record_not_found(
@@ -117,10 +130,12 @@ class TestOdooToolHandlerErrors:
         get_record = mock_app._tools["get_record"]
 
         # Call the tool and expect error
-        with pytest.raises(ValidationError) as exc_info:
+        with pytest.raises(ToolError) as exc_info:
             await get_record(model="res.partner", record_id=999)
 
         assert "Record not found" in str(exc_info.value)
+
+        assert isinstance(exc_info.value.__cause__, ValidationError)
 
     @pytest.mark.asyncio
     async def test_get_record_access_denied(
@@ -136,10 +151,12 @@ class TestOdooToolHandlerErrors:
         get_record = mock_app._tools["get_record"]
 
         # Call the tool and expect error
-        with pytest.raises(ValidationError) as exc_info:
+        with pytest.raises(ToolError) as exc_info:
             await get_record(model="res.partner", record_id=1)
 
         assert "Access denied" in str(exc_info.value)
+
+        assert isinstance(exc_info.value.__cause__, ValidationError)
 
     @pytest.mark.asyncio
     async def test_get_record_not_authenticated(
@@ -153,10 +170,12 @@ class TestOdooToolHandlerErrors:
         get_record = mock_app._tools["get_record"]
 
         # Call the tool and expect error
-        with pytest.raises(ValidationError) as exc_info:
+        with pytest.raises(ToolError) as exc_info:
             await get_record(model="res.partner", record_id=1)
 
         assert "Not authenticated" in str(exc_info.value)
+
+        assert isinstance(exc_info.value.__cause__, ValidationError)
 
     @pytest.mark.asyncio
     async def test_get_record_connection_error(
@@ -170,10 +189,12 @@ class TestOdooToolHandlerErrors:
         get_record = mock_app._tools["get_record"]
 
         # Call the tool and expect error
-        with pytest.raises(ValidationError) as exc_info:
+        with pytest.raises(ToolError) as exc_info:
             await get_record(model="res.partner", record_id=1)
 
         assert "Connection error" in str(exc_info.value)
+
+        assert isinstance(exc_info.value.__cause__, ValidationError)
 
     @pytest.mark.asyncio
     async def test_list_models_with_permission_failures(
@@ -235,7 +256,9 @@ class TestOdooToolHandlerErrors:
         list_models = mock_app._tools["list_models"]
 
         # Call the tool and expect error
-        with pytest.raises(ValidationError) as exc_info:
+        with pytest.raises(ToolError) as exc_info:
             await list_models()
 
         assert "Failed to list models" in str(exc_info.value)
+
+        assert isinstance(exc_info.value.__cause__, ValidationError)
