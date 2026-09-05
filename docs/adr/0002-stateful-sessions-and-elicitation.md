@@ -1,6 +1,6 @@
 # ADR 0002: Stateless elicitation for wizard follow-ups (aligned with MCP 2026-07-28)
 
-- Status: Proposed
+- Status: Proposed; step 4 superseded by [ADR 0004](0004-interactive-elements-sdk-v2-and-mcp-apps.md)
 - Date: 2026-06-18
 - Deciders: Rutger
 - Relationship: refines [ADR 0001](0001-stateless-no-elicitation.md) (keeps its
@@ -89,8 +89,9 @@ onto the official `InputRequiredResult` / `inputResponses` as clients adopt it.
    backorder no-op), run on v18 + v19, Community + Enterprise.
 3. Ship the safe set: `execute_method` (plain methods) + **register-payment**
    (verified v19) + **backorder** (fixed, verified v19) once matrix-tested.
-4. When the SDK exposes `InputRequiredResult`, reshape `methods.py`'s `followup`
-   response to it (kept backward compatible during the 12-month window).
+4. ~~When the SDK exposes `InputRequiredResult`, reshape `methods.py`'s
+   `followup` response to it.~~ Superseded by ADR 0004: the types ship in SDK
+   v2 only, so this is the v2 migration, not a rename.
 5. Separately: OAuth/DCR hardening per the RC.
 
 ## Sources
