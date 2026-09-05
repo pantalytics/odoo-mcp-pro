@@ -20,17 +20,17 @@ class MessagingToolsMixin:
     """post_message tool and recordset-method helper."""
 
     def _register_messaging_tools(self):
-        """Register messaging tool handlers with FastMCP."""
+        """Register messaging tool handlers with the MCP server."""
 
         # --- Chatter: post_message ---
 
-        @self.app.tool(
+        @self.tool(
             title="Post Chatter Message (Send Message / Log Note)",
             annotations=ToolAnnotations(
-                readOnlyHint=False,
-                destructiveHint=True,  # mt_comment sends real email; mt_note may also if partner_ids set
-                idempotentHint=False,
-                openWorldHint=True,
+                read_only_hint=False,
+                destructive_hint=True,  # mt_comment sends real email; mt_note may also if partner_ids set
+                idempotent_hint=False,
+                open_world_hint=True,
             ),
         )
         async def post_message(

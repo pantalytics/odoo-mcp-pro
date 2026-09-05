@@ -49,7 +49,15 @@ The SaaS features (multi-tenant, OAuth, admin UI, billing) live in the private
 **Admin extension contract** (admin subclasses/imports these — rename only in
 coordination with the admin repo):
 - `server.create_fastmcp_app(*, auth=None, token_verifier=None)` — single source
-  of truth for FastMCP construction; admin's multi-tenant entry point uses it
+  of truth for `MCPServer` construction; admin's multi-tenant entry point uses it.
+  The name predates the mcp 2.x rename of `FastMCP` and stays. On 2.x the
+  transport flags moved off the server: build the HTTP app with
+  `app.streamable_http_app(**server.STREAMABLE_HTTP_OPTIONS)` (stateless +
+  json_response), never with the SDK defaults
+- `error_handling.as_tool_error` / `as_resource_error` — mcp 2.x shows the
+  model a handler's exception text only for `ToolError` / `ResourceError`;
+  `OdooToolHandler.tool()` and `OdooResourceHandler.resource()` wrap every
+  handler with these, so an overriding package registers through them too
 - `tools.OdooToolHandler._get_user_context` / `._track_usage` — hook methods the
   admin package overrides for per-user connection resolution and usage tracking
 - `tools._current_sub` — contextvar carrying the authenticated subject
@@ -102,7 +110,7 @@ collection time).
 
 | File | Role |
 |------|------|
-| `server.py` | Factory pattern, FastMCP setup, stdio/HTTP runners |
+| `server.py` | Factory pattern, `MCPServer` setup, stdio/HTTP runners |
 | `tools/` | MCP tools as mixins on `OdooToolHandler` (crud, query, bulk, binary, messaging, introspection) |
 | `resources/` | MCP resources (URI-based): handler, retrieval, formatting |
 | `schemas.py` | Pydantic result models |

@@ -26,15 +26,15 @@ class QueryToolsMixin:
     """search_records and get_record tools."""
 
     def _register_query_tools(self):
-        """Register query tool handlers with FastMCP."""
+        """Register query tool handlers with the MCP server."""
 
-        @self.app.tool(
+        @self.tool(
             title="Search Records",
             annotations=ToolAnnotations(
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=True,
-                openWorldHint=True,
+                read_only_hint=True,
+                destructive_hint=False,
+                idempotent_hint=True,
+                open_world_hint=True,
             ),
         )
         async def search_records(
@@ -75,13 +75,13 @@ class QueryToolsMixin:
             self._track_usage(_current_sub.get(), "search_records")
             return SearchResult(**result)
 
-        @self.app.tool(
+        @self.tool(
             title="Get Record",
             annotations=ToolAnnotations(
-                readOnlyHint=True,
-                destructiveHint=False,
-                idempotentHint=True,
-                openWorldHint=False,
+                read_only_hint=True,
+                destructive_hint=False,
+                idempotent_hint=True,
+                open_world_hint=False,
             ),
         )
         async def get_record(

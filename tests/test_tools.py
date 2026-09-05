@@ -7,7 +7,7 @@ tests/test_tools_crud.py. Shared fixtures live in tests/helpers/tool_fixtures.py
 from unittest.mock import MagicMock
 
 import pytest
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 from mcp_server_odoo.access_control import AccessController
 from mcp_server_odoo.config import OdooConfig
@@ -410,7 +410,7 @@ class TestRegisterTools:
     def test_register_tools_success(self):
         """Test successful registration of tools."""
         # Create mocks
-        mock_app = MagicMock(spec=FastMCP)
+        mock_app = MagicMock(spec=MCPServer)
         mock_connection = MagicMock(spec=OdooConnection)
         mock_access_controller = MagicMock(spec=AccessController)
         config = OdooConfig(

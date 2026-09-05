@@ -8,15 +8,15 @@
 
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import Any, Callable, Optional, Tuple
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 from mcp.types import Annotations
 
 from ..access_control import AccessController
 from ..config import OdooConfig
 from ..connection_protocol import OdooConnectionProtocol
-from ..error_handling import ValidationError
+from ..error_handling import ValidationError, as_resource_error
 from ..logging_config import get_logger
 from .formatting import ResourceFormattingMixin
 from .retrieval import RetrievalMixin
@@ -29,7 +29,7 @@ class OdooResourceHandler(RetrievalMixin, ResourceFormattingMixin):
 
     def __init__(
         self,
-        app: FastMCP,
+        app: MCPServer,
         connection: Optional[OdooConnectionProtocol] = None,
         access_controller: Optional[AccessController] = None,
         config: Optional[OdooConfig] = None,
@@ -42,6 +42,20 @@ class OdooResourceHandler(RetrievalMixin, ResourceFormattingMixin):
 
         # Register resources
         self._register_resources()
+
+    def resource(
+        self, uri: str, **kwargs: Any
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+        """``app.resource`` plus the error translation every Odoo resource needs.
+
+        On mcp 2.x only a ``ResourceError`` carries its message to the client;
+        see ``error_handling.as_resource_error``.
+        """
+
+        def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
+            return self.app.resource(uri, **kwargs)(as_resource_error(fn))
+
+        return decorator
 
     async def _get_user_context(self) -> Tuple[OdooConnectionProtocol, AccessController]:
         """Get connection and access controller for the current request.
@@ -61,8 +75,8 @@ class OdooResourceHandler(RetrievalMixin, ResourceFormattingMixin):
         raise ValidationError("No Odoo connection available")
 
     def _register_resources(self):
-        """Register all resource handlers with FastMCP."""
-        # Note: FastMCP uses decorators to register resources.
+        """Register all resource handlers with the MCP server."""
+        # Note: the SDK uses decorators to register resources.
         # The @self.app.resource decorator automatically handles resource registration.
         # Resources with parameters (like {model}) are registered as templates,
         # not concrete resources, so they won't show in list_resources().
@@ -72,7 +86,7 @@ class OdooResourceHandler(RetrievalMixin, ResourceFormattingMixin):
         self._register_concrete_resources()
 
         # Register record retrieval resource handler
-        @self.app.resource(
+        @self.resource(
             "odoo://{model}/record/{record_id}",
             title="Odoo Record",
             description="Retrieve a specific record from an Odoo model by ID",
@@ -90,8 +104,8 @@ class OdooResourceHandler(RetrievalMixin, ResourceFormattingMixin):
             """
             return await self._handle_record_retrieval(model, record_id)
 
-        # Register search resource (no parameters due to FastMCP limitations)
-        @self.app.resource(
+        # Register search resource (no parameters: the SDK maps URI templates only)
+        @self.resource(
             "odoo://{model}/search",
             title="Odoo Search",
             description="Search records with default settings (first 10 records)",
@@ -105,11 +119,11 @@ class OdooResourceHandler(RetrievalMixin, ResourceFormattingMixin):
             """
             return await self._handle_search(model, None, None, None, None, None)
 
-        # Note: Browse resource removed due to FastMCP query parameter limitations
+        # Note: Browse resource removed; URI templates carry no query parameters
         # Use get_record multiple times or search_records tool instead
 
-        # Register count resource (no parameters due to FastMCP limitations)
-        @self.app.resource(
+        # Register count resource (no parameters: the SDK maps URI templates only)
+        @self.resource(
             "odoo://{model}/count",
             title="Odoo Record Count",
             description="Count all records in an Odoo model",
@@ -123,7 +137,7 @@ class OdooResourceHandler(RetrievalMixin, ResourceFormattingMixin):
             return await self._handle_count(model, None)
 
         # Register fields resource
-        @self.app.resource(
+        @self.resource(
             "odoo://{model}/fields",
             title="Odoo Field Definitions",
             description="Get field definitions and metadata for an Odoo model",
@@ -143,25 +157,25 @@ class OdooResourceHandler(RetrievalMixin, ResourceFormattingMixin):
     def _register_concrete_resources(self):
         """Register concrete resources for enabled models.
 
-        Note: In the current FastMCP implementation, resources with parameters
+        Note: In the SDK, resources with parameters
         are registered as templates and won't show in list_resources().
         This is expected behavior - use list_resource_templates() to see them.
         """
         # The template resources registered with decorators are sufficient
-        # FastMCP will handle them properly as templates
+        # The SDK handles them as templates
         pass
 
 
 def register_resources(
-    app: FastMCP,
+    app: MCPServer,
     connection: Optional[OdooConnectionProtocol] = None,
     access_controller: Optional[AccessController] = None,
     config: Optional[OdooConfig] = None,
 ) -> OdooResourceHandler:
-    """Register all Odoo resources with the FastMCP app.
+    """Register all Odoo resources with the MCP server app.
 
     Args:
-        app: FastMCP application instance
+        app: MCPServer application instance
         connection: Odoo connection instance
         access_controller: Access control instance
         config: Odoo configuration instance

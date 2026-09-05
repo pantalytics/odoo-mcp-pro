@@ -24,7 +24,7 @@ import time
 from unittest.mock import MagicMock
 
 import pytest
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 from mcp_server_odoo.access_control import AccessController
 from mcp_server_odoo.config import OdooConfig
@@ -36,7 +36,7 @@ SLEEP = 0.3  # per-call blocking duration
 
 def _make_app():
     """A fake FastMCP that captures registered tool functions by name."""
-    app = MagicMock(spec=FastMCP)
+    app = MagicMock(spec=MCPServer)
     app._tools = {}
 
     def tool_decorator(**kwargs):

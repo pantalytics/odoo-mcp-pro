@@ -13,14 +13,14 @@ actions like creating, updating, or deleting records.
 
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import Any, Callable, Optional, Tuple
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 from ..access_control import AccessController
 from ..config import OdooConfig
 from ..connection_protocol import OdooConnectionProtocol
-from ..error_handling import ValidationError
+from ..error_handling import ValidationError, as_tool_error
 from ._common import _current_sub, logger
 from .binary import BinaryToolsMixin
 from .bulk import BulkToolsMixin
@@ -46,7 +46,7 @@ class OdooToolHandler(
 
     def __init__(
         self,
-        app: FastMCP,
+        app: MCPServer,
         connection: Optional[OdooConnectionProtocol] = None,
         access_controller: Optional[AccessController] = None,
         config: Optional[OdooConfig] = None,
@@ -59,6 +59,20 @@ class OdooToolHandler(
 
         # Register tools
         self._register_tools()
+
+    def tool(self, **kwargs: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+        """``app.tool`` plus the error translation every Odoo tool needs.
+
+        Mixins register through this rather than ``self.app.tool`` so that a
+        handler's own exceptions (``ValidationError``, ``AccessControlError``,
+        ``OdooConnectionError``) still reach the model as text on mcp 2.x --
+        see ``error_handling.as_tool_error``.
+        """
+
+        def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
+            return self.app.tool(**kwargs)(as_tool_error(fn))
+
+        return decorator
 
     async def _get_user_context(
         self,
@@ -105,7 +119,7 @@ class OdooToolHandler(
         """Usage tracking hook. No-op here; overridden by the SaaS layer."""
 
     def _register_tools(self):
-        """Register all tool handlers with FastMCP.
+        """Register all tool handlers with the MCP server.
 
         Registration order matters: tools appear to clients in the order
         they are registered, so this must match the original sequence.
@@ -120,15 +134,15 @@ class OdooToolHandler(
 
 
 def register_tools(
-    app: FastMCP,
+    app: MCPServer,
     connection: Optional[OdooConnectionProtocol] = None,
     access_controller: Optional[AccessController] = None,
     config: Optional[OdooConfig] = None,
 ) -> OdooToolHandler:
-    """Register all Odoo tools with the FastMCP app.
+    """Register all Odoo tools with the MCP server app.
 
     Args:
-        app: FastMCP application instance
+        app: MCPServer application instance
         connection: Odoo connection instance
         access_controller: Access control instance
         config: Odoo configuration instance

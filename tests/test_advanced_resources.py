@@ -5,7 +5,7 @@ from unittest.mock import Mock
 from urllib.parse import quote
 
 import pytest
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 from mcp_server_odoo.access_control import AccessController
 from mcp_server_odoo.config import OdooConfig, load_config
@@ -43,7 +43,7 @@ def mock_access_controller():
 @pytest.fixture
 def mock_app():
     """Create a mock FastMCP app."""
-    app = Mock(spec=FastMCP)
+    app = Mock(spec=MCPServer)
     app.resource = Mock()
 
     # Store registered handlers
@@ -291,7 +291,7 @@ class TestAdvancedResourceIntegration:
     async def test_count_real_records(self, real_config, real_connection):
         """Test count with real Odoo connection."""
         # Setup real components
-        app = Mock(spec=FastMCP)
+        app = Mock(spec=MCPServer)
         app.resource = Mock()
         app._handlers = {}
 
@@ -328,7 +328,7 @@ class TestAdvancedResourceIntegration:
     async def test_fields_real_model(self, real_config, real_connection):
         """Test fields with real Odoo model."""
         # Setup real components
-        app = Mock(spec=FastMCP)
+        app = Mock(spec=MCPServer)
         app.resource = Mock()
         app._handlers = {}
 

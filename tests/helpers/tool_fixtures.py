@@ -6,7 +6,7 @@ Used by tests/test_tools.py and tests/test_tools_crud.py.
 from unittest.mock import MagicMock
 
 import pytest
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 from mcp_server_odoo.access_control import AccessController
 from mcp_server_odoo.config import OdooConfig
@@ -17,7 +17,7 @@ from mcp_server_odoo.tools import OdooToolHandler
 @pytest.fixture
 def mock_app():
     """Create a mock FastMCP app."""
-    app = MagicMock(spec=FastMCP)
+    app = MagicMock(spec=MCPServer)
     # Store registered tools
     app._tools = {}
 

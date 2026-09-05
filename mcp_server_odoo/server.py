@@ -6,7 +6,7 @@
 # This file stays under the Mozilla Public License 2.0; see LICENSE.MPL-2.0.
 """MCP Server implementation for Odoo.
 
-This module provides the FastMCP server that exposes Odoo data
+This module provides the MCPServer app that exposes Odoo data
 and functionality through the Model Context Protocol.
 """
 
@@ -15,7 +15,7 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, Optional
 
-from mcp.server import FastMCP
+from mcp.server import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 
 from .access_control import AccessController
@@ -46,15 +46,25 @@ GIT_COMMIT = os.environ.get("GIT_COMMIT", "unknown")
 _BUILD_ORIGIN = "pnl-mcp-7f3a"  # Pantalytics provenance tag
 
 
+# Streamable-HTTP transport flags. stateless_http so any replica can serve any
+# request (blue/green deploys don't drop client connections with "No transport
+# found for sessionId"); json_response because we send no server-initiated
+# notifications, so an SSE GET stream would be pointless. On mcp 2.x these are
+# arguments of ``streamable_http_app()`` rather than of the server, so they live
+# here as the one place both run_http and the admin entry point read them.
+STREAMABLE_HTTP_OPTIONS: Dict[str, Any] = {"stateless_http": True, "json_response": True}
+
+
 def create_fastmcp_app(
     *, auth=None, token_verifier=None, extra_instructions: str | None = None
-) -> FastMCP:
-    """Create the FastMCP app with the canonical server settings.
+) -> MCPServer:
+    """Create the MCPServer app with the canonical server settings.
 
-    Single source of truth for FastMCP construction — used by OdooMCPServer
-    and by the private admin package's multi-tenant entry point. stateless_http
-    so any replica can serve any request (blue/green deploys don't drop client
-    connections with "No transport found for sessionId").
+    Single source of truth for server construction — used by OdooMCPServer
+    and by the private admin package's multi-tenant entry point. The name
+    predates the mcp 2.x rename of FastMCP to MCPServer and stays, because the
+    admin package imports it by name. Pair with ``STREAMABLE_HTTP_OPTIONS``
+    when building the HTTP app.
 
     ``extra_instructions`` is appended to the handshake instructions. Self-hosted
     (single connection) passes nothing; the multi-tenant admin layer uses it to
@@ -63,13 +73,12 @@ def create_fastmcp_app(
     instructions = SERVER_INSTRUCTIONS
     if extra_instructions:
         instructions = f"{instructions}\n{extra_instructions}"
-    app = FastMCP(
+    app = MCPServer(
         name="odoo-mcp-server",
+        version=SERVER_VERSION,
         instructions=instructions,
         auth=auth,
         token_verifier=token_verifier,
-        stateless_http=True,
-        json_response=True,
     )
     # Skill resources — markdown workflow guides, no DB connection needed
     register_skills(app)
@@ -79,7 +88,7 @@ def create_fastmcp_app(
 class OdooMCPServer:
     """Main MCP server class for Odoo integration.
 
-    This class manages the FastMCP server instance and maintains
+    This class manages the MCPServer instance and maintains
     the connection to Odoo. The server lifecycle is managed by
     establishing connection before starting and cleaning up on exit.
     """
@@ -256,17 +265,18 @@ class OdooMCPServer:
 
             logger.info(f"Starting MCP server with HTTP transport on {host}:{port}...")
 
-            # Update FastMCP settings for host and port
-            self.app.settings.host = host
-            self.app.settings.port = port
-
             # Disable DNS rebinding protection when binding to all interfaces
+            transport_security = None
             if host == "0.0.0.0":
-                self.app.settings.transport_security = TransportSecuritySettings(
+                transport_security = TransportSecuritySettings(
                     enable_dns_rebinding_protection=False
                 )
 
-            asgi_app = self.app.streamable_http_app()
+            asgi_app = self.app.streamable_http_app(
+                host=host,
+                transport_security=transport_security,
+                **STREAMABLE_HTTP_OPTIONS,
+            )
 
             from .usage import track_event
 
@@ -284,7 +294,7 @@ class OdooMCPServer:
                 asgi_app,
                 host=host,
                 port=port,
-                log_level=self.app.settings.log_level.lower(),
+                log_level=logging_config.log_level.lower(),
             )
             server = uvicorn.Server(config)
             await server.serve()

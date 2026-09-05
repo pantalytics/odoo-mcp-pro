@@ -13,11 +13,14 @@ This module provides a centralized error handling system with:
 - MCP-compliant error response formatting
 """
 
+import functools
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
-from typing import Any, Dict, Optional, Union
+from typing import Any, Awaitable, Callable, Dict, Optional, Union
 
+from mcp.server.mcpserver.exceptions import ResourceError, ToolError
+from mcp.shared.exceptions import MCPError as ProtocolError
 from mcp.types import ErrorData
 
 from .error_sanitizer import ErrorSanitizer
@@ -274,3 +277,44 @@ def __getattr__(name: str) -> Any:
 
         return getattr(_error_handler_module, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+# --- Anticipated failures, as mcp 2.x understands them ---------------------
+#
+# Since mcp 2.x a tool's exception text reaches the model only when the
+# exception is a ``ToolError`` (a resource's only for ``ResourceError``);
+# anything else is treated as a crash and the client sees just
+# "Error executing tool <name>". Every handler here raises its own families
+# (``MCPError`` above, ``AccessControlError``, ``OdooConnectionError``) whose
+# message *is* the point -- Odoo's business rule, the missing permission --
+# so the registration seams wrap each handler once and re-raise as the
+# anticipated kind. The mapping is deliberately not a subclass relation:
+# those modules are imported by the admin package and stay SDK-agnostic.
+# ADR 0003's envelope will render the message here when it lands.
+
+
+def _wrap(
+    fn: Callable[..., Awaitable[Any]], kind: type[Exception]
+) -> Callable[..., Awaitable[Any]]:
+    @functools.wraps(fn)
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return await fn(*args, **kwargs)
+        except (ToolError, ResourceError, ProtocolError):
+            # Already the SDK's own kind: anticipated, or a protocol error
+            # that must surface as a JSON-RPC error rather than tool text.
+            raise
+        except Exception as exc:
+            raise kind(str(exc)) from exc
+
+    return wrapper
+
+
+def as_tool_error(fn: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
+    """Re-raise anything an async tool handler raises as ``ToolError``."""
+    return _wrap(fn, ToolError)
+
+
+def as_resource_error(fn: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
+    """Re-raise anything an async resource handler raises as ``ResourceError``."""
+    return _wrap(fn, ResourceError)

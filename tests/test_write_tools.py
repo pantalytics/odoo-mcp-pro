@@ -291,9 +291,9 @@ class TestWriteToolsIntegration:
     @pytest.fixture
     def real_app(self):
         """Create real FastMCP app."""
-        from mcp.server.fastmcp import FastMCP
+        from mcp.server import MCPServer
 
-        return FastMCP("test-app")
+        return MCPServer("test-app")
 
     @pytest.fixture
     def real_tool_handler(self, real_app, real_connection, real_access_controller, real_config):

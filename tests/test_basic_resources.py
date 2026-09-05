@@ -3,7 +3,7 @@
 from unittest.mock import Mock
 
 import pytest
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 from mcp_server_odoo.access_control import AccessControlError, AccessController
 from mcp_server_odoo.config import OdooConfig
@@ -67,7 +67,7 @@ def mock_access_controller():
 @pytest.fixture
 def mock_app():
     """Create mock FastMCP app."""
-    app = Mock(spec=FastMCP)
+    app = Mock(spec=MCPServer)
     app.resource = Mock()
     # Make resource decorator return the function as-is
     app.resource.return_value = lambda func: func
@@ -246,7 +246,7 @@ class TestResourceIntegration:
         access_controller = AccessController(test_config)
 
         # Create FastMCP app
-        app = FastMCP("test-app")
+        app = MCPServer("test-app")
 
         # Register resources
         handler = register_resources(app, connection, access_controller, test_config)
@@ -280,7 +280,7 @@ class TestResourceIntegration:
         access_controller = AccessController(test_config)
 
         # Create FastMCP app
-        app = FastMCP("test-app")
+        app = MCPServer("test-app")
 
         # Register resources
         handler = register_resources(app, connection, access_controller, test_config)
@@ -306,7 +306,7 @@ class TestResourceIntegration:
         access_controller = AccessController(test_config)
 
         # Create FastMCP app
-        app = FastMCP("test-app")
+        app = MCPServer("test-app")
 
         # Register resources
         handler = register_resources(app, connection, access_controller, test_config)

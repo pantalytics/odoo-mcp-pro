@@ -24,17 +24,17 @@ class BulkToolsMixin:
     """create_records, update_records, delete_records and import_records tools."""
 
     def _register_bulk_tools(self):
-        """Register bulk operation tool handlers with FastMCP."""
+        """Register bulk operation tool handlers with the MCP server."""
 
         # --- Bulk Operations ---
 
-        @self.app.tool(
+        @self.tool(
             title="Create Records (Bulk)",
             annotations=ToolAnnotations(
-                readOnlyHint=False,
-                destructiveHint=False,
-                idempotentHint=False,
-                openWorldHint=True,
+                read_only_hint=False,
+                destructive_hint=False,
+                idempotent_hint=False,
+                open_world_hint=True,
             ),
         )
         async def create_records(
@@ -63,13 +63,13 @@ class BulkToolsMixin:
             self._track_usage(_current_sub.get(), "create_records")
             return BulkCreateResult(**result)
 
-        @self.app.tool(
+        @self.tool(
             title="Update Records (Bulk)",
             annotations=ToolAnnotations(
-                readOnlyHint=False,
-                destructiveHint=False,
-                idempotentHint=True,
-                openWorldHint=True,
+                read_only_hint=False,
+                destructive_hint=False,
+                idempotent_hint=True,
+                open_world_hint=True,
             ),
         )
         async def update_records(
@@ -98,13 +98,13 @@ class BulkToolsMixin:
             self._track_usage(_current_sub.get(), "update_records")
             return BulkUpdateResult(**result)
 
-        @self.app.tool(
+        @self.tool(
             title="Delete Records (Bulk)",
             annotations=ToolAnnotations(
-                readOnlyHint=False,
-                destructiveHint=True,
-                idempotentHint=False,
-                openWorldHint=False,
+                read_only_hint=False,
+                destructive_hint=True,
+                idempotent_hint=False,
+                open_world_hint=False,
             ),
         )
         async def delete_records(
@@ -130,13 +130,13 @@ class BulkToolsMixin:
 
         # --- Import (load) ---
 
-        @self.app.tool(
+        @self.tool(
             title="Import Records (Upsert with External IDs)",
             annotations=ToolAnnotations(
-                readOnlyHint=False,
-                destructiveHint=False,
-                idempotentHint=True,
-                openWorldHint=True,
+                read_only_hint=False,
+                destructive_hint=False,
+                idempotent_hint=True,
+                open_world_hint=True,
             ),
         )
         async def import_records(

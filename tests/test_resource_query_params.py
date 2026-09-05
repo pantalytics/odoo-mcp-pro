@@ -9,7 +9,7 @@ from unittest.mock import Mock
 from urllib.parse import quote
 
 import pytest
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 from mcp_server_odoo.access_control import AccessController
 from mcp_server_odoo.config import OdooConfig
@@ -45,7 +45,7 @@ def mock_access_controller():
 @pytest.fixture
 def fastmcp_app():
     """Create a real FastMCP app instance."""
-    return FastMCP(name="test-odoo-mcp")
+    return MCPServer(name="test-odoo-mcp")
 
 
 @pytest.fixture
