@@ -11,6 +11,13 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-09-05
+
+Major because the `mcp` dependency moves from 1.x to 2.x: anything installed
+next to `mcp<2` stops resolving, and `create_fastmcp_app` now returns the
+SDK's `MCPServer` rather than `FastMCP`. Tool and resource behaviour is
+unchanged.
+
 ### Changed
 - Moved to the MCP Python SDK 2.x (`mcp>=2.1.1,<3`), which speaks the final
   2026-07-28 protocol: stateless requests with no handshake, and Multi
