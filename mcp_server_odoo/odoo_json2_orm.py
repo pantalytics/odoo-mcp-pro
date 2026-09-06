@@ -182,8 +182,8 @@ class Json2OrmMixin:
         self._fields_cache.pop(model, None)
         logger.info(
             f"Loaded {len(data)} row(s) into {model}: "
-            f"{len(result.get('ids', []))} OK, "
-            f"{len(result.get('messages', []))} messages"
+            f"{len(result.get('ids') or [])} OK, "
+            f"{len(result.get('messages') or [])} messages"
         )
         return result
 

@@ -222,6 +222,17 @@ class TestOdooJSON2ORM:
 
         assert result is False
 
+    def test_load_records_with_null_ids(self, connected_json2):
+        """A failed import returns ids=None; the caller must still get the messages."""
+        conn, mock_client = connected_json2
+        messages = [{"type": "error", "message": "No matching record for 'Nederlan'"}]
+        mock_client.post.return_value = _ok_response({"ids": None, "messages": messages})
+
+        result = conn.load_records("res.partner", ["name", "country_id"], [["Acme", "Nederlan"]])
+
+        assert result["ids"] is None
+        assert result["messages"] == messages
+
 
 # ---------------------------------------------------------------------------
 # Integration tests (require live Odoo 19 with json2)
