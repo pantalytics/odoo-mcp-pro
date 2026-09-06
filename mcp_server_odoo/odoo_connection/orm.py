@@ -320,8 +320,8 @@ class OdooConnectionOrmMixin:
                 self._performance_manager.invalidate_record_cache(model)
                 logger.info(
                     f"Loaded {len(data)} row(s) into {model}: "
-                    f"{len(result.get('ids', []))} OK, "
-                    f"{len(result.get('messages', []))} messages"
+                    f"{len(result.get('ids') or [])} OK, "
+                    f"{len(result.get('messages') or [])} messages"
                 )
                 return result
         except Exception as e:

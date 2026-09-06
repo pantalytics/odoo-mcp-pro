@@ -102,6 +102,55 @@ class TestBulkCreate:
             await handler._handle_create_records_tool("res.partner", [{"name": "test"}])
 
 
+class TestImportRecords:
+    @pytest.mark.asyncio
+    async def test_import_records_reports_odoo_messages(self, handler, mock_connection):
+        """A rejected import must surface Odoo's per-row messages, not a crash.
+
+        Odoo's load() answers a failed import with ids=None (not an empty list),
+        which used to blow up on len() before the messages were ever read.
+        """
+        mock_connection.load_records.return_value = {
+            "ids": None,
+            "messages": [
+                {
+                    "type": "error",
+                    "message": "No matching record found for 'Nederlan'",
+                    "rows": {"from": 0, "to": 0},
+                }
+            ],
+        }
+
+        result = await handler._handle_import_records_tool(
+            "res.partner",
+            ["name", "country_id"],
+            [["Acme", "Nederlan"]],
+        )
+
+        assert result["success"] is False
+        assert result["imported"] == 0
+        assert result["errors"][0]["message"] == "No matching record found for 'Nederlan'"
+        assert result["errors"][0]["row"] == 0
+
+    def test_xmlrpc_load_records_with_null_ids(self):
+        """Same null-ids answer over XML-RPC, the transport most customers use."""
+        from mcp_server_odoo.odoo_connection.orm import OdooConnectionOrmMixin
+
+        messages = [{"type": "error", "message": "No matching record found for 'Nederlan'"}]
+
+        class _Conn(OdooConnectionOrmMixin):
+            def __init__(self):
+                self._performance_manager = MagicMock()
+
+            def execute_kw(self, model, method, args, kwargs=None):
+                return {"ids": None, "messages": messages}
+
+        result = _Conn().load_records("res.partner", ["name", "country_id"], [["Acme", "Nederlan"]])
+
+        assert result["ids"] is None
+        assert result["messages"] == messages
+
+
 class TestBulkUpdate:
     @pytest.mark.asyncio
     async def test_update_records_success(self, handler, mock_connection):

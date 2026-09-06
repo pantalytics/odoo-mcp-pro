@@ -11,6 +11,13 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+### Fixed
+- `import_records` no longer crashes when Odoo rejects the import. Odoo answers
+  a failed `load()` with `ids: None`, which raised a TypeError in a log line
+  before the per-row error messages were read. The messages now reach the AI,
+  so it can see which row and which value Odoo refused instead of a generic
+  "Import failed".
+
 ## [3.1.0] - 2026-09-05
 
 Interactive elements, per ADR 0004: the wizard question as a form. Both
