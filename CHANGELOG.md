@@ -11,6 +11,13 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+### Changed
+- An "Invalid field" error from Odoo now carries the model's real field names
+  back to the caller. Odoo names the field it rejected and stops there, so the
+  next attempt was no better informed than the first. The error now suggests
+  the closest matching fields and points at `odoo://{model}/fields`, which
+  turns a second round trip into a correction in the same turn.
+
 ## [3.1.0] - 2026-09-05
 
 Interactive elements, per ADR 0004: the wizard question as a form. Both

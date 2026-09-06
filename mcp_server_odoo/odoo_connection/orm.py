@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from ..error_sanitizer import ErrorSanitizer
 from ..exceptions import OdooConnectionError, OdooTimeoutError
+from ..field_hints import with_field_hint
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +118,9 @@ class OdooConnectionOrmMixin:
             logger.error(f"XML-RPC fault during {method} on {model}: {e}")
             # Sanitize the fault string before exposing to user
             sanitized_message = ErrorSanitizer.sanitize_xmlrpc_fault(e.faultString)
+            sanitized_message = with_field_hint(
+                sanitized_message, model, method, lambda m: self.fields_get(m).keys()
+            )
             raise OdooConnectionError(f"Operation failed: {sanitized_message}") from e
         except socket.timeout:
             logger.error(f"Timeout during {method} on {model}")

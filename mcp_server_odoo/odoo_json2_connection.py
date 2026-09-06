@@ -19,6 +19,7 @@ from curl_cffi.requests.errors import RequestsError
 from .config import OdooConfig
 from .error_sanitizer import ErrorSanitizer
 from .exceptions import OdooConnectionError, OdooTimeoutError  # noqa: F401
+from .field_hints import with_field_hint
 from .odoo_json2_orm import Json2OrmMixin
 
 logger = logging.getLogger(__name__)
@@ -137,6 +138,8 @@ class OdooJSON2Connection(Json2OrmMixin):
 
         # Parse error body
         error_msg = self._parse_error_response(response)
+        # A rejected field name is useless on its own; hand back the real ones.
+        error_msg = with_field_hint(error_msg, model, method, lambda m: self.fields_get(m).keys())
 
         if response.status_code == 401:
             raise OdooConnectionError(f"Authentication failed: {error_msg}")
