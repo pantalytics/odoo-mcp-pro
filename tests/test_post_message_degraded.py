@@ -151,3 +151,108 @@ class TestPostMessageDegradedDetail:
             await handler._handle_post_message_tool(
                 model="res.partner", record_id=7, body="<p>hi</p>"
             )
+
+
+class TestPostMessageResultNotEncodable:
+    """message_post ran and committed, but Odoo could not encode its return
+    value (ticket 219, Scewo: the customer got the email twice after a retry).
+    The posted message must be recovered from the chatter, never reported as
+    a failure, and never claimed when it cannot be found.
+    """
+
+    # The sanitized fault as the tool sees it: the class name is stripped by
+    # ErrorSanitizer, "cannot marshal" survives.
+    XMLRPC_FAULT = Exception(
+        "Operation failed: File, in __dump f = self.dispatch[type(value)] "
+        "KeyError: ... TypeError: cannot marshal objects"
+    )
+    JSON2_FAULT = Exception(
+        "Server error (500): Object of type MailMessage is not JSON serializable"
+    )
+
+    @pytest.fixture
+    def handler(self):
+        app = Mock()
+        app.tool = Mock(side_effect=lambda **kwargs: lambda func: func)
+        controller = Mock()
+        controller.validate_model_access = Mock()
+        config = Mock()
+        config.url = "http://localhost:8169"
+        conn = Mock()
+        conn.is_authenticated = True
+        conn.uid = 5
+        conn._base_url = "http://localhost:8169"
+        conn.read.side_effect = [
+            [{"id": 7}],  # existence check
+            [{"subtype_id": [1, "Discussions"], "attachment_ids": []}],
+        ]
+        conn.fields_get.return_value = {}
+        conn.search_read.return_value = []
+        return OdooToolHandler(app, conn, controller, config), conn
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("fault", [XMLRPC_FAULT, JSON2_FAULT])
+    async def test_recovers_message_id_from_chatter(self, handler, fault):
+        h, conn = handler
+        conn.search.side_effect = [[40], [43]]  # watermark, then the new message
+        conn.call_method.side_effect = fault
+
+        result = await h._handle_post_message_tool(
+            model="helpdesk.ticket", record_id=7, body="<p>hi</p>"
+        )
+
+        assert result["success"] is True
+        assert result["message_id"] == 43
+        assert result["subtype"] == "Discussions"
+        assert any("recovered from the chatter" in d for d in result["degraded_details"])
+        # The lookup only accepts messages newer than the watermark, by this user
+        domain = conn.search.call_args_list[1].args[1]
+        assert ("id", ">", 40) in domain
+        assert ("create_uid", "=", 5) in domain
+
+    @pytest.mark.asyncio
+    async def test_empty_chatter_watermark_is_zero(self, handler):
+        h, conn = handler
+        conn.search.side_effect = [[], [1]]
+        conn.call_method.side_effect = self.XMLRPC_FAULT
+
+        result = await h._handle_post_message_tool(model="res.partner", record_id=7, body="x")
+
+        assert result["message_id"] == 1
+        assert ("id", ">", 0) in conn.search.call_args_list[1].args[1]
+
+    @pytest.mark.asyncio
+    async def test_no_new_message_refuses_to_claim_success(self, handler):
+        h, conn = handler
+        conn.search.side_effect = [[40], []]
+        conn.call_method.side_effect = self.XMLRPC_FAULT
+
+        with pytest.raises(ValidationError, match="check helpdesk.ticket 7 before retrying"):
+            await h._handle_post_message_tool(
+                model="helpdesk.ticket", record_id=7, body="<p>hi</p>"
+            )
+
+    @pytest.mark.asyncio
+    async def test_unknown_watermark_refuses_to_claim_success(self, handler):
+        """If the chatter could not be read before posting, never guess."""
+        h, conn = handler
+        conn.search.side_effect = Exception("no access to mail.message")
+        conn.call_method.side_effect = self.XMLRPC_FAULT
+
+        with pytest.raises(ValidationError, match="retry would post it twice"):
+            await h._handle_post_message_tool(
+                model="helpdesk.ticket", record_id=7, body="<p>hi</p>"
+            )
+        assert conn.search.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_other_errors_are_not_recovered(self, handler):
+        h, conn = handler
+        conn.search.return_value = [40]
+        conn.call_method.side_effect = Exception("Access denied: no write on helpdesk.ticket")
+
+        with pytest.raises(ValidationError, match="Failed to post message"):
+            await h._handle_post_message_tool(
+                model="helpdesk.ticket", record_id=7, body="<p>hi</p>"
+            )
+        assert conn.search.call_count == 1

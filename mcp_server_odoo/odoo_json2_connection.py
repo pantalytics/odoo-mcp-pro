@@ -24,6 +24,17 @@ from .odoo_json2_orm import Json2OrmMixin
 logger = logging.getLogger(__name__)
 
 
+def _reject_non_ascii(label: str, value: Optional[str], hint: str) -> None:
+    """Refuse a header value that cannot be sent over HTTP, with a clear reason."""
+    if not value or value.isascii():
+        return
+    bad = next(c for c in value if not c.isascii())
+    raise OdooConnectionError(
+        f"Authentication failed: the {label} contains a character ({bad!r}) "
+        f"that cannot be sent in an HTTP header. {hint}"
+    )
+
+
 class OdooJSON2Connection(Json2OrmMixin):
     """Manages connections to Odoo via the JSON/2 API.
 
@@ -282,6 +293,25 @@ class OdooJSON2Connection(Json2OrmMixin):
 
         # Resolve database (optional for single-db instances like odoo.sh)
         self._database = database or self.config.database
+
+        # Both values travel as HTTP headers, which only carry ASCII (the
+        # HTTP client encodes header values as latin-1 and raises an opaque
+        # "'latin-1' codec can't encode character" otherwise). A real Odoo
+        # API key is plain ASCII, so a non-ASCII secret is almost always a
+        # password pasted into the API key field. Say so instead of leaking
+        # the codec error (helpdesk ticket 215).
+        _reject_non_ascii(
+            "API key",
+            self.config.api_key,
+            "Odoo API keys are plain ASCII, so this is most likely a password. "
+            "Create an API key in Odoo (Preferences > Account Security > "
+            "New API Key) and use that instead.",
+        )
+        _reject_non_ascii(
+            "database name",
+            self._database,
+            "Check the database name in your connection settings.",
+        )
 
         # Update client headers now that we have the database
         self._client.headers.update(self._build_headers())

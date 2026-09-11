@@ -209,6 +209,30 @@ class TestOdooJSON2Lifecycle:
         with pytest.raises(OdooConnectionError, match="API key required"):
             conn.authenticate()
 
+    def test_authenticate_non_ascii_api_key_is_named(self, connected_json2):
+        """A password pasted as API key (ticket 215: Turkish ş) must not leak
+        the HTTP client's latin-1 codec error; say what is wrong instead."""
+        conn, mock_client = connected_json2
+        conn._authenticated = False
+        conn.config.api_key = "korelume-şifre-2026"
+
+        with pytest.raises(OdooConnectionError, match="API key contains a character") as exc:
+            conn.authenticate()
+
+        assert "'ş'" in str(exc.value)
+        assert "most likely a password" in str(exc.value)
+        assert "latin-1" not in str(exc.value)
+        mock_client.post.assert_not_called()
+
+    def test_authenticate_non_ascii_database_is_named(self, connected_json2):
+        conn, mock_client = connected_json2
+        conn._authenticated = False
+
+        with pytest.raises(OdooConnectionError, match="database name contains a character"):
+            conn.authenticate(database="şirket")
+
+        mock_client.post.assert_not_called()
+
     def test_authenticate_success(self, connected_json2):
         conn, mock_client = connected_json2
         # Reset auth state

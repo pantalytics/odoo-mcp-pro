@@ -15,6 +15,19 @@ from ..odoo_connection import OdooConnectionError
 from ..schemas import PostMessageResult
 from ._common import _current_sub, logger, run_blocking, validate_access
 
+# Odoo runs message_post, commits, and only then serialises the return value.
+# Some builds hand back a mail.message recordset the transport cannot encode
+# (XML-RPC: "cannot marshal", JSON/2: "not JSON serializable"). By then the
+# message is in the chatter and the email is out; reporting a failure makes
+# the caller retry and the customer gets the mail twice (tickets 61, 219).
+_RESPONSE_ENCODING_MARKERS = ("cannot marshal", "not json serializable")
+
+
+def _is_response_encoding_error(exc: Exception) -> bool:
+    """True when Odoo ran the method but could not encode its return value."""
+    text = str(exc).lower()
+    return any(marker in text for marker in _RESPONSE_ENCODING_MARKERS)
+
 
 class MessagingToolsMixin:
     """post_message tool and recordset-method helper."""
@@ -116,6 +129,83 @@ class MessagingToolsMixin:
             **(kwargs or {}),
         )
 
+    async def _newest_message_id(
+        self, connection: OdooConnectionProtocol, model: str, record_id: int
+    ) -> Optional[int]:
+        """Id of the newest mail.message on the record, 0 if none, None if unknown."""
+        try:
+            ids = await run_blocking(
+                connection,
+                connection.search,
+                "mail.message",
+                [("model", "=", model), ("res_id", "=", record_id)],
+                order="id desc",
+                limit=1,
+            )
+        except Exception:
+            logger.warning(
+                "post_message: could not read the chatter of %s:%s before posting",
+                model,
+                record_id,
+                exc_info=True,
+            )
+            return None
+        if isinstance(ids, list) and ids and isinstance(ids[0], int):
+            return ids[0]
+        return 0 if isinstance(ids, list) else None
+
+    async def _recover_posted_message(
+        self,
+        connection: OdooConnectionProtocol,
+        model: str,
+        record_id: int,
+        last_message_id: Optional[int],
+        error: Exception,
+    ) -> int:
+        """Find the message Odoo posted but could not return, or refuse loudly.
+
+        Only messages newer than the pre-post watermark and created by the
+        authenticated user qualify, so a message posted by someone else in
+        the meantime is never claimed as ours.
+        """
+        logger.warning(
+            "post_message: Odoo ran message_post on %s:%s but could not encode "
+            "the result (%s); looking the message up in the chatter",
+            model,
+            record_id,
+            error,
+        )
+        unconfirmed = ValidationError(
+            "message_post ran on Odoo but the result could not be returned "
+            f"({error}). The message is probably in the chatter already: check "
+            f"{model} {record_id} before retrying, a retry would post it twice."
+        )
+        if last_message_id is None:
+            raise unconfirmed from error
+        domain: List[Any] = [
+            ("model", "=", model),
+            ("res_id", "=", record_id),
+            ("id", ">", last_message_id),
+        ]
+        uid = getattr(connection, "uid", None)
+        if isinstance(uid, int):
+            domain.append(("create_uid", "=", uid))
+        try:
+            ids = await run_blocking(
+                connection, connection.search, "mail.message", domain, order="id desc", limit=1
+            )
+        except Exception as lookup_error:
+            raise unconfirmed from lookup_error
+        if not (isinstance(ids, list) and ids and isinstance(ids[0], int)):
+            raise unconfirmed from error
+        logger.info(
+            "post_message: recovered mail.message %s on %s:%s from the chatter",
+            ids[0],
+            model,
+            record_id,
+        )
+        return ids[0]
+
     async def _handle_post_message_tool(
         self,
         model: str,
@@ -173,19 +263,35 @@ class MessagingToolsMixin:
                     # ValueError: Those values are not supported when posting or notifying: outgoing_email_to
                     kwargs["outgoing_email_to"] = cc
 
-                raw = await self._call_record_method(
-                    connection, model, [record_id], "message_post", kwargs
-                )
-                # message_post returns the new mail.message id; some transports
-                # wrap singletons in a list — normalize.
-                if isinstance(raw, list):
-                    if not raw:
-                        raise ValidationError("message_post returned empty result")
-                    message_id = raw[0]
+                degraded: List[str] = []
+
+                # Remember the newest message on the record so that, if Odoo
+                # posts but cannot encode the return value, the posted message
+                # can be found by id instead of being reported as a failure.
+                last_message_id = await self._newest_message_id(connection, model, record_id)
+
+                try:
+                    raw = await self._call_record_method(
+                        connection, model, [record_id], "message_post", kwargs
+                    )
+                except Exception as e:
+                    if not _is_response_encoding_error(e):
+                        raise
+                    message_id = await self._recover_posted_message(
+                        connection, model, record_id, last_message_id, e
+                    )
+                    degraded.append("the message_post result (id recovered from the chatter)")
                 else:
-                    message_id = raw
-                if not isinstance(message_id, int):
-                    raise ValidationError(f"Unexpected message_post return: {raw!r}")
+                    # message_post returns the new mail.message id; some transports
+                    # wrap singletons in a list — normalize.
+                    if isinstance(raw, list):
+                        if not raw:
+                            raise ValidationError("message_post returned empty result")
+                        message_id = raw[0]
+                    else:
+                        message_id = raw
+                    if not isinstance(message_id, int):
+                        raise ValidationError(f"Unexpected message_post return: {raw!r}")
 
                 # From here on the message exists in Odoo. The reads below only
                 # enrich the response; they must never turn a successful post into
@@ -195,7 +301,6 @@ class MessagingToolsMixin:
                 # OdooMarshaller, seen on Odoo Online), so each follow-up read is
                 # tolerated individually: log the underlying error loudly and
                 # degrade the detail instead of raising.
-                degraded: List[str] = []
 
                 # Read message back for subtype/attachment summary
                 subtype_name: Optional[str] = None
