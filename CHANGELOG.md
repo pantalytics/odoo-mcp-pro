@@ -11,6 +11,17 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+### Fixed
+- `post_message` no longer reports a failure when Odoo posted the message but
+  could not encode `message_post`'s return value (XML-RPC "cannot marshal",
+  JSON/2 "not JSON serializable"). The tool now finds the new message in the
+  chatter by id and returns success; a retry after such a false failure sent
+  the customer's email twice. When the message cannot be found it says so and
+  warns against retrying instead of guessing.
+- JSON/2 authentication names a non-ASCII API key or database name (usually a
+  password pasted into the API key field) instead of leaking the HTTP client's
+  `'latin-1' codec can't encode character` error.
+
 ## [3.1.0] - 2026-09-05
 
 Interactive elements, per ADR 0004: the wizard question as a form. Both
