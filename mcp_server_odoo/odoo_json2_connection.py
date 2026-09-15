@@ -18,7 +18,12 @@ from curl_cffi.requests.errors import RequestsError
 
 from .config import OdooConfig
 from .error_sanitizer import ErrorSanitizer
-from .exceptions import OdooConnectionError, OdooTimeoutError  # noqa: F401
+from .exceptions import (  # noqa: F401
+    OdooConnectionError,
+    OdooDatabaseNotFoundError,
+    OdooTimeoutError,
+    raise_if_missing_database,
+)
 from .odoo_json2_orm import Json2OrmMixin
 
 logger = logging.getLogger(__name__)
@@ -145,6 +150,8 @@ class OdooJSON2Connection(Json2OrmMixin):
         # Handle error responses
         if response.status_code == 200:
             return response.json()
+
+        raise_if_missing_database(response.text, self._database)
 
         # Parse error body
         error_msg = self._parse_error_response(response)

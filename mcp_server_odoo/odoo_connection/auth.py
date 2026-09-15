@@ -19,7 +19,7 @@ import urllib.request
 import xmlrpc.client
 from typing import List, Optional
 
-from ..exceptions import OdooConnectionError
+from ..exceptions import OdooConnectionError, raise_if_missing_database
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +117,7 @@ class OdooConnectionAuthMixin:
 
         except xmlrpc.client.Fault as e:
             logger.error(f"XML-RPC fault validating database access: {e}")
+            raise_if_missing_database(str(e), db_name, e)
             if "Access Denied" in str(e):
                 return False
             raise OdooConnectionError(f"Failed to validate database access: {e}") from e
@@ -161,6 +162,9 @@ class OdooConnectionAuthMixin:
             return False
 
         except xmlrpc.client.Fault as e:
+            # A removed database is permanent, so this stops the auth flow
+            # instead of falling through to another attempt against it.
+            raise_if_missing_database(str(e.faultString), database, e)
             # Handle specific Odoo authentication errors
             fault_string = str(e.faultString).lower()
             if "access denied" in fault_string or "wrong login" in fault_string:
@@ -285,6 +289,7 @@ class OdooConnectionAuthMixin:
                 return False
 
         except xmlrpc.client.Fault as e:
+            raise_if_missing_database(str(e.faultString), database, e)
             logger.warning(f"Authentication fault: {e}")
             return False
         except Exception as e:

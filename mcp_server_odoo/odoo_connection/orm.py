@@ -18,7 +18,12 @@ import xmlrpc.client
 from typing import Any, Dict, List, Optional, Union
 
 from ..error_sanitizer import ErrorSanitizer
-from ..exceptions import OdooConnectionError, OdooTimeoutError
+from ..exceptions import (
+    OdooConnectionError,
+    OdooDatabaseNotFoundError,
+    OdooTimeoutError,
+    raise_if_missing_database,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +119,7 @@ class OdooConnectionOrmMixin:
                     f"None, treating as a successful void return"
                 )
                 return None
+            raise_if_missing_database(e.faultString or "", self._database, e)
             logger.error(f"XML-RPC fault during {method} on {model}: {e}")
             # Sanitize the fault string before exposing to user
             sanitized_message = ErrorSanitizer.sanitize_xmlrpc_fault(e.faultString)
@@ -394,11 +400,10 @@ class OdooConnectionOrmMixin:
                 model, "check_access_rights", [operation], {"raise_exception": False}
             )
             return bool(result)
-        except OdooTimeoutError:
-            # The server is not answering; the other CRUD probes would each
-            # eat the same full timeout. Propagate so the caller stops probing
-            # and the user sees "Odoo unreachable" instead of a 4x-timeout
-            # stall ending in a misleading "not allowed".
+        except (OdooTimeoutError, OdooDatabaseNotFoundError):
+            # The server is not answering, or the database is gone; either way
+            # the other CRUD probes would each fail the same way. Propagate so
+            # the caller stops probing instead of reading it as "not allowed".
             raise
         except Exception as e:
             # If model doesn't exist (module not installed), assume no access
