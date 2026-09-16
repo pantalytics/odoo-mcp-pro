@@ -151,3 +151,49 @@ class TestExecuteMethod:
 
         with pytest.raises(ValidationError, match="Access denied"):
             await handler._handle_execute_method_tool("account.move", "action_post", ids=[1])
+
+    @pytest.mark.asyncio
+    async def test_message_post_body_is_sent_as_html(self, handler, mock_connection):
+        """message_post through the passthrough must not escape the body.
+
+        Odoo escapes a plain str body, so "<p>Hi</p>" would reach the customer's
+        inbox as literal tags. post_message sets body_is_html; so does this.
+        """
+        mock_connection.call_method.return_value = [99]
+
+        await handler._handle_execute_method_tool(
+            "helpdesk.ticket", "message_post", ids=[1], kwargs={"body": "<p>Hi</p>"}
+        )
+
+        mock_connection.call_method.assert_called_once_with(
+            "helpdesk.ticket", "message_post", ids=[1], body="<p>Hi</p>", body_is_html=True
+        )
+
+    @pytest.mark.asyncio
+    async def test_message_post_caller_can_still_send_plain_text(self, handler, mock_connection):
+        """An explicit body_is_html=False wins; we normalize, we don't override."""
+        mock_connection.call_method.return_value = [99]
+
+        await handler._handle_execute_method_tool(
+            "helpdesk.ticket",
+            "message_post",
+            ids=[1],
+            kwargs={"body": "1 < 2", "body_is_html": False},
+        )
+
+        mock_connection.call_method.assert_called_once_with(
+            "helpdesk.ticket", "message_post", ids=[1], body="1 < 2", body_is_html=False
+        )
+
+    @pytest.mark.asyncio
+    async def test_other_methods_are_untouched(self, handler, mock_connection):
+        """Only message_post is normalized; every other call stays passthrough."""
+        mock_connection.call_method.return_value = True
+
+        await handler._handle_execute_method_tool(
+            "sale.order", "action_confirm", ids=[1], kwargs={"body": "not a message"}
+        )
+
+        mock_connection.call_method.assert_called_once_with(
+            "sale.order", "action_confirm", ids=[1], body="not a message"
+        )

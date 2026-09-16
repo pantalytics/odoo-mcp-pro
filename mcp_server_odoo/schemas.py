@@ -175,6 +175,14 @@ class PostMessageResult(BaseModel):
         default=None,
         description="Subtype name — e.g. 'Discussions' (mt_comment) or 'Note' (mt_note)",
     )
+    body_preview: Optional[str] = Field(
+        default=None,
+        description=(
+            "First characters of the body as Odoo stored it. Check it: seeing "
+            "'&lt;p&gt;' instead of '<p>' means the markup was escaped and the "
+            "recipient got literal tags."
+        ),
+    )
     attachment_count: int = Field(
         default=0, description="Number of attachments linked to the message"
     )

@@ -22,6 +22,10 @@ from ._common import _current_sub, logger, run_blocking, validate_access
 # the caller retry and the customer gets the mail twice (tickets 61, 219).
 _RESPONSE_ENCODING_MARKERS = ("cannot marshal", "not json serializable")
 
+# How much of the stored body to echo back. Enough to see whether the markup
+# survived ("<p>Hi" vs "&lt;p&gt;Hi"), short enough not to repeat the mail.
+_BODY_PREVIEW_CHARS = 200
+
 
 def _is_response_encoding_error(exc: Exception) -> bool:
     """True when Odoo ran the method but could not encode its return value."""
@@ -304,10 +308,11 @@ class MessagingToolsMixin:
 
                 # Read message back for subtype/attachment summary
                 subtype_name: Optional[str] = None
+                body_preview: Optional[str] = None
                 attachments: List[Any] = []
                 outlook_msg_id: Optional[Any] = None
                 try:
-                    msg_fields = ["subtype_id", "attachment_ids"]
+                    msg_fields = ["subtype_id", "attachment_ids", "body"]
                     # x_microsoft_message_id only exists when pan_outlook_pro is installed
                     outlook_field = "x_microsoft_message_id"
                     try:
@@ -329,6 +334,8 @@ class MessagingToolsMixin:
                         if isinstance(subtype_pair, list) and len(subtype_pair) > 1
                         else None
                     )
+                    stored_body = msg.get("body") or ""
+                    body_preview = stored_body[:_BODY_PREVIEW_CHARS] or None
                     attachments = msg.get("attachment_ids") or []
                     outlook_msg_id = msg.get(outlook_field) if outlook_field in msg_fields else None
                     if outlook_msg_id is False:
@@ -407,6 +414,7 @@ class MessagingToolsMixin:
                     "success": True,
                     "message_id": message_id,
                     "subtype": subtype_name,
+                    "body_preview": body_preview,
                     "attachment_count": len(attachments),
                     "notifications": notifications,
                     "outlook_pro_message_id": outlook_msg_id,
