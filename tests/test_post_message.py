@@ -86,6 +86,42 @@ class TestPostMessageUnit:
         assert "outgoing_email_to" not in kw
 
     @pytest.mark.asyncio
+    async def test_body_preview_echoes_stored_body(self, handler, mock_connection):
+        """The result shows what Odoo stored, so an escaped body is visible."""
+        mock_connection.read.side_effect = [
+            [{"id": 7}],
+            [{"subtype_id": [1, "Discussions"], "attachment_ids": [], "body": "<p>Hi</p>"}],
+        ]
+        mock_connection.fields_get.return_value = {}
+        mock_connection.call_method.return_value = 42
+        mock_connection.search_read.return_value = []
+
+        result = await handler._handle_post_message_tool(
+            model="res.partner", record_id=7, body="<p>Hi</p>"
+        )
+
+        assert result["body_preview"] == "<p>Hi</p>"
+
+    @pytest.mark.asyncio
+    async def test_body_preview_is_truncated(self, handler, mock_connection):
+        """Long bodies are cut: enough to judge the markup, not a second copy."""
+        long_body = "<p>" + ("x" * 500) + "</p>"
+        mock_connection.read.side_effect = [
+            [{"id": 7}],
+            [{"subtype_id": [1, "Discussions"], "attachment_ids": [], "body": long_body}],
+        ]
+        mock_connection.fields_get.return_value = {}
+        mock_connection.call_method.return_value = 42
+        mock_connection.search_read.return_value = []
+
+        result = await handler._handle_post_message_tool(
+            model="res.partner", record_id=7, body=long_body
+        )
+
+        assert len(result["body_preview"]) == 200
+        assert result["body_preview"].startswith("<p>xxx")
+
+    @pytest.mark.asyncio
     async def test_message_post_kwargs_full(self, handler, mock_connection):
         """All optional kwargs forwarded; cc maps to outgoing_email_to."""
         mock_connection.read.side_effect = [
