@@ -69,6 +69,21 @@ def _classify_result(value: Any) -> str:
     return "value"
 
 
+def _normalize_kwargs(method: str, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    """Make a passthrough call behave like the dedicated tool would.
+
+    Only `message_post` needs this. Odoo escapes a plain `str` body (it expects
+    `markupsafe.Markup`, which cannot cross XML-RPC or JSON/2), so a body of
+    "<p>Hi</p>" reaches the chatter -- and the customer's inbox -- as literal
+    "&lt;p&gt;Hi&lt;/p&gt;". `post_message` sets `body_is_html`; a caller
+    reaching for `message_post` here means the same thing by `body`, so set it
+    too unless they said otherwise.
+    """
+    if method != "message_post" or "body" not in kwargs:
+        return kwargs
+    return {"body_is_html": True, **kwargs}
+
+
 class MethodsToolsMixin:
     """execute_method tool."""
 
@@ -111,6 +126,10 @@ class MethodsToolsMixin:
             fields are returned (`followup`) so you can read them and re-call
             with `decision` filled in. Either way the flow is stateless: it
             needs no live back-and-forth with your client.
+
+            For a chatter message use `post_message` instead: it reports who was
+            notified and whether the mail left. Calling `message_post` here works
+            and keeps HTML bodies intact, but tells you neither.
 
             Args:
                 model: Odoo model name, e.g. 'sale.order', 'account.move'.
@@ -207,8 +226,9 @@ class MethodsToolsMixin:
                 if not connection.is_authenticated:
                     raise ValidationError("Not authenticated with Odoo")
 
+                call_kwargs = _normalize_kwargs(method, kwargs or {})
                 value = await run_blocking(
-                    connection, connection.call_method, model, method, ids=ids, **(kwargs or {})
+                    connection, connection.call_method, model, method, ids=ids, **call_kwargs
                 )
 
                 kind = _classify_result(value)
