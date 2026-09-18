@@ -12,6 +12,15 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 ## [Unreleased]
 
 ### Fixed
+- Odoo application faults (an invalid field in a domain, a method or model that
+  does not exist, a denied permission, a business-rule error) are no longer
+  reported as connection failures. Both transports now raise the new
+  `OdooExecutionError` when Odoo received the request and refused it, and keep
+  `OdooConnectionError` for a real transport failure. The tools surface Odoo's
+  own message instead of the misleading "Connection error" label, and the
+  fault is no longer counted as an outage or retried. `OdooExecutionError`
+  subclasses `OdooConnectionError`, so callers that catch the base class are
+  unaffected.
 - `post_message` no longer reports a failure when Odoo posted the message but
   could not encode `message_post`'s return value (XML-RPC "cannot marshal",
   JSON/2 "not JSON serializable"). The tool now finds the new message in the

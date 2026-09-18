@@ -19,7 +19,13 @@ from ..error_sanitizer import ErrorSanitizer
 from ..logging_config import perf_logger
 from ..odoo_connection import OdooConnectionError
 from ..schemas import FieldSelectionMetadata, RecordResult, SearchResult
-from ._common import _current_sub, logger, run_blocking, validate_access
+from ._common import (
+    _current_sub,
+    logger,
+    odoo_error_as_validation,
+    run_blocking,
+    validate_access,
+)
 
 
 class QueryToolsMixin:
@@ -266,7 +272,7 @@ class QueryToolsMixin:
         except AccessControlError as e:
             raise ValidationError(f"Access denied: {e}") from e
         except OdooConnectionError as e:
-            raise ValidationError(f"Connection error: {e}") from e
+            raise odoo_error_as_validation(e) from e
         except Exception as e:
             logger.error(f"Error in search_records tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))
@@ -355,7 +361,7 @@ class QueryToolsMixin:
         except AccessControlError as e:
             raise ValidationError(f"Access denied: {e}") from e
         except OdooConnectionError as e:
-            raise ValidationError(f"Connection error: {e}") from e
+            raise odoo_error_as_validation(e) from e
         except Exception as e:
             logger.error(f"Error in get_record tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))

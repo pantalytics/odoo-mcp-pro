@@ -16,7 +16,11 @@ from curl_cffi import requests as cffi_requests
 from curl_cffi.requests.errors import RequestsError
 
 from mcp_server_odoo.config import OdooConfig
-from mcp_server_odoo.odoo_json2_connection import OdooConnectionError, OdooJSON2Connection
+from mcp_server_odoo.odoo_json2_connection import (
+    OdooConnectionError,
+    OdooExecutionError,
+    OdooJSON2Connection,
+)
 from tests.helpers.json2_fixtures import (  # noqa: F401
     _error_response,
     _ok_response,
@@ -88,44 +92,68 @@ class TestOdooJSON2Call:
     def test_call_401_raises(self, connected_json2):
         conn, mock_client = connected_json2
         mock_client.post.return_value = _error_response(401, {"message": "Invalid token"})
-        with pytest.raises(OdooConnectionError, match="Authentication failed"):
+        with pytest.raises(OdooExecutionError, match="Authentication failed"):
             conn._call("res.partner", "search", domain=[])
 
     def test_call_403_raises(self, connected_json2):
         conn, mock_client = connected_json2
         mock_client.post.return_value = _error_response(403, {"message": "Access denied"})
-        with pytest.raises(OdooConnectionError, match="Access denied"):
+        with pytest.raises(OdooExecutionError, match="Access denied"):
             conn._call("res.partner", "search", domain=[])
 
     def test_call_404_raises(self, connected_json2):
         conn, mock_client = connected_json2
         mock_client.post.return_value = _error_response(404, {"message": "Model not found"})
-        with pytest.raises(OdooConnectionError, match="Not found"):
+        with pytest.raises(OdooExecutionError, match="Not found"):
             conn._call("res.partner", "search", domain=[])
 
     def test_call_422_raises(self, connected_json2):
         conn, mock_client = connected_json2
         mock_client.post.return_value = _error_response(422, {"message": "Invalid domain"})
-        with pytest.raises(OdooConnectionError, match="Invalid request"):
+        with pytest.raises(OdooExecutionError, match="Invalid request"):
             conn._call("res.partner", "search", domain=[])
 
-    def test_call_500_raises(self, connected_json2):
+    def test_call_500_opaque_body_is_connection_error(self, connected_json2):
         conn, mock_client = connected_json2
+        # No JSON/2 envelope: a proxy/gateway answered, not Odoo. Transport
+        # failure, so retryable -- not an OdooExecutionError.
         mock_client.post.return_value = _error_response(500, text="Internal Server Error")
-        with pytest.raises(OdooConnectionError, match="Server error"):
+        with pytest.raises(OdooConnectionError, match="Server error") as exc_info:
             conn._call("res.partner", "search", domain=[])
+        assert not isinstance(exc_info.value, OdooExecutionError)
+
+    def test_call_500_with_odoo_envelope_is_execution_error(self, connected_json2):
+        conn, mock_client = connected_json2
+        # Odoo's own JSON/2 fault envelope: a server-side application error.
+        mock_client.post.return_value = _error_response(
+            500, {"name": "IntegrityError", "message": "duplicate key value"}
+        )
+        with pytest.raises(OdooExecutionError, match="Server error"):
+            conn._call("res.partner", "search", domain=[])
+
+    def test_call_502_gateway_is_connection_error(self, connected_json2):
+        conn, mock_client = connected_json2
+        mock_client.post.return_value = _error_response(502, text="<html>Bad Gateway</html>")
+        with pytest.raises(OdooConnectionError, match="Server error") as exc_info:
+            conn._call("res.partner", "search", domain=[])
+        assert not isinstance(exc_info.value, OdooExecutionError)
 
     def test_call_timeout_raises(self, connected_json2):
         conn, mock_client = connected_json2
         mock_client.post.side_effect = RequestsError("operation timed out")
-        with pytest.raises(OdooConnectionError, match="Request timeout"):
+        # A timeout is transport-level, not an application fault Odoo returned.
+        with pytest.raises(OdooConnectionError, match="Request timeout") as exc_info:
             conn._call("res.partner", "search", domain=[])
+        assert not isinstance(exc_info.value, OdooExecutionError)
 
     def test_call_connect_error_raises(self, connected_json2):
         conn, mock_client = connected_json2
         mock_client.post.side_effect = RequestsError("could not connect to host")
-        with pytest.raises(OdooConnectionError, match="Connection failed"):
+        # The request never reached Odoo, so it stays a retryable connection
+        # error and must NOT be classified as an execution fault.
+        with pytest.raises(OdooConnectionError, match="Connection failed") as exc_info:
             conn._call("res.partner", "search", domain=[])
+        assert not isinstance(exc_info.value, OdooExecutionError)
 
     def test_call_filters_none_kwargs(self, connected_json2):
         conn, mock_client = connected_json2

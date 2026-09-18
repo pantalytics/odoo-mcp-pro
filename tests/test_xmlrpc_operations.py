@@ -13,7 +13,11 @@ from xmlrpc.client import Fault
 import pytest
 
 from mcp_server_odoo.config import OdooConfig
-from mcp_server_odoo.odoo_connection import OdooConnection, OdooConnectionError
+from mcp_server_odoo.odoo_connection import (
+    OdooConnection,
+    OdooConnectionError,
+    OdooExecutionError,
+)
 
 from .conftest import ODOO_SERVER_AVAILABLE
 
@@ -137,12 +141,26 @@ class TestXMLRPCOperations:
         mock_proxy.execute_kw.side_effect = Fault(1, "Access Denied")
         authenticated_connection._object_proxy = mock_proxy
 
-        # Should raise error with sanitized message
+        # A Fault is an application error Odoo returned, not a connection
+        # outage: it must raise OdooExecutionError so it is not counted as one
+        # nor retried. The sanitized message still reaches the user.
         with pytest.raises(
-            OdooConnectionError,
+            OdooExecutionError,
             match="Access denied: Invalid credentials or insufficient permissions",
         ):
             authenticated_connection.execute_kw("res.partner", "unlink", [[1]], {})
+
+    def test_execute_kw_transport_error_is_connection_error(self, authenticated_connection):
+        """A dropped socket (not a Fault, not a timeout) is transport-level: the
+        request may never have reached Odoo, so it stays a retryable
+        OdooConnectionError and must NOT be an OdooExecutionError."""
+        mock_proxy = Mock()
+        mock_proxy.execute_kw.side_effect = ConnectionResetError("Connection reset by peer")
+        authenticated_connection._object_proxy = mock_proxy
+
+        with pytest.raises(OdooConnectionError) as exc_info:
+            authenticated_connection.execute_kw("res.partner", "search", [[]], {})
+        assert not isinstance(exc_info.value, OdooExecutionError)
 
     def test_execute_kw_none_return_is_success_not_fault(self, authenticated_connection):
         """Odoo's XML-RPC endpoint marshals with allow_none=False, so a method

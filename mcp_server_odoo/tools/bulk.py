@@ -17,7 +17,14 @@ from ..schemas import (
     BulkUpdateResult,
     ImportResult,
 )
-from ._common import MAX_BULK_SIZE, _current_sub, logger, run_blocking, validate_access
+from ._common import (
+    MAX_BULK_SIZE,
+    _current_sub,
+    logger,
+    odoo_error_as_validation,
+    run_blocking,
+    validate_access,
+)
 
 
 class BulkToolsMixin:
@@ -222,7 +229,7 @@ class BulkToolsMixin:
         except AccessControlError as e:
             raise ValidationError(f"Access denied: {e}") from e
         except OdooConnectionError as e:
-            raise ValidationError(f"Connection error: {e}") from e
+            raise odoo_error_as_validation(e) from e
         except Exception as e:
             logger.error(f"Error in create_records tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))
@@ -268,7 +275,7 @@ class BulkToolsMixin:
         except AccessControlError as e:
             raise ValidationError(f"Access denied: {e}") from e
         except OdooConnectionError as e:
-            raise ValidationError(f"Connection error: {e}") from e
+            raise odoo_error_as_validation(e) from e
         except Exception as e:
             logger.error(f"Error in update_records tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))
@@ -311,7 +318,7 @@ class BulkToolsMixin:
         except AccessControlError as e:
             raise ValidationError(f"Access denied: {e}") from e
         except OdooConnectionError as e:
-            raise ValidationError(f"Connection error: {e}") from e
+            raise odoo_error_as_validation(e) from e
         except Exception as e:
             logger.error(f"Error in delete_records tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))
@@ -420,7 +427,7 @@ class BulkToolsMixin:
         except AccessControlError as e:
             raise ValidationError(f"Access denied: {e}") from e
         except OdooConnectionError as e:
-            raise ValidationError(f"Connection error: {e}") from e
+            raise odoo_error_as_validation(e) from e
         except Exception as e:
             logger.error(f"Error in import_records tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))
