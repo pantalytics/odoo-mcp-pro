@@ -11,6 +11,8 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+## [3.1.1] - 2026-09-18
+
 ### Fixed
 - Odoo application faults (an invalid field in a domain, a method or model that
   does not exist, a denied permission, a business-rule error) are no longer
