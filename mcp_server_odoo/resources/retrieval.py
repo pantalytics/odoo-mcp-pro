@@ -19,7 +19,7 @@ from ..error_handling import (
 )
 from ..logging_config import get_logger, perf_logger
 from ..odoo_connection import OdooConnectionError
-from ..tools._common import run_blocking, validate_access
+from ..tools._common import odoo_error_as_validation, run_blocking, validate_access
 
 logger = get_logger(__name__)
 
@@ -125,8 +125,8 @@ class RetrievalMixin:
             # Re-raise our custom exceptions
             raise
         except OdooConnectionError as e:
-            logger.error(f"Connection error retrieving {model}/{record_id}: {e}")
-            raise ValidationError(f"Connection error: {e}") from e
+            logger.error(f"Odoo call failed retrieving {model}/{record_id}: {e}")
+            raise odoo_error_as_validation(e) from e
         except Exception as e:
             logger.error(f"Unexpected error retrieving {model}/{record_id}: {e}")
             raise ValidationError(f"Failed to retrieve record: {e}") from e
@@ -228,8 +228,8 @@ class RetrievalMixin:
             # Re-raise our custom exceptions
             raise
         except OdooConnectionError as e:
-            logger.error(f"Connection error searching {model}: {e}")
-            raise ValidationError(f"Connection error: {e}") from e
+            logger.error(f"Odoo call failed searching {model}: {e}")
+            raise odoo_error_as_validation(e) from e
         except Exception as e:
             logger.error(f"Unexpected error searching {model}: {e}")
             raise ValidationError(f"Failed to search records: {e}") from e
@@ -279,8 +279,8 @@ class RetrievalMixin:
             # Re-raise our custom exceptions
             raise
         except OdooConnectionError as e:
-            logger.error(f"Connection error counting {model}: {e}")
-            raise ValidationError(f"Connection error: {e}") from e
+            logger.error(f"Odoo call failed counting {model}: {e}")
+            raise odoo_error_as_validation(e) from e
         except Exception as e:
             logger.error(f"Unexpected error counting {model}: {e}")
             raise ValidationError(f"Failed to count records: {e}") from e
@@ -326,8 +326,8 @@ class RetrievalMixin:
             # Re-raise our custom exceptions
             raise
         except OdooConnectionError as e:
-            logger.error(f"Connection error getting fields for {model}: {e}")
-            raise ValidationError(f"Connection error: {e}") from e
+            logger.error(f"Odoo call failed getting fields for {model}: {e}")
+            raise odoo_error_as_validation(e) from e
         except Exception as e:
             logger.error(f"Unexpected error getting fields for {model}: {e}")
             raise ValidationError(f"Failed to get field definitions: {e}") from e

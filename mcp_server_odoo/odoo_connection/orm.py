@@ -18,7 +18,7 @@ import xmlrpc.client
 from typing import Any, Dict, List, Optional, Union
 
 from ..error_sanitizer import ErrorSanitizer
-from ..exceptions import OdooConnectionError, OdooTimeoutError
+from ..exceptions import OdooConnectionError, OdooExecutionError, OdooTimeoutError
 
 logger = logging.getLogger(__name__)
 
@@ -115,15 +115,16 @@ class OdooConnectionOrmMixin:
                 )
                 return None
             logger.error(f"XML-RPC fault during {method} on {model}: {e}")
-            # Sanitize the fault string before exposing to user
+            # Application fault, not a transport failure. See OdooExecutionError.
             sanitized_message = ErrorSanitizer.sanitize_xmlrpc_fault(e.faultString)
-            raise OdooConnectionError(f"Operation failed: {sanitized_message}") from e
+            raise OdooExecutionError(f"Operation failed: {sanitized_message}") from e
         except socket.timeout:
             logger.error(f"Timeout during {method} on {model}")
             raise OdooTimeoutError(f"Operation timeout after {self.timeout} seconds") from None
         except Exception as e:
+            # Transport-level (dropped socket, proxy error, DNS): retryable, so
+            # keep it a bare OdooConnectionError. See OdooExecutionError.
             logger.error(f"Error during {method} on {model}: {e}")
-            # Sanitize generic errors as well
             sanitized_message = ErrorSanitizer.sanitize_message(str(e))
             raise OdooConnectionError(f"Operation failed: {sanitized_message}") from e
 

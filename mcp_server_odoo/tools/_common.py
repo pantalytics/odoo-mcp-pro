@@ -14,6 +14,8 @@ import re
 from typing import Any, Callable, TypeVar
 from weakref import WeakKeyDictionary
 
+from ..error_handling import ValidationError
+from ..exceptions import OdooConnectionError, OdooExecutionError
 from ..logging_config import get_logger
 
 logger = get_logger("mcp_server_odoo.tools")
@@ -77,6 +79,18 @@ async def run_blocking(connection: Any, func: Callable[..., T], /, *args: Any, *
     """
     async with _lock_for(connection):
         return await asyncio.to_thread(func, *args, **kwargs)
+
+
+def odoo_error_as_validation(exc: OdooConnectionError) -> ValidationError:
+    """Turn a connection-layer failure into the right user-facing error.
+
+    An OdooExecutionError is a fault Odoo returned (bad field, missing method,
+    denied permission), so surface its own message. A bare OdooConnectionError
+    is a real transport failure and keeps the "Connection error" label.
+    """
+    if isinstance(exc, OdooExecutionError):
+        return ValidationError(str(exc))
+    return ValidationError(f"Connection error: {exc}")
 
 
 async def validate_access(

@@ -22,3 +22,23 @@ class OdooTimeoutError(OdooConnectionError):
     """
 
     pass
+
+
+class OdooExecutionError(OdooConnectionError):
+    """Odoo received the request and refused it.
+
+    This is a fault the Odoo server returned *after* the request arrived --
+    an invalid field in a domain, a method or model that does not exist, a
+    denied permission, or a business-rule (UserError/ValidationError)
+    violation. The transport worked; the request itself is the problem.
+
+    Kept a subclass of OdooConnectionError so callers that already catch
+    OdooConnectionError keep working, but named distinctly so the failure is
+    no longer counted as a connection outage and so it is never retried:
+    retrying a request Odoo already rejected cannot succeed, and for a write
+    that partly committed it is unsafe. A bare OdooConnectionError means the
+    transport failed (the request may never have reached Odoo) and is the
+    only kind a caller may retry.
+    """
+
+    pass

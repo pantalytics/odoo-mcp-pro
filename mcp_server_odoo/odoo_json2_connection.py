@@ -18,7 +18,11 @@ from curl_cffi.requests.errors import RequestsError
 
 from .config import OdooConfig
 from .error_sanitizer import ErrorSanitizer
-from .exceptions import OdooConnectionError, OdooTimeoutError  # noqa: F401
+from .exceptions import (  # noqa: F401
+    OdooConnectionError,
+    OdooExecutionError,
+    OdooTimeoutError,
+)
 from .odoo_json2_orm import Json2OrmMixin
 
 logger = logging.getLogger(__name__)
@@ -146,24 +150,32 @@ class OdooJSON2Connection(Json2OrmMixin):
         if response.status_code == 200:
             return response.json()
 
-        # Parse error body
-        error_msg = self._parse_error_response(response)
+        error_msg, is_odoo_fault = self._parse_error_response(response)
 
+        # 401/403/404/422 are Odoo's own application status codes: the request
+        # reached Odoo and it refused it. See OdooExecutionError.
         if response.status_code == 401:
-            raise OdooConnectionError(f"Authentication failed: {error_msg}")
+            raise OdooExecutionError(f"Authentication failed: {error_msg}")
         elif response.status_code == 403:
-            raise OdooConnectionError(f"Access denied: {error_msg}")
+            raise OdooExecutionError(f"Access denied: {error_msg}")
         elif response.status_code == 404:
-            raise OdooConnectionError(f"Not found: {error_msg}")
+            raise OdooExecutionError(f"Not found: {error_msg}")
         elif response.status_code == 422:
-            raise OdooConnectionError(f"Invalid request: {error_msg}")
+            raise OdooExecutionError(f"Invalid request: {error_msg}")
+        elif is_odoo_fault:
+            # A 5xx carrying Odoo's JSON/2 envelope is a server-side application
+            # error (e.g. an unhandled ORM exception).
+            raise OdooExecutionError(f"Server error ({response.status_code}): {error_msg}")
         else:
+            # A 5xx with an opaque body means an intermediary (reverse proxy /
+            # gateway, e.g. 502/503/504) answered and the request may never have
+            # reached Odoo -- a transport failure the caller may retry.
             raise OdooConnectionError(f"Server error ({response.status_code}): {error_msg}")
 
-    def _parse_error_response(self, response: Any) -> str:
-        """Extract error message from a JSON/2 error response.
+    def _parse_error_response(self, response: Any) -> tuple[str, bool]:
+        """Extract the error message and whether it is a JSON/2 fault envelope.
 
-        JSON/2 error responses contain:
+        JSON/2 error responses carry a structured envelope:
         {
             "name": "exception.class.Name",
             "message": "human-readable message",
@@ -171,13 +183,18 @@ class OdooJSON2Connection(Json2OrmMixin):
             "context": {},
             "debug": "full traceback"
         }
+
+        Returns the sanitized message plus True when that envelope is present
+        (Odoo answered). An opaque body -- a proxy/gateway error page -- returns
+        its text and False, so the caller can treat it as a transport failure.
         """
         try:
             data = response.json()
-            message = data.get("message", "")
-            return ErrorSanitizer.sanitize_message(str(message))
         except Exception:
-            return ErrorSanitizer.sanitize_message(response.text[:200])
+            return ErrorSanitizer.sanitize_message(response.text[:200]), False
+        if isinstance(data, dict) and ("message" in data or "name" in data):
+            return ErrorSanitizer.sanitize_message(str(data.get("message", ""))), True
+        return ErrorSanitizer.sanitize_message(response.text[:200]), False
 
     # --- Connection lifecycle ---
 
