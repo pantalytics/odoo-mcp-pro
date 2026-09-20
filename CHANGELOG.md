@@ -11,6 +11,17 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+### Fixed
+- XML-RPC calls (Odoo 14-18) no longer fail with a false "Connection error:
+  Operation failed: Request-sent" under concurrent load. The connection pool
+  shares one `xmlrpc.client.Transport`, which caches a single HTTP connection
+  and is not thread-safe; because tool calls run in worker threads, two threads
+  could reach that connection at once and the loser raised
+  `http.client.CannotSendRequest("Request-sent")` in a few milliseconds,
+  without ever reaching Odoo. The transport now serializes each request, so a
+  single connection is used by one thread at a time (a socket is serial on the
+  wire anyway) and a broken connection is rebuilt on the next call.
+
 ## [3.1.1] - 2026-09-18
 
 ### Fixed
