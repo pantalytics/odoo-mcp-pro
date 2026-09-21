@@ -1,0 +1,14 @@
+services:
+  odoo-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      ODOO_URL: ${ODOO_URL}
+      ODOO_API_KEY: ${ODOO_API_KEY}
+      ODOO_USER: ${ODOO_USER}
+      ODOO_MCP_TRANSPORT: streamable-http
+      ODOO_MCP_HOST: 0.0.0.0
+      ODOO_MCP_PORT: "8000"
+      ODOO_MCP_LOG_LEVEL: INFO
