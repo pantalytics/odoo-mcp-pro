@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+import html
+import re
+from typing import Any, Dict, List, Optional, Tuple
 
 from mcp.types import ToolAnnotations
 
@@ -31,6 +33,33 @@ _RESPONSE_ENCODING_MARKERS = ("cannot marshal", "not json serializable")
 # How much of the stored body to echo back. Enough to see whether the markup
 # survived ("<p>Hi" vs "&lt;p&gt;Hi"), short enough not to repeat the mail.
 _BODY_PREVIEW_CHARS = 200
+
+# Callers keep handing us a body whose markup is already HTML-escaped
+# ("&lt;p&gt;Hi&lt;/p&gt;"). We pass body_is_html=True, so Odoo stores it
+# verbatim and the customer reads raw tags in their mail. It has reached real
+# customers more than once, and the reply that follows is always an apology.
+# Repair it here instead of sending it.
+_ESCAPED_TAG_RE = re.compile(r"&lt;\s*/?\s*[a-zA-Z][a-zA-Z0-9]*(?:\s[^&]*?)?\s*/?&gt;")
+_REAL_TAG_RE = re.compile(r"<\s*/?\s*[a-zA-Z][a-zA-Z0-9]*(?:\s[^<>]*?)?\s*/?>")
+
+
+def _repair_escaped_body(body: str) -> Tuple[str, bool]:
+    """Unescape a body whose markup is entirely escaped. Returns (body, repaired).
+
+    Fires only when the body carries escaped tags and no real ones, so a
+    message that deliberately shows markup inside real HTML (a <pre> block
+    quoting &lt;p&gt;) is left alone.
+
+    The case deliberately dropped: a tag-free plain-text body that quotes
+    "&lt;p&gt;" on purpose becomes markup. Nobody writes that into a chatter
+    message, and the alternative -- mailing a customer raw tags -- is worse.
+    """
+    if not body or _REAL_TAG_RE.search(body) or not _ESCAPED_TAG_RE.search(body):
+        return body, False
+    repaired = html.unescape(body)
+    if not _REAL_TAG_RE.search(repaired):
+        return body, False
+    return repaired, True
 
 
 def _is_response_encoding_error(exc: Exception) -> bool:
@@ -77,7 +106,11 @@ class MessagingToolsMixin:
                 model: Odoo model with chatter enabled — 'res.partner', 'crm.lead',
                     'sale.order', 'account.move', 'helpdesk.ticket', etc.
                 record_id: ID of the record to post on.
-                body: HTML body of the message. Plain strings are HTML-escaped by Odoo.
+                body: HTML body of the message. Pass real markup ('<p>Hi</p>'), not
+                    escaped markup ('&lt;p&gt;Hi&lt;/p&gt;'): the body is sent with
+                    body_is_html=True, so an escaped body reaches the recipient as
+                    literal tags. A fully escaped body is unescaped for you and
+                    `body_repaired` comes back true.
                 subject: Optional subject line. Defaults to the record's display_name
                     when omitted on a non-note message.
                 partner_ids: Explicit recipients (res.partner ids). Notifies them on
@@ -242,6 +275,15 @@ class MessagingToolsMixin:
 
                 if not body or not body.strip():
                     raise ValidationError("body is required and cannot be empty")
+
+                body, body_repaired = _repair_escaped_body(body)
+                if body_repaired:
+                    logger.warning(
+                        "post_message: body arrived HTML-escaped on %s %s; unescaped it "
+                        "before posting so the recipient does not receive literal tags",
+                        model,
+                        record_id,
+                    )
 
                 # Verify record exists
                 existing = await run_blocking(
@@ -410,6 +452,10 @@ class MessagingToolsMixin:
                     )
                 if outlook_msg_id:
                     summary_bits.append("sent via Microsoft Graph")
+                if body_repaired:
+                    summary_bits.append(
+                        "the body arrived HTML-escaped and was unescaped before posting"
+                    )
                 if degraded:
                     summary_bits.append(
                         "the message was posted, but Odoo could not return "
@@ -421,6 +467,7 @@ class MessagingToolsMixin:
                     "message_id": message_id,
                     "subtype": subtype_name,
                     "body_preview": body_preview,
+                    "body_repaired": body_repaired,
                     "attachment_count": len(attachments),
                     "notifications": notifications,
                     "outlook_pro_message_id": outlook_msg_id,
