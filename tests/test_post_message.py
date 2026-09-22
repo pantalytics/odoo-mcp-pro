@@ -452,3 +452,48 @@ async def test_integration_cc_rejected_on_v18():
             body="<p>x</p>",
             cc="extra@example.com",
         )
+
+
+class TestRepairEscapedBody:
+    """A body whose markup arrived escaped must never reach a customer as tags."""
+
+    def test_fully_escaped_body_is_unescaped(self):
+        from mcp_server_odoo.tools.messaging import _repair_escaped_body
+
+        body, repaired = _repair_escaped_body(
+            "&lt;p&gt;Hoi Boris,&lt;/p&gt;&lt;p&gt;Groet&lt;/p&gt;"
+        )
+        assert repaired is True
+        assert body == "<p>Hoi Boris,</p><p>Groet</p>"
+
+    def test_escaped_link_survives_the_repair(self):
+        from mcp_server_odoo.tools.messaging import _repair_escaped_body
+
+        body, repaired = _repair_escaped_body(
+            '&lt;p&gt;Zie &lt;a href="https://example.com/x?a=1&amp;amp;b=2"&gt;docs&lt;/a&gt;&lt;/p&gt;'
+        )
+        assert repaired is True
+        assert body == '<p>Zie <a href="https://example.com/x?a=1&amp;b=2">docs</a></p>'
+
+    def test_real_html_is_left_alone(self):
+        from mcp_server_odoo.tools.messaging import _repair_escaped_body
+
+        original = "<p>Hoi Boris,</p><p>Groet</p>"
+        assert _repair_escaped_body(original) == (original, False)
+
+    def test_deliberate_escaped_markup_inside_real_html_is_left_alone(self):
+        from mcp_server_odoo.tools.messaging import _repair_escaped_body
+
+        original = "<p>Gebruik <code>&lt;p&gt;</code> voor een alinea.</p>"
+        assert _repair_escaped_body(original) == (original, False)
+
+    def test_plain_text_without_markup_is_left_alone(self):
+        from mcp_server_odoo.tools.messaging import _repair_escaped_body
+
+        original = "Hoi Boris, prijs &lt; 100 &amp; op voorraad"
+        assert _repair_escaped_body(original) == (original, False)
+
+    def test_empty_body_is_left_alone(self):
+        from mcp_server_odoo.tools.messaging import _repair_escaped_body
+
+        assert _repair_escaped_body("") == ("", False)

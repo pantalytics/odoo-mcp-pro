@@ -183,6 +183,14 @@ class PostMessageResult(BaseModel):
             "recipient got literal tags."
         ),
     )
+    body_repaired: bool = Field(
+        default=False,
+        description=(
+            "True when the body arrived HTML-escaped ('&lt;p&gt;') and was unescaped "
+            "before posting. The message went out correctly; fix the caller so it "
+            "passes real markup."
+        ),
+    )
     attachment_count: int = Field(
         default=0, description="Number of attachments linked to the message"
     )
