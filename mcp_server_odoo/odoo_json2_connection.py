@@ -3,8 +3,9 @@
 This module provides the OdooJSON2Connection class for connecting to
 Odoo 19+ via the JSON/2 external API endpoint (/json/2/).
 
-The JSON/2 API is Odoo 19's replacement for XML-RPC and JSON-RPC,
-both of which are scheduled for removal in Odoo 20.
+The JSON/2 API is Odoo 19's replacement for XML-RPC and JSON-RPC, which
+are deprecated since 19 and still present in 20. From Odoo 20 on, /json/2
+only accepts API keys with scope 'rpc' (the default when creating a key).
 
 Reference: https://www.odoo.com/documentation/19.0/developer/reference/external_api.html
 """

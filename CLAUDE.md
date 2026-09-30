@@ -3,7 +3,7 @@
 ## What this project is
 
 **odoo-mcp-pro** -- an open source MCP server connecting AI to Odoo ERP.
-Supports Odoo 14-19+, stdio and streamable-http transport.
+Supports Odoo 14-20, stdio and streamable-http transport.
 
 This is the **public** package. The admin panel, billing, and deploy infrastructure
 live in the private repo: `pantalytics/odoo-mcp-pro-admin`.
@@ -40,7 +40,7 @@ The SaaS features (multi-tenant, OAuth, admin UI, billing) live in the private
   `odoo_json2_connection.OdooJSON2Connection`, `connection_protocol`,
   `access_control.AccessController`, `error_handling.ValidationError`,
   `exceptions.OdooConnectionError`, `performance.PerformanceManager`,
-  `detection.detect_odoo`, `version_detect.detect_api_version`,
+  `detection.detect_odoo`, `version_detect.{detect_api_version, JSON2_MIN_VERSION}`,
   `xmlrpc_transport.{transport_for_url, DEFAULT_XMLRPC_TIMEOUT}`.
   Breaking any of these signatures breaks admin.
 - `usage.py` is a no-op `track_event` stub so the public package works

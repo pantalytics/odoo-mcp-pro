@@ -15,7 +15,7 @@
   <a href="https://github.com/pantalytics/odoo-mcp-pro/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-Elastic%202.0-blue.svg" alt="License: Elastic 2.0"/></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python 3.10+"/></a>
   <a href="https://modelcontextprotocol.io"><img src="https://img.shields.io/badge/MCP-compatible-green.svg" alt="MCP Compatible"/></a>
-  <a href="https://www.odoo.com/documentation/19.0/developer/reference/external_api.html"><img src="https://img.shields.io/badge/Odoo-14--19+-714b67.svg" alt="Odoo 14-19+"/></a>
+  <a href="https://www.odoo.com/documentation/19.0/developer/reference/external_api.html"><img src="https://img.shields.io/badge/Odoo-14--20-714b67.svg" alt="Odoo 14-20"/></a>
   <a href="https://oauth.net/2.1/"><img src="https://img.shields.io/badge/OAuth-2.1-orange.svg" alt="OAuth 2.1"/></a>
 </p>
 
@@ -124,7 +124,7 @@ odoo-mcp-pro is an Odoo connector that implements [MCP (Model Context Protocol)]
 | `import_records` | Idempotent upsert via external IDs (same as Odoo CSV import) |
 | `server_info` | Server version, connection status |
 
-**Supports Odoo 14-19+** -- uses the JSON/2 API for Odoo 19+ and XML-RPC for older versions. The right protocol is selected automatically.
+**Supports Odoo 14-20** -- uses the JSON/2 API for Odoo 19+ and XML-RPC for older versions. The right protocol is selected automatically.
 
 ## Security
 
@@ -154,7 +154,7 @@ Contributions are welcome. Fork the repo, create a feature branch, run `pytest t
 ## FAQ
 
 **Which Odoo versions are supported?**
-Odoo 14-19+. The server auto-detects whether to use JSON/2 (Odoo 19+) or XML-RPC (14-18). No configuration needed.
+Odoo 14-20. The server auto-detects whether to use JSON/2 (Odoo 19+) or XML-RPC (14-18). No configuration needed.
 
 **Does it work on my phone?**
 Yes -- the hosted version works on Claude mobile (iOS/Android), Claude.ai in any browser, Claude Desktop, Claude Code, and ChatGPT. Local installs (STDIO) only work on the machine where they're installed.

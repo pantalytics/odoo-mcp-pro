@@ -25,7 +25,7 @@ This guide covers the open-core package: single-tenant, API-key-based, self-host
 3. Connect your AI tool to `https://mcp.pantalytics.com/mcp/`
 4. Start asking questions
 
-Supports Odoo 14-19+.
+Supports Odoo 14-20.
 
 ---
 
