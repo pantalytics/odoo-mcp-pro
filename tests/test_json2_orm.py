@@ -192,9 +192,13 @@ class TestOdooJSON2ORM:
         result = conn.check_access_rights("res.partner", "read")
 
         assert result is True
+        url = mock_client.post.call_args[0][0]
+        assert url.endswith("/json/2/res.partner/has_access"), (
+            "Odoo 20 removed check_access_rights; has_access exists on 19+"
+        )
         body = mock_client.post.call_args[1]["json"]
         assert body["operation"] == "read"
-        assert body["raise_exception"] is False
+        assert "raise_exception" not in body
 
     def test_check_access_rights_denied(self, connected_json2):
         conn, mock_client = connected_json2

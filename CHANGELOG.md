@@ -11,6 +11,17 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+## [3.1.2] - 2026-09-30
+
+### Added
+- Odoo 20 support, verified against a live 20.0 instance. Detection already
+  routed 20 to JSON/2; from 20 on, API keys need scope `rpc` (the default).
+
+### Fixed
+- Access checks on JSON/2 now call `has_access` instead of
+  `check_access_rights`. Odoo 20 removed `check_access_rights`, and the old
+  call's "not found" made every model look fully accessible on 20.
+
 ## [3.1.1] - 2026-09-18
 
 ### Fixed

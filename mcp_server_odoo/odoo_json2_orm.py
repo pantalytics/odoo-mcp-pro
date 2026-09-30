@@ -219,8 +219,10 @@ class Json2OrmMixin:
     def check_access_rights(self, model: str, operation: str) -> bool:
         """Check if the current user has the given access right on a model.
 
-        Uses Odoo's built-in check_access_rights ORM method, which works for
-        all users regardless of admin status (no ir.model.access read rights needed).
+        Calls Odoo's public ``has_access`` on the empty recordset (model-level
+        check), which works for all users regardless of admin status. JSON/2
+        only runs on Odoo 19+, where ``has_access`` exists; Odoo 20 removed the
+        older ``check_access_rights``.
 
         Args:
             model: Odoo model name (e.g., 'res.partner')
@@ -230,23 +232,18 @@ class Json2OrmMixin:
             True if access is granted, False if denied or on error
         """
         try:
-            result = self._call(
-                model,
-                "check_access_rights",
-                operation=operation,
-                raise_exception=False,
-            )
+            result = self._call(model, "has_access", operation=operation)
             return bool(result)
         except OdooTimeoutError:
             # The server is not answering; the other CRUD probes would each
             # eat the same full timeout. Propagate so the caller stops probing.
             raise
         except OdooConnectionError as e:
-            # If check_access_rights returns 404, the method may not be exposed
+            # If has_access returns 404, the method may not be exposed
             # via JSON/2 on this Odoo instance. Assume access is granted and let
             # the actual operation fail with a clear error if not permitted.
             if "Not found" in str(e):
-                logger.debug(f"check_access_rights not available for {model}, assuming allowed")
+                logger.debug(f"has_access not available for {model}, assuming allowed")
                 return True
             return False
 
