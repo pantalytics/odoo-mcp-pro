@@ -11,6 +11,8 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+## [3.1.3] - 2026-10-05
+
 ### Fixed
 - `execute_method` no longer reports "nothing was changed" when a method
   returns an action after doing its work (a module upgrade's `act_url`, a
