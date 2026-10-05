@@ -11,6 +11,13 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+### Fixed
+- `execute_method` no longer reports "nothing was changed" when a method
+  returns an action after doing its work (a module upgrade's `act_url`, a
+  `reload`, a window showing the result). Only a dialog wizard
+  (`target: 'new'`) is still refused as unsupported; any other action comes
+  back as `success: true` (#156).
+
 ## [3.1.2] - 2026-09-30
 
 ### Added

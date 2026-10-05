@@ -112,6 +112,30 @@ class TestExecuteMethod:
         assert "Not supported" in result["message"]
         assert "some.custom.wizard" in result["message"]
 
+    @pytest.mark.parametrize(
+        "action",
+        [
+            {"type": "ir.actions.act_url", "url": "/odoo", "target": "self"},
+            {"type": "ir.actions.client", "tag": "reload"},
+            {"type": "ir.actions.act_window", "res_model": "account.move", "res_id": 9},
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_action_after_the_work_is_not_a_wizard(self, handler, mock_connection, action):
+        """An action returned after the method ran (issue #156: a module upgrade
+        returning act_url) is a success, never "nothing was changed"."""
+        mock_connection.call_method.return_value = action
+
+        result = await handler._handle_execute_method_tool(
+            "ir.module.module", "button_immediate_upgrade", ids=[1440]
+        )
+
+        assert result["success"] is True
+        assert result["result_kind"] == "action"
+        assert result["action"] == action
+        assert "nothing was changed" not in result["message"]
+        assert "do not call it again" in result["message"]
+
     @pytest.mark.asyncio
     async def test_unsupported_cta_is_configurable(self, handler, mock_connection, monkeypatch):
         """The SaaS/admin layer can set its own support route; OSS stays neutral."""

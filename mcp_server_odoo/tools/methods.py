@@ -75,6 +75,18 @@ def _classify_result(value: Any) -> str:
     return "value"
 
 
+def _is_wizard(action: Dict[str, Any]) -> bool:
+    """True when the action opens a dialog that still asks for input.
+
+    Odoo's convention: a method that needs a decision before it changes
+    anything returns a window action with `target: 'new'` (a dialog). Any other
+    action (a URL, a client tag such as 'reload', a report, or a window that
+    shows the result) is returned *after* the method did its work.
+    """
+    type_val = action.get("type") or "ir.actions.act_window"
+    return type_val == "ir.actions.act_window" and action.get("target") == "new"
+
+
 def _normalize_kwargs(method: str, kwargs: Dict[str, Any]) -> Dict[str, Any]:
     """Make a passthrough call behave like the dedicated tool would.
 
@@ -258,6 +270,26 @@ class MethodsToolsMixin:
                             ids or [],
                             interactive,
                         )
+                    if not _is_wizard(value):
+                        # The method ran; the action is only what Odoo's UI
+                        # would do next (open a URL, reload, show the record).
+                        # Reporting "nothing was changed" here invites a retry
+                        # of something like a module upgrade or a payment.
+                        return {
+                            "success": True,
+                            "model": model,
+                            "method": method,
+                            "result_kind": "action",
+                            "result": value,
+                            "action": value,
+                            "followup": None,
+                            "message": (
+                                f"{model}.{method} completed and returned an Odoo "
+                                f"'{value.get('type') or 'ir.actions.act_window'}' "
+                                f"action (what the Odoo UI would show next). The "
+                                f"method ran; do not call it again."
+                            ),
+                        }
                     # Known method, but it needs a follow-up wizard we have NOT
                     # validated. We refuse rather than guess: an un-vetted
                     # wizard completion against financial data is exactly where a

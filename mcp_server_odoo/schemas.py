@@ -226,8 +226,10 @@ class ExecuteMethodResult(BaseModel):
     result_kind: str = Field(
         description=(
             "Shape of the return value: 'value' (bool/number/string/None), "
-            "'records' (list of record ids), 'action' (Odoo returned a wizard or "
-            "window action that still needs a follow-up decision), 'completed' "
+            "'records' (list of record ids), 'action' (Odoo returned an action: "
+            "with success False a wizard that still needs a follow-up decision, "
+            "with success True the method already ran and the action is only "
+            "what the Odoo UI would show next, e.g. a URL), 'completed' "
             "(a known wizard was driven to completion for you), 'declined' (the "
             "user declined or cancelled the wizard's form; nothing was changed and "
             "success is False), or 'unsupported' (the method needs a follow-up "
