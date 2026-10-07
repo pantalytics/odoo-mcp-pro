@@ -12,6 +12,8 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 ## [Unreleased]
 
 ### Added
+- `odoo-consultant` skill: run an Odoo implementation (phases, SPoC,
+  standard vs custom with a three-year ROI rule, scope and change management).
 - `create_fastmcp_app(on_skill_call=...)`: an optional hook told which skill
   `find_skill` and `get_skill` served, so a host can count skill usage.
 

@@ -68,6 +68,7 @@ odoo_modules_any: [sale_management, crm]
 |---|---|
 | `import-pro` | Full consultant-led data migration workflow (companion to Import Pro module) |
 | `odoo-advisor` | Pick the right Odoo app/model for a business process |
+| `odoo-consultant` | Run an implementation: phases, SPoC, standard vs custom with an ROI rule, change management |
 
 ## Authoring guidelines
 
