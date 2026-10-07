@@ -125,7 +125,7 @@ If `author_id`'s partner is among the intended recipients:
 
 ```python
 # Default subtype is mt_note when subtype_xmlid is omitted
-env['res.partner'].browse(partner_id).message_post(
+env["res.partner"].browse(partner_id).message_post(
     body="<p>Called customer. Wants a quote by Friday.</p>",
 )
 ```
@@ -133,12 +133,12 @@ env['res.partner'].browse(partner_id).message_post(
 ### 2. Send a real message to followers (triggers email)
 
 ```python
-env['sale.order'].browse(order_id).message_post(
+env["sale.order"].browse(order_id).message_post(
     body="<p>Quote v2 attached, please review.</p>",
     subject="Quote update",
-    subtype_xmlid='mail.mt_comment',     # required to send email
-    message_type='comment',              # user-typed comment
-    partner_ids=[customer_partner_id],   # extra recipients on top of followers
+    subtype_xmlid="mail.mt_comment",  # required to send email
+    message_type="comment",  # user-typed comment
+    partner_ids=[customer_partner_id],  # extra recipients on top of followers
     attachment_ids=[attachment_id],
 )
 ```
@@ -154,18 +154,20 @@ Two ways. **Over XML-RPC, only the first works** — see Gotchas.
 
 ```python
 # A. Pre-create ir.attachment, then reference (works everywhere)
-att = env['ir.attachment'].create({
-    'name': 'quote_v2.pdf',
-    'datas': base64_content,            # base64-encoded bytes
-    'res_model': 'sale.order',
-    'res_id': order_id,
-})
+att = env["ir.attachment"].create(
+    {
+        "name": "quote_v2.pdf",
+        "datas": base64_content,  # base64-encoded bytes
+        "res_model": "sale.order",
+        "res_id": order_id,
+    }
+)
 record.message_post(body="...", attachment_ids=[att.id])
 
 # B. Inline tuples — only works in-process / over JSON-RPC, NOT XML-RPC
 record.message_post(
     body="...",
-    attachments=[('quote_v2.pdf', raw_bytes)],   # raw bytes, not base64
+    attachments=[("quote_v2.pdf", raw_bytes)],  # raw bytes, not base64
 )
 ```
 
@@ -182,11 +184,11 @@ record.message_unsubscribe(partner_ids=[partner_id])
 ### 6. Schedule an activity
 
 ```python
-env['crm.lead'].browse(lead_id).activity_schedule(
-    act_type_xmlid='mail.mail_activity_data_call',   # or _todo, _meeting, _email
-    date_deadline='2026-05-12',
-    summary='Follow-up call',
-    note='<p>Confirm budget.</p>',
+env["crm.lead"].browse(lead_id).activity_schedule(
+    act_type_xmlid="mail.mail_activity_data_call",  # or _todo, _meeting, _email
+    date_deadline="2026-05-12",
+    summary="Follow-up call",
+    note="<p>Confirm budget.</p>",
     user_id=responsible_user_id,
 )
 ```
@@ -220,9 +222,9 @@ disappear from the table after a successful send. If you need to know
 To trigger the queue from the API:
 
 ```python
-env.ref('mail.ir_cron_mail_scheduler_action').method_direct_trigger()
+env.ref("mail.ir_cron_mail_scheduler_action").method_direct_trigger()
 # or, send specific mails synchronously:
-env['mail.mail'].browse([id1, id2]).send()
+env["mail.mail"].browse([id1, id2]).send()
 ```
 
 ## Vanilla Odoo vs Odoo + pan_outlook_pro
@@ -248,10 +250,12 @@ right outbound flow, the right config model, and even the right
 
 ```python
 search_records(
-  model='ir.module.module',
-  domain=[['name', 'in', ['pan_outlook_pro', 'microsoft_outlook', 'google_gmail']],
-          ['state', '=', 'installed']],
-  fields=['name'],
+    model="ir.module.module",
+    domain=[
+        ["name", "in", ["pan_outlook_pro", "microsoft_outlook", "google_gmail"]],
+        ["state", "=", "installed"],
+    ],
+    fields=["name"],
 )
 ```
 
@@ -272,10 +276,18 @@ mailbox, not by `ir.mail_server`.
 
 ```python
 search_records(
-  model='x_microsoft.mailbox',
-  fields=['email', 'x_mailbox_type', 'x_owner_user_id',
-          'x_alias_id', 'x_incoming_enabled', 'x_sync_sent',
-          'x_sync_inbox', 'state', 'active'],
+    model="x_microsoft.mailbox",
+    fields=[
+        "email",
+        "x_mailbox_type",
+        "x_owner_user_id",
+        "x_alias_id",
+        "x_incoming_enabled",
+        "x_sync_sent",
+        "x_sync_inbox",
+        "state",
+        "active",
+    ],
 )
 ```
 
@@ -386,9 +398,11 @@ Detection one-liners (all read-only):
 
 ```python
 # Outlook Pro installed?
-env['ir.module.module'].search_count([('name','=','pan_outlook_pro'),('state','=','installed')])
+env["ir.module.module"].search_count(
+    [("name", "=", "pan_outlook_pro"), ("state", "=", "installed")]
+)
 # Any mailbox ever configured?
-env['x_microsoft.mailbox'].with_context(active_test=False).search_count([])
+env["x_microsoft.mailbox"].with_context(active_test=False).search_count([])
 # Active mailbox for the author?
-env['x_microsoft.mailbox'].search_count([('user_id','=',author_user_id),('active','=',True)])
+env["x_microsoft.mailbox"].search_count([("user_id", "=", author_user_id), ("active", "=", True)])
 ```

@@ -120,6 +120,7 @@ ODOO_URL=https://your-odoo.com ODOO_API_KEY=your_api_key \
 | `ODOO_MCP_DEFAULT_LIMIT` | No | `10` | Default search result limit |
 | `ODOO_MCP_MAX_LIMIT` | No | `100` | Maximum search result limit |
 | `ODOO_MCP_MAX_SMART_FIELDS` | No | `15` | Max fields in smart field selection |
+| `ODOO_MCP_ALLOW_PRIVATE_FETCH` | No | `false` | Let `set_binary_field` fetch from private/LAN addresses. Off by default (SSRF guard); only for self-hosting with a file server on your own network |
 
 *Either `ODOO_API_KEY` or `ODOO_USER` + `ODOO_PASSWORD`. API key is strongly preferred.
 

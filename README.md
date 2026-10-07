@@ -132,6 +132,7 @@ odoo-mcp-pro is an Odoo connector that implements [MCP (Model Context Protocol)]
 - **Stateless proxy.** The MCP server doesn't store or cache your business data.
 - **API keys encrypted at rest** using AES-128 (Fernet). Never exposed to the AI, the browser, or logs.
 - **You stay in control.** Revoke your API key in Odoo at any time to instantly cut off access.
+- **Found a vulnerability?** Mail [rutger@pantalytics.com](mailto:rutger@pantalytics.com), see [SECURITY.md](SECURITY.md). Reporters are credited in the changelog.
 
 **Prefer managed security?** The [hosted version](https://pantalytics.com/en/apps/odoo-mcp-server) handles patches, OAuth token rotation, and incident monitoring -- your data still stays in Odoo, we just run the proxy for you.
 

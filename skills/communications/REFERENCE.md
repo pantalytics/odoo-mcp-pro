@@ -7,23 +7,23 @@ exact field names, signatures, or stock xmlids.
 
 ```python
 record.message_post(
-    body='',                    # str | Markup — HTML, plain str gets escaped
+    body="",  # str | Markup — HTML, plain str gets escaped
     subject=None,
-    message_type='notification',# email | comment | email_outgoing | notification | auto_comment | out_of_office
-                                # NOT 'user_notification' (use message_notify)
-    email_from=None,            # override visible sender
-    author_id=None,             # res.partner id of author
-    parent_id=False,            # mail.message id to thread under
-    subtype_xmlid=None,         # 'mail.mt_note' (default) | 'mail.mt_comment' | 'mail.mt_activities'
-    subtype_id=False,           # numeric alternative to subtype_xmlid
-    partner_ids=None,           # [partner_id, …] — extra recipients
-    outgoing_email_to=False,    # comma-separated emails (Odoo v19)
-    incoming_email_to=False,    # comma-separated; already-notified emails
+    message_type="notification",  # email | comment | email_outgoing | notification | auto_comment | out_of_office
+    # NOT 'user_notification' (use message_notify)
+    email_from=None,  # override visible sender
+    author_id=None,  # res.partner id of author
+    parent_id=False,  # mail.message id to thread under
+    subtype_xmlid=None,  # 'mail.mt_note' (default) | 'mail.mt_comment' | 'mail.mt_activities'
+    subtype_id=False,  # numeric alternative to subtype_xmlid
+    partner_ids=None,  # [partner_id, …] — extra recipients
+    outgoing_email_to=False,  # comma-separated emails (Odoo v19)
+    incoming_email_to=False,  # comma-separated; already-notified emails
     incoming_email_cc=False,
-    attachments=None,           # [(name, raw_bytes), …] OR [(name, raw_bytes, info_dict), …]
-    attachment_ids=None,        # [ir.attachment id, …] — alternative to attachments=
-    body_is_html=False,         # only for RPC: forces str body to HTML
-    **kwargs                    # extra mail.message fields, or notify kwargs
+    attachments=None,  # [(name, raw_bytes), …] OR [(name, raw_bytes, info_dict), …]
+    attachment_ids=None,  # [ir.attachment id, …] — alternative to attachments=
+    body_is_html=False,  # only for RPC: forces str body to HTML
+    **kwargs,  # extra mail.message fields, or notify kwargs
 )
 ```
 
@@ -42,12 +42,12 @@ record's chatter.
 
 ```python
 record.activity_schedule(
-    act_type_xmlid='',          # 'mail.mail_activity_data_call', etc.
-    date_deadline=None,         # date (not datetime); defaults to today
-    summary='',
-    note='',
-    user_id=...,                # responsible user (default: activity_type.default_user_id)
-    **act_values                # any other mail.activity field
+    act_type_xmlid="",  # 'mail.mail_activity_data_call', etc.
+    date_deadline=None,  # date (not datetime); defaults to today
+    summary="",
+    note="",
+    user_id=...,  # responsible user (default: activity_type.default_user_id)
+    **act_values,  # any other mail.activity field
 )
 ```
 
@@ -182,8 +182,8 @@ Probe in this order:
 ### Three install stages — pick which one before predicting send behavior
 
 ```python
-mailbox_count_total  = env['x_microsoft.mailbox'].with_context(active_test=False).search_count([])
-mailbox_count_active = env['x_microsoft.mailbox'].search_count([])
+mailbox_count_total = env["x_microsoft.mailbox"].with_context(active_test=False).search_count([])
+mailbox_count_active = env["x_microsoft.mailbox"].search_count([])
 ```
 
 | Stage | total | active | Outbound `mail.mail.send()` lands at |
@@ -242,13 +242,13 @@ processor) feed inbound mail through `mail.alias` for routing.
 ## `mail.template` — sending a templated email
 
 ```python
-template = env.ref('module.template_xmlid')
+template = env.ref("module.template_xmlid")
 template.send_mail(
     record_id,
-    force_send=True,           # send synchronously (default: queue)
-    email_values={             # override on resulting mail.mail
-        'email_to': '...',
-        'attachment_ids': [...],
+    force_send=True,  # send synchronously (default: queue)
+    email_values={  # override on resulting mail.mail
+        "email_to": "...",
+        "attachment_ids": [...],
     },
 )
 ```
@@ -286,9 +286,9 @@ message_post(subtype=mt_comment)
   recreate the message. The cron will not retry exceptions.
 - To force-send queued mails from the API:
   ```python
-  env.ref('mail.ir_cron_mail_scheduler_action').method_direct_trigger()
+  env.ref("mail.ir_cron_mail_scheduler_action").method_direct_trigger()
   # or send specific rows synchronously:
-  env['mail.mail'].browse([id1, id2]).send()
+  env["mail.mail"].browse([id1, id2]).send()
   ```
 
 ## What auto-creates messages without you calling message_post
