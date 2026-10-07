@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import base64
-from typing import Any, Dict, List, Optional
-from urllib.parse import urlparse
+from typing import Any, Dict, Optional
 
-import httpx
 from mcp.types import ToolAnnotations
 
 from ..access_control import AccessControlError
@@ -14,6 +12,7 @@ from ..error_handling import NotFoundError, ValidationError
 from ..error_sanitizer import ErrorSanitizer
 from ..logging_config import perf_logger
 from ..odoo_connection import OdooConnectionError
+from ..safe_fetch import fetch_bytes
 from ..schemas import BinaryFieldResult
 from ._common import (
     _AVATAR_FIELD_RE,
@@ -137,36 +136,9 @@ class BinaryToolsMixin:
                             "LLM. Upload the file to a reachable URL (Google Drive share, "
                             "Dropbox direct link, S3 pre-signed URL, etc.) and pass the URL."
                         )
-                    parsed = urlparse(source)
-                    if parsed.scheme not in ("http", "https"):
-                        raise ValidationError(
-                            f"source must be an http(s) URL, got scheme '{parsed.scheme}'"
-                        )
-                    if not parsed.netloc:
-                        raise ValidationError("source URL is missing a host")
-                    try:
-                        async with httpx.AsyncClient(
-                            timeout=30.0,
-                            follow_redirects=True,
-                            max_redirects=5,
-                        ) as client:
-                            chunks: List[bytes] = []
-                            total = 0
-                            async with client.stream("GET", source) as resp:
-                                resp.raise_for_status()
-                                async for chunk in resp.aiter_bytes(chunk_size=65536):
-                                    total += len(chunk)
-                                    if total > MAX_BINARY_SIZE_BYTES:
-                                        raise ValidationError(
-                                            f"Source exceeds max size of "
-                                            f"{MAX_BINARY_SIZE_BYTES // (1024 * 1024)} MB"
-                                        )
-                                    chunks.append(chunk)
-                            raw_bytes = b"".join(chunks)
-                    except ValidationError:
-                        raise
-                    except httpx.HTTPError as e:
-                        raise ValidationError(f"Failed to fetch source URL: {e}") from e
+                    # safe_fetch refuses private/internal hosts and re-checks every
+                    # redirect hop (SSRF), on top of the scheme and size checks.
+                    raw_bytes = await fetch_bytes(source, max_bytes=MAX_BINARY_SIZE_BYTES)
 
                     if not raw_bytes:
                         raise ValidationError("Source produced zero bytes")

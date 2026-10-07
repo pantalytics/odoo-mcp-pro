@@ -104,10 +104,10 @@ One error envelope, one taxonomy, classified where the type is known.
 @dataclass
 class OdooToolError(Exception):
     kind: ErrorKind
-    message: str          # Odoo's own words, redacted, never rewritten
+    message: str  # Odoo's own words, redacted, never rewritten
     model: str | None
     method: str | None
-    hint: str | None      # what to do next, ours
+    hint: str | None  # what to do next, ours
     retry_after: int | None
 ```
 

@@ -925,7 +925,7 @@ search_records(
     model="ir.module.module",
     domain=[["summary", "!=", ""], ["application", "=", true]],
     fields=["name", "shortdesc", "summary", "category_id", "state", "description"],
-    order="shortdesc asc"
+    order="shortdesc asc",
 )
 ```
 

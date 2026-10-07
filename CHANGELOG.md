@@ -11,6 +11,14 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+### Security
+- `set_binary_field` no longer fetches from private, loopback, link-local or
+  reserved addresses (cloud metadata included), and checks every redirect hop
+  instead of following it blindly. Before this, a caller could make the server
+  read its own network and hand the bytes back as an attachment. Self-hosters
+  with a file server on their LAN can opt out with
+  `ODOO_MCP_ALLOW_PRIVATE_FETCH=true`. Reported by kta1kri.
+
 ## [3.1.3] - 2026-10-05
 
 ### Fixed
