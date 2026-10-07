@@ -32,7 +32,7 @@ from .odoo_json2_connection import OdooJSON2Connection
 from .odoo_knowledge import SERVER_INSTRUCTIONS
 from .performance import PerformanceManager
 from .resources import register_resources
-from .skills import register_skills
+from .skills import SkillCallHook, register_skills
 from .tools import register_tools
 from .tools.apps import odoo_apps
 from .version_detect import detect_api_version
@@ -57,7 +57,11 @@ STREAMABLE_HTTP_OPTIONS: Dict[str, Any] = {"stateless_http": True, "json_respons
 
 
 def create_fastmcp_app(
-    *, auth=None, token_verifier=None, extra_instructions: str | None = None
+    *,
+    auth=None,
+    token_verifier=None,
+    extra_instructions: str | None = None,
+    on_skill_call: SkillCallHook | None = None,
 ) -> MCPServer:
     """Create the MCPServer app with the canonical server settings.
 
@@ -70,6 +74,9 @@ def create_fastmcp_app(
     ``extra_instructions`` is appended to the handshake instructions. Self-hosted
     (single connection) passes nothing; the multi-tenant admin layer uses it to
     teach the client about choosing between several live connections.
+
+    ``on_skill_call`` is passed to ``register_skills``: self-hosted leaves it
+    unset, the admin layer uses it to track find_skill / get_skill calls.
     """
     instructions = SERVER_INSTRUCTIONS
     if extra_instructions:
@@ -84,7 +91,7 @@ def create_fastmcp_app(
         extensions=[odoo_apps()],
     )
     # Skill resources — markdown workflow guides, no DB connection needed
-    register_skills(app)
+    register_skills(app, on_call=on_skill_call)
     return app
 
 

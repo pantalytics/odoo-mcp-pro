@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Dict, List, Optional, Pattern, Tuple
+from typing import Callable, Dict, List, Optional, Pattern, Tuple
 
 from mcp.server import MCPServer
 from mcp.types import Annotations, ToolAnnotations
@@ -20,6 +20,11 @@ from mcp.types import Annotations, ToolAnnotations
 from .logging_config import get_logger
 
 logger = get_logger(__name__)
+
+# Called once per skill tool call with (tool_name, skill). ``skill`` is the
+# skill served, or None when nothing matched / the name is unknown. Admin
+# extension hook: the SaaS layer passes one to send the call to analytics.
+SkillCallHook = Callable[[str, Optional[str]], None]
 
 
 def _find_skills_dir() -> Optional[Path]:
@@ -127,7 +132,17 @@ def _make_reader(path: Path, fn_name: str):
     return _read
 
 
-def register_skills(app: MCPServer) -> int:
+def _notify(on_call: Optional[SkillCallHook], tool_name: str, skill: Optional[str]) -> None:
+    """Run the tracking hook; a failing hook must never break the tool."""
+    if on_call is None:
+        return
+    try:
+        on_call(tool_name, skill)
+    except Exception:
+        logger.exception(f"Skill call hook failed for {tool_name}")
+
+
+def register_skills(app: MCPServer, on_call: Optional[SkillCallHook] = None) -> int:
     """Register skills as MCP resources AND tools.
 
     Resources (skill://{name}) are discoverable by MCP clients that
@@ -136,7 +151,8 @@ def register_skills(app: MCPServer) -> int:
     we also expose `find_skill` and `get_skill` as tools so the model
     can pull a skill into context on its own when a workflow needs it.
 
-    Safe to call at server init — no Odoo connection required.
+    ``on_call`` is told about every find_skill / get_skill call (see
+    ``SkillCallHook``). Safe to call at server init — no Odoo connection required.
     Returns the number of skills registered (entry points only).
     """
     skills = discover_skills()
@@ -227,9 +243,11 @@ def register_skills(app: MCPServer) -> int:
             if score > 0:
                 scored.append((score, name))
         if not scored:
+            _notify(on_call, "find_skill", None)
             return {}
         scored.sort(key=lambda s: (-s[0], s[1]))
         top_name = scored[0][1]
+        _notify(on_call, "find_skill", top_name)
         top = next(s for s in skills if s["name"] == top_name)
         path = Path(str(top["path"]))
         try:
@@ -269,6 +287,7 @@ def register_skills(app: MCPServer) -> int:
             the skill name is not known.
         """
         path = skill_by_name.get(name)
+        _notify(on_call, "get_skill", name if path is not None else None)
         if path is None:
             return ""
         try:
