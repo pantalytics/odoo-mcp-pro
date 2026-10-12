@@ -1,0 +1,42 @@
+name: GitHub release
+
+# Every version tag gets a GitHub release with its CHANGELOG section as notes.
+# A release created with GITHUB_TOKEN does not trigger other workflows, so
+# publish.yml (PyPI) stays manual.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to release, e.g. v3.1.3'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Create release from CHANGELOG
+      env:
+        GH_TOKEN: ${{ github.token }}
+        TAG: ${{ inputs.tag || github.ref_name }}
+      run: |
+        if gh release view "$TAG" >/dev/null 2>&1; then
+          echo "Release $TAG already exists"; exit 0
+        fi
+        VERSION="${TAG#v}"
+        awk -v v="$VERSION" '
+          $0 ~ "^## \\[" v "\\]" { found=1; next }
+          found && /^## \[/ { exit }
+          found { print }
+        ' CHANGELOG.md > notes.md
+        if [ ! -s notes.md ]; then
+          echo "See CHANGELOG.md" > notes.md
+        fi
+        gh release create "$TAG" --verify-tag --title "$TAG" --notes-file notes.md

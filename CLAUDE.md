@@ -2,7 +2,7 @@
 
 ## What this project is
 
-**odoo-mcp-pro** -- an open source MCP server connecting AI to Odoo ERP.
+**odoo-mcp-pro** -- a source-available MCP server connecting AI to Odoo ERP (Elastic License 2.0, MPL-2.0 for files from mcp-server-odoo).
 Supports Odoo 14-20, stdio and streamable-http transport.
 
 This is the **public** package. The admin panel, billing, and deploy infrastructure

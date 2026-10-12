@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/pantalytics/odoo-mcp-pro/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-Elastic%202.0-blue.svg" alt="License: Elastic 2.0"/></a>
+  <a href="https://github.com/pantalytics/odoo-mcp-pro/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-ELv2%20%2B%20MPL--2.0-blue.svg" alt="License: Elastic 2.0 and MPL-2.0"/></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python 3.10+"/></a>
   <a href="https://modelcontextprotocol.io"><img src="https://img.shields.io/badge/MCP-compatible-green.svg" alt="MCP Compatible"/></a>
   <a href="https://www.odoo.com/documentation/19.0/developer/reference/external_api.html"><img src="https://img.shields.io/badge/Odoo-14--20-714b67.svg" alt="Odoo 14-20"/></a>
