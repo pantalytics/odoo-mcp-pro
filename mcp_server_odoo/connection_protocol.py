@@ -64,8 +64,17 @@ class OdooConnectionProtocol(Protocol):
     ) -> List[Dict[str, Any]]:
         """Group records and aggregate them in Odoo.
 
+        Args:
+            groupby: Groupby specs, e.g. ['product_id', 'date:month'].
+            aggregates: `field:func` specs only, e.g. ['price_subtotal:sum'];
+                `__count` is always returned and must not be passed.
+            order: Order on groupby or aggregate specs, e.g.
+                'price_subtotal:sum desc'.
+
         Returns one dict per group, keyed by each groupby spec, each
-        `field:func` aggregate spec and `__count`.
+        aggregate spec and `__count`, without Odoo's per-group domain.
+        Many2one values are [id, name]; date groups are [range start, label]
+        (label only on Odoo 14).
         """
         ...
 

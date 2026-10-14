@@ -104,7 +104,6 @@ def parse_domain(domain: Any) -> list:
 
     if not isinstance(parsed, list):
         raise ValidationError(f"Domain must be a list, got {type(parsed).__name__}")
-    logger.debug(f"Parsed domain from string: {parsed}")
     return parsed
 
 

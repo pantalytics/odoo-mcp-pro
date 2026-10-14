@@ -115,10 +115,10 @@ class AggregateToolsMixin:
                 "Filter with domain or split the report into several calls."
             )
         for spec in groupby:
-            if not isinstance(spec, str) or not spec.strip():
+            if not spec.strip():
                 raise ValidationError(f"Invalid groupby spec: {spec!r}")
         for spec in aggregates:
-            if not isinstance(spec, str) or not _AGGREGATE_RE.match(spec):
+            if not _AGGREGATE_RE.match(spec):
                 raise ValidationError(
                     f"Invalid aggregate {spec!r}. Use 'field:function' with one of: "
                     f"{', '.join(AGGREGATE_FUNCTIONS)}."
@@ -127,6 +127,7 @@ class AggregateToolsMixin:
             raise ValidationError(f"limit must be between 1 and {self.config.max_limit}")
         if offset < 0:
             raise ValidationError("offset must not be negative")
+        parsed_domain = parse_domain(domain)
 
         try:
             connection, access_controller, sub = await self._get_user_context(connection_selector)
@@ -141,7 +142,7 @@ class AggregateToolsMixin:
                     connection,
                     connection.read_group,
                     model,
-                    parse_domain(domain),
+                    parsed_domain,
                     groupby,
                     aggregates,
                     order=order,

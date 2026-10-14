@@ -98,26 +98,13 @@ class Json2OrmMixin:
         """Grouped aggregates via `formatted_read_group` (Odoo 19+).
 
         `read_group` is deprecated in 19 and takes other arguments in 20;
-        `formatted_read_group` (web module) is stable across both. The rows
-        are keyed by groupby spec, aggregate spec and `__count`; Odoo's
-        per-group domain is dropped to keep them compact.
-
-        Args:
-            model: Odoo model name
-            domain: Domain filter
-            groupby: Groupby specs, e.g. ['product_id', 'date:month']
-            aggregates: Aggregate specs, e.g. ['price_subtotal:sum']
-            order: Order on groupby or aggregate specs, e.g. 'price_subtotal:sum desc'
-            offset: Number of groups to skip
-            limit: Maximum number of groups to return
-
-        Returns:
-            One dict per group
+        `formatted_read_group` (web module) is stable across both. See
+        `OdooConnectionProtocol.read_group` for the row shape.
         """
         kwargs: Dict[str, Any] = {
             "domain": domain,
-            "groupby": list(groupby),
-            "aggregates": [spec for spec in aggregates if spec != "__count"] + ["__count"],
+            "groupby": groupby,
+            "aggregates": [*aggregates, "__count"],
             "offset": offset,
         }
         if order:

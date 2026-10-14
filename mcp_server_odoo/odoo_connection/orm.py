@@ -243,43 +243,28 @@ class OdooConnectionOrmMixin:
 
         Each `field:func` aggregate is sent as `alias:func(field)` so one field
         can carry several functions, and `lazy=False` groups on every groupby
-        in one call. The rows come back keyed like the JSON/2 backend: groupby
-        spec, aggregate spec and `__count`, without Odoo's per-group domain.
-
-        Args:
-            model: The Odoo model name
-            domain: Odoo domain filter
-            groupby: Groupby specs, e.g. ['product_id', 'date:month']
-            aggregates: Aggregate specs, e.g. ['price_subtotal:sum']
-            order: Order on groupby or aggregate specs, e.g. 'price_subtotal:sum desc'
-            offset: Number of groups to skip
-            limit: Maximum number of groups to return
-
-        Returns:
-            One dict per group
+        in one call. See `OdooConnectionProtocol.read_group` for the row shape.
         """
-        aliases = {}
+
+        def alias(spec: str) -> str:
+            return spec.replace(":", "__")
+
         fields = []
         for spec in aggregates:
-            if spec == "__count":
-                continue
             field, func = spec.split(":")
-            alias = f"{field}__{func}"
-            aliases[alias] = spec
-            fields.append(f"{alias}:{func}({field})")
+            fields.append(f"{alias(spec)}:{func}({field})")
 
         kwargs: Dict[str, Any] = {"offset": offset, "lazy": False}
         if limit is not None:
             kwargs["limit"] = limit
         if order:
-            by_spec = {spec: alias for alias, spec in aliases.items()}
             terms = []
             for term in order.split(","):
                 key, *direction = term.split()
-                terms.append(" ".join([by_spec.get(key, key), *direction]))
+                terms.append(" ".join([alias(key) if key in aggregates else key, *direction]))
             kwargs["orderby"] = ", ".join(terms)
 
-        groups = self.execute_kw(model, "read_group", [domain, fields, list(groupby)], kwargs)
+        groups = self.execute_kw(model, "read_group", [domain, fields, groupby], kwargs)
 
         rows = []
         for group in groups:
@@ -292,8 +277,8 @@ class OdooConnectionOrmMixin:
                 if spec in ranges and value and isinstance(value, str):
                     value = [ranges[spec]["from"], value]
                 row[spec] = value
-            for alias, spec in aliases.items():
-                row[spec] = group.get(alias, False)
+            for spec in aggregates:
+                row[spec] = group.get(alias(spec), False)
             row["__count"] = group.get("__count", 0)
             rows.append(row)
         return rows
