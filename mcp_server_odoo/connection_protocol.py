@@ -52,6 +52,23 @@ class OdooConnectionProtocol(Protocol):
 
     def search_count(self, model: str, domain: List[Union[str, List[Any]]]) -> int: ...
 
+    def read_group(
+        self,
+        model: str,
+        domain: List[Union[str, List[Any]]],
+        groupby: List[str],
+        aggregates: List[str],
+        order: Optional[str] = None,
+        offset: int = 0,
+        limit: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """Group records and aggregate them in Odoo.
+
+        Returns one dict per group, keyed by each groupby spec, each
+        `field:func` aggregate spec and `__count`.
+        """
+        ...
+
     def fields_get(
         self, model: str, attributes: Optional[List[str]] = None
     ) -> Dict[str, Dict[str, Any]]: ...

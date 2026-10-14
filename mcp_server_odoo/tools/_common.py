@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import contextvars
+import json
 import re
 from typing import Any, Callable, TypeVar
 from weakref import WeakKeyDictionary
@@ -79,6 +80,32 @@ async def run_blocking(connection: Any, func: Callable[..., T], /, *args: Any, *
     """
     async with _lock_for(connection):
         return await asyncio.to_thread(func, *args, **kwargs)
+
+
+def parse_domain(domain: Any) -> list:
+    """Accept a domain as a list, a JSON string or a Python-style string."""
+    if domain is None:
+        return []
+    if not isinstance(domain, str):
+        return domain
+
+    try:
+        parsed = json.loads(domain)
+    except json.JSONDecodeError:
+        # Python-style domain: single quotes and True/False
+        try:
+            json_domain = domain.replace("'", '"')
+            json_domain = json_domain.replace("True", "true").replace("False", "false")
+            parsed = json.loads(json_domain)
+        except json.JSONDecodeError as e:
+            raise ValidationError(
+                f"Invalid domain parameter. Expected JSON array, got: {domain[:100]}..."
+            ) from e
+
+    if not isinstance(parsed, list):
+        raise ValidationError(f"Domain must be a list, got {type(parsed).__name__}")
+    logger.debug(f"Parsed domain from string: {parsed}")
+    return parsed
 
 
 def odoo_error_as_validation(exc: OdooConnectionError) -> ValidationError:

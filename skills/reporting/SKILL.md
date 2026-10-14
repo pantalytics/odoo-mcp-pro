@@ -10,9 +10,8 @@ Turn Odoo data into numbers a leader can act on — not a data dump.
 
 ## Building blocks
 
-- `search_records` with `read=True` + `fields` — for line-level detail
-- `search_count` — for scalar metrics
-- `read_group` (via `search_records` with `groupby`) — for aggregations (sum/avg/count per dimension)
+- `search_records` with `fields` — for line-level detail
+- `aggregate_records` — for aggregations (sum/avg/count per dimension), e.g. `groupby=["product_id", "date:month"]`, `aggregates=["price_subtotal:sum"]`, `order="price_subtotal:sum desc"`. Omit `groupby` for one grand total. Never page through raw lines to add them up.
 - Multiple queries composed into one narrative — not a single giant result
 
 ## Typical report shapes

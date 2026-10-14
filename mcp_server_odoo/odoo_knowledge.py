@@ -90,6 +90,10 @@ Ask yourself: what is the user trying to do?
 - Common operators: `=`, `!=`, `ilike` (case-insensitive contains), `in`, `>=`, `<=`.
 - Combine with `|` (OR): `["|", ["field1", "=", "a"], ["field2", "=", "b"]]`.
 
+### Totals and reports
+- Use `aggregate_records` for sums, averages and counts per group (Odoo `read_group`), e.g. revenue per product per month. Do not page through records to add them up.
+- Group dates with a granularity: `"invoice_date:month"`. Sort a top-N with `order="price_subtotal:sum desc"`.
+
 ### Relationships
 - Many2one fields return `[id, "display_name"]` or `false`.
 - One2many/Many2many fields return list of IDs.

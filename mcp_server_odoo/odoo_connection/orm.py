@@ -229,6 +229,75 @@ class OdooConnectionOrmMixin:
         """
         return self.execute_kw(model, "search_count", [domain], {})
 
+    def read_group(
+        self,
+        model: str,
+        domain: List[Union[str, List[Any]]],
+        groupby: List[str],
+        aggregates: List[str],
+        order: Optional[str] = None,
+        offset: int = 0,
+        limit: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """Grouped aggregates via the legacy `read_group` (Odoo 14-18).
+
+        Each `field:func` aggregate is sent as `alias:func(field)` so one field
+        can carry several functions, and `lazy=False` groups on every groupby
+        in one call. The rows come back keyed like the JSON/2 backend: groupby
+        spec, aggregate spec and `__count`, without Odoo's per-group domain.
+
+        Args:
+            model: The Odoo model name
+            domain: Odoo domain filter
+            groupby: Groupby specs, e.g. ['product_id', 'date:month']
+            aggregates: Aggregate specs, e.g. ['price_subtotal:sum']
+            order: Order on groupby or aggregate specs, e.g. 'price_subtotal:sum desc'
+            offset: Number of groups to skip
+            limit: Maximum number of groups to return
+
+        Returns:
+            One dict per group
+        """
+        aliases = {}
+        fields = []
+        for spec in aggregates:
+            if spec == "__count":
+                continue
+            field, func = spec.split(":")
+            alias = f"{field}__{func}"
+            aliases[alias] = spec
+            fields.append(f"{alias}:{func}({field})")
+
+        kwargs: Dict[str, Any] = {"offset": offset, "lazy": False}
+        if limit is not None:
+            kwargs["limit"] = limit
+        if order:
+            by_spec = {spec: alias for alias, spec in aliases.items()}
+            terms = []
+            for term in order.split(","):
+                key, *direction = term.split()
+                terms.append(" ".join([by_spec.get(key, key), *direction]))
+            kwargs["orderby"] = ", ".join(terms)
+
+        groups = self.execute_kw(model, "read_group", [domain, fields, list(groupby)], kwargs)
+
+        rows = []
+        for group in groups:
+            ranges = group.get("__range") or {}
+            row: Dict[str, Any] = {}
+            for spec in groupby:
+                value = group.get(spec, False)
+                # Odoo 15+ sends the date range next to the label; pair them
+                # like formatted_read_group does: [range start, label].
+                if spec in ranges and value and isinstance(value, str):
+                    value = [ranges[spec]["from"], value]
+                row[spec] = value
+            for alias, spec in aliases.items():
+                row[spec] = group.get(alias, False)
+            row["__count"] = group.get("__count", 0)
+            rows.append(row)
+        return rows
+
     def create(
         self, model: str, values: Dict[str, Any], context: Optional[Dict[str, Any]] = None
     ) -> int:

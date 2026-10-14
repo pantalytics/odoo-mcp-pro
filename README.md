@@ -116,6 +116,7 @@ odoo-mcp-pro is an Odoo connector that implements [MCP (Model Context Protocol)]
 |------|-------------|
 | `search_records` | Search any model with domain filters, sorting, pagination |
 | `get_record` | Fetch a specific record by ID with smart field selection |
+| `aggregate_records` | Grouped totals computed in Odoo (`read_group`): sum, avg, count per product, month, etc. |
 | `list_models` | Discover available Odoo models |
 | `list_resource_templates` | Discover available resource URI templates |
 | `create_record` / `create_records` | Create one or multiple records |

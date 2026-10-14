@@ -22,6 +22,7 @@ from ..config import OdooConfig
 from ..connection_protocol import OdooConnectionProtocol
 from ..error_handling import ValidationError, as_tool_error
 from ._common import _current_sub, logger
+from .aggregate import AggregateToolsMixin
 from .apps import RegisterPaymentToolsMixin
 from .binary import BinaryToolsMixin
 from .bulk import BulkToolsMixin
@@ -36,6 +37,7 @@ from .query import QueryToolsMixin
 class OdooToolHandler(
     FormattingMixin,
     QueryToolsMixin,
+    AggregateToolsMixin,
     IntrospectionToolsMixin,
     CrudToolsMixin,
     BulkToolsMixin,
@@ -127,6 +129,7 @@ class OdooToolHandler(
         they are registered, so this must match the original sequence.
         """
         self._register_query_tools()
+        self._register_aggregate_tools()
         self._register_introspection_tools()
         self._register_crud_tools()
         self._register_bulk_tools()

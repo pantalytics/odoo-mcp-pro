@@ -23,6 +23,7 @@ from ._common import (
     _current_sub,
     logger,
     odoo_error_as_validation,
+    parse_domain,
     run_blocking,
     validate_access,
 )
@@ -159,39 +160,7 @@ class QueryToolsMixin:
                 if not connection.is_authenticated:
                     raise ValidationError("Not authenticated with Odoo")
 
-                # Handle domain parameter - can be string or list
-                parsed_domain = []
-                if domain is not None:
-                    if isinstance(domain, str):
-                        # Parse string to list
-                        try:
-                            # First try standard JSON parsing
-                            parsed_domain = json.loads(domain)
-                        except json.JSONDecodeError:
-                            # If that fails, try converting single quotes to double quotes
-                            # This handles Python-style domain strings
-                            try:
-                                # Replace single quotes with double quotes for valid JSON
-                                # But be careful not to replace quotes inside string values
-                                json_domain = domain.replace("'", '"')
-                                # Also need to ensure Python True/False are lowercase for JSON
-                                json_domain = json_domain.replace("True", "true").replace(
-                                    "False", "false"
-                                )
-                                parsed_domain = json.loads(json_domain)
-                            except json.JSONDecodeError as e:
-                                raise ValidationError(
-                                    f"Invalid domain parameter. Expected JSON array, got: {domain[:100]}..."
-                                ) from e
-
-                        if not isinstance(parsed_domain, list):
-                            raise ValidationError(
-                                f"Domain must be a list, got {type(parsed_domain).__name__}"
-                            )
-                        logger.debug(f"Parsed domain from string: {parsed_domain}")
-                    else:
-                        # Already a list
-                        parsed_domain = domain
+                parsed_domain = parse_domain(domain)
 
                 # Handle fields parameter - can be string or list
                 parsed_fields = fields
