@@ -133,7 +133,8 @@ ODOO_URL=https://your-odoo.com ODOO_API_KEY=your_api_key \
 3. Scroll to **Account Security**
 4. Click **New API Key**
 5. Description: `MCP Server`
-6. Click **Generate Key** -- copy immediately (shown only once)
+6. Scope (Odoo 19.4 and later): pick **RPC**, not MCP. This server calls Odoo's JSON/2 API, which only accepts RPC keys
+7. Click **Generate Key** -- copy immediately (shown only once)
 
 **Tip:** create a dedicated Odoo user (e.g., `mcp@yourcompany.com`) with only the permissions the MCP server needs, rather than using your admin account.
 
