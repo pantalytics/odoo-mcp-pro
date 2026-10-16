@@ -85,6 +85,38 @@ class Json2OrmMixin:
         """
         return self._call(model, "search_count", domain=domain)
 
+    def read_group(
+        self,
+        model: str,
+        domain: List[Union[str, List[Any]]],
+        groupby: List[str],
+        aggregates: List[str],
+        order: Optional[str] = None,
+        offset: int = 0,
+        limit: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """Grouped aggregates via `formatted_read_group` (Odoo 19+).
+
+        `read_group` is deprecated in 19 and takes other arguments in 20;
+        `formatted_read_group` (web module) is stable across both. See
+        `OdooConnectionProtocol.read_group` for the row shape.
+        """
+        kwargs: Dict[str, Any] = {
+            "domain": domain,
+            "groupby": groupby,
+            "aggregates": [*aggregates, "__count"],
+            "offset": offset,
+        }
+        if order:
+            kwargs["order"] = order
+        if limit is not None:
+            kwargs["limit"] = limit
+        groups = self._call(model, "formatted_read_group", **kwargs)
+        return [
+            {key: value for key, value in group.items() if key not in ("__extra_domain", "__fold")}
+            for group in groups
+        ]
+
     def fields_get(
         self, model: str, attributes: Optional[List[str]] = None
     ) -> Dict[str, Dict[str, Any]]:

@@ -52,6 +52,32 @@ class OdooConnectionProtocol(Protocol):
 
     def search_count(self, model: str, domain: List[Union[str, List[Any]]]) -> int: ...
 
+    def read_group(
+        self,
+        model: str,
+        domain: List[Union[str, List[Any]]],
+        groupby: List[str],
+        aggregates: List[str],
+        order: Optional[str] = None,
+        offset: int = 0,
+        limit: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """Group records and aggregate them in Odoo.
+
+        Args:
+            groupby: Groupby specs, e.g. ['product_id', 'date:month'].
+            aggregates: `field:func` specs only, e.g. ['price_subtotal:sum'];
+                `__count` is always returned and must not be passed.
+            order: Order on groupby or aggregate specs, e.g.
+                'price_subtotal:sum desc'.
+
+        Returns one dict per group, keyed by each groupby spec, each
+        aggregate spec and `__count`, without Odoo's per-group domain.
+        Many2one values are [id, name]; date groups are [range start, label]
+        (label only on Odoo 14).
+        """
+        ...
+
     def fields_get(
         self, model: str, attributes: Optional[List[str]] = None
     ) -> Dict[str, Dict[str, Any]]: ...

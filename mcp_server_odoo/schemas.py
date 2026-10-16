@@ -27,6 +27,24 @@ class SearchResult(BaseModel):
     model: str = Field(description="Odoo model name that was searched")
 
 
+# --- Aggregate Records ---
+
+
+class AggregateResult(BaseModel):
+    """Result of a grouped aggregation."""
+
+    model: str = Field(description="Odoo model name that was aggregated")
+    groups: List[Dict[str, Any]] = Field(
+        description=(
+            "One row per group: each groupby spec, each aggregate spec and "
+            "'__count' (records in the group)"
+        )
+    )
+    limit: int = Field(description="Maximum groups returned per page")
+    offset: int = Field(description="Number of groups skipped")
+    has_more: bool = Field(description="True when more groups follow; raise offset to read them")
+
+
 # --- Get Record ---
 
 

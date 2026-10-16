@@ -12,6 +12,11 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 ## [Unreleased]
 
 ### Added
+- `aggregate_records` tool: grouped totals computed by Odoo (`read_group` on
+  Odoo 14-18, `formatted_read_group` on 19+). A report over thousands of lines
+  now comes back as one compact row per group (no per-group domains), with
+  `has_more` for paging. Limited to 3 groupby fields and the server's record
+  limit per page.
 - `odoo-consultant` skill: run an Odoo implementation (phases, SPoC,
   standard vs custom with a three-year ROI rule, scope and change management).
 - `create_fastmcp_app(on_skill_call=...)`: an optional hook told which skill
