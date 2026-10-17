@@ -1,5 +1,6 @@
 """Concurrency tests for the shared XML-RPC transport."""
 
+import socketserver
 import threading
 import time
 import xmlrpc.client
@@ -11,17 +12,8 @@ import pytest
 from mcp_server_odoo.xmlrpc_transport import TimeoutTransport
 
 
-class _ThreadedXMLRPCServer(SimpleXMLRPCServer):
+class _ThreadedXMLRPCServer(socketserver.ThreadingMixIn, SimpleXMLRPCServer):
     daemon_threads = True
-
-    def process_request(self, request, client_address):
-        threading.Thread(target=self._handle, args=(request, client_address), daemon=True).start()
-
-    def _handle(self, request, client_address):
-        try:
-            self.finish_request(request, client_address)
-        finally:
-            self.shutdown_request(request)
 
 
 class _KeepAliveHandler(SimpleXMLRPCRequestHandler):
