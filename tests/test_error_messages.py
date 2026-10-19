@@ -143,3 +143,34 @@ class TestParseDomain:
     def test_bad_domain_shows_the_expected_shape(self):
         with pytest.raises(ValidationError, match="Expected a list of conditions"):
             parse_domain("[('name', '=' 'x')")
+
+
+class TestOdooExceptionNames:
+    """An XML-RPC fault reads like Odoo's own error: "<ExceptionClass>: <text>".
+
+    Odoo's /xmlrpc/2 fault codes: 2 UserError (and its subclasses), 3
+    AccessDenied, 4 AccessError, 1 a traceback ending in the exception.
+    """
+
+    @pytest.mark.parametrize(
+        "code,text,expected",
+        [
+            (2, "The VAT number is not valid", "UserError: The VAT number is not valid"),
+            (4, "You are not allowed to modify 'Contact'", "AccessError: You are not allowed"),
+            (3, "Access Denied", "AccessDenied: Access Denied"),
+            (
+                1,
+                'Traceback (most recent call last):\n  File "/odoo/x.py", line 3, in f\n'
+                "    g()\nTypeError: f() got an unexpected keyword argument 'foo'\n",
+                "TypeError: f() got an unexpected keyword argument 'foo'",
+            ),
+        ],
+    )
+    def test_fault_names_odoo_exception(self, code, text, expected):
+        import xmlrpc.client
+
+        from mcp_server_odoo.odoo_connection.faults import _fault_as_execution_error
+
+        err = _fault_as_execution_error(xmlrpc.client.Fault(code, text))
+        assert str(err).startswith(expected)
+        assert err.error_type == expected.split(":")[0]

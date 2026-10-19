@@ -151,30 +151,32 @@ class OdooJSON2Connection(Json2OrmMixin):
         if response.status_code == 200:
             return response.json()
 
-        error_msg, is_odoo_fault = self._parse_error_response(response)
+        error_msg, error_type = self._parse_error_response(response)
+        status = response.status_code
 
-        # 401/403/404/422 are Odoo's own application status codes: the request
-        # reached Odoo and it refused it. See OdooExecutionError.
-        if response.status_code == 401:
-            raise OdooExecutionError(f"Authentication failed: {error_msg}")
-        elif response.status_code == 403:
-            raise OdooExecutionError(f"Access denied: {error_msg}")
-        elif response.status_code == 404:
-            raise OdooExecutionError(f"Not found: {error_msg}")
-        elif response.status_code == 422:
-            raise OdooExecutionError(f"Invalid request: {error_msg}")
-        elif is_odoo_fault:
-            # A 5xx carrying Odoo's JSON/2 envelope is a server-side application
-            # error (e.g. an unhandled ORM exception).
-            raise OdooExecutionError(f"Server error ({response.status_code}): {error_msg}")
+        # Odoo answered with its JSON/2 error envelope (or a 401/403/404/422,
+        # which only Odoo sends): it refused the request. Say it the way Odoo
+        # does, "<ExceptionClass>: <message>" -- ValidationError, AccessError,
+        # MissingError, UserError, or werkzeug's NotFound / UnprocessableEntity
+        # for an unknown model, method or argument. See OdooExecutionError.
+        if status == 401:
+            # Kept as-is: the admin layer's connect checks match on these words
+            raise OdooExecutionError(
+                f"Authentication failed: {error_msg}", error_type=error_type, status_code=status
+            )
+        if error_type is not None or status in (403, 404, 422):
+            label = error_type or {403: "AccessError", 404: "NotFound", 422: "UserError"}.get(
+                status, "Error"
+            )
+            raise OdooExecutionError(f"{label}: {error_msg}", error_type=label, status_code=status)
         else:
             # A 5xx with an opaque body means an intermediary (reverse proxy /
             # gateway, e.g. 502/503/504) answered and the request may never have
             # reached Odoo -- a transport failure the caller may retry.
             raise OdooConnectionError(f"Server error ({response.status_code}): {error_msg}")
 
-    def _parse_error_response(self, response: Any) -> tuple[str, bool]:
-        """Extract the error message and whether it is a JSON/2 fault envelope.
+    def _parse_error_response(self, response: Any) -> tuple[str, str | None]:
+        """Extract the error message and the exception class Odoo named.
 
         JSON/2 error responses carry a structured envelope:
         {
@@ -185,17 +187,20 @@ class OdooJSON2Connection(Json2OrmMixin):
             "debug": "full traceback"
         }
 
-        Returns the sanitized message plus True when that envelope is present
-        (Odoo answered). An opaque body -- a proxy/gateway error page -- returns
-        its text and False, so the caller can treat it as a transport failure.
+        Returns the sanitized message plus the short class name from ``name``
+        (``odoo.exceptions.ValidationError`` -> ``ValidationError``) when that
+        envelope is present (Odoo answered). An opaque body -- a proxy/gateway
+        error page -- returns its text and None, so the caller can treat it as
+        a transport failure.
         """
         try:
             data = response.json()
         except Exception:
-            return ErrorSanitizer.sanitize_message(response.text[:200]), False
+            return ErrorSanitizer.sanitize_message(response.text[:200]), None
         if isinstance(data, dict) and ("message" in data or "name" in data):
-            return ErrorSanitizer.sanitize_message(str(data.get("message", ""))), True
-        return ErrorSanitizer.sanitize_message(response.text[:200]), False
+            name = str(data.get("name") or "").rsplit(".", 1)[-1]
+            return ErrorSanitizer.sanitize_message(str(data.get("message", ""))), name
+        return ErrorSanitizer.sanitize_message(response.text[:200]), None
 
     # --- Connection lifecycle ---
 

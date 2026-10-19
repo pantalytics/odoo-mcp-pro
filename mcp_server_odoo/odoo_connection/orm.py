@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from ..error_sanitizer import ErrorSanitizer
 from ..exceptions import OdooConnectionError, OdooExecutionError, OdooTimeoutError
+from .faults import _fault_as_execution_error
 
 logger = logging.getLogger(__name__)
 
@@ -116,8 +117,7 @@ class OdooConnectionOrmMixin:
                 return None
             logger.error(f"XML-RPC fault during {method} on {model}: {e}")
             # Application fault, not a transport failure. See OdooExecutionError.
-            sanitized_message = ErrorSanitizer.sanitize_xmlrpc_fault(e.faultString)
-            raise OdooExecutionError(f"Operation failed: {sanitized_message}") from e
+            raise _fault_as_execution_error(e) from e
         except socket.timeout:
             logger.error(f"Timeout during {method} on {model}")
             raise OdooTimeoutError(f"Operation timeout after {self.timeout} seconds") from None

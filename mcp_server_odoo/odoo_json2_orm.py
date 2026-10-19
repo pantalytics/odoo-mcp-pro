@@ -274,7 +274,7 @@ class Json2OrmMixin:
             # If has_access returns 404, the method may not be exposed
             # via JSON/2 on this Odoo instance. Assume access is granted and let
             # the actual operation fail with a clear error if not permitted.
-            if "Not found" in str(e):
+            if getattr(e, "status_code", None) == 404:
                 logger.debug(f"has_access not available for {model}, assuming allowed")
                 return True
             # A transport failure (502 from a proxy, dropped socket) says

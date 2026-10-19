@@ -340,7 +340,7 @@ class MethodsToolsMixin:
         except ValidationError:
             raise
         except AccessControlError as e:
-            raise ValidationError(f"Access denied: {e}") from e
+            raise ValidationError(f"AccessError: {e}") from e
         except OdooConnectionError as e:
             raise odoo_error_as_validation(e, writes=True) from e
         except Exception as e:

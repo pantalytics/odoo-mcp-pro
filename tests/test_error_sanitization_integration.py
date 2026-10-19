@@ -78,7 +78,7 @@ class TestErrorSanitizationIntegration:
             await tool_handler._handle_get_record_tool("sale.order", 1, None)
 
         error_msg = str(exc_info.value)
-        assert "Access denied" in error_msg
+        assert "AccessError" in error_msg
         assert "sale.order" in error_msg
 
     @pytest.mark.asyncio

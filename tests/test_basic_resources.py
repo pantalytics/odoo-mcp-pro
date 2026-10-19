@@ -180,7 +180,7 @@ class TestOdooResourceHandler:
         with pytest.raises(MCPPermissionError) as exc_info:
             await resource_handler._handle_record_retrieval("res.partner", "1")
 
-        assert "Access denied:" in str(exc_info.value)
+        assert "AccessError:" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_handle_record_retrieval_not_authenticated(

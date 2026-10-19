@@ -99,10 +99,6 @@ class TestErrorSanitizer:
 
     def test_xmlrpc_fault_sanitization(self):
         """Test XML-RPC fault message sanitization."""
-        fault = "Access Denied: Invalid API key or insufficient permissions"
-        sanitized = ErrorSanitizer.sanitize_xmlrpc_fault(fault)
-        assert sanitized == "Access denied: Invalid credentials or insufficient permissions"
-
         fault = "ValidationError: Field 'vat' is required"
         sanitized = ErrorSanitizer.sanitize_xmlrpc_fault(fault)
         assert sanitized == "ValidationError: Field 'vat' is required"

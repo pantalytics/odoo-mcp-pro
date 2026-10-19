@@ -169,9 +169,6 @@ class ErrorSanitizer:
         Returns:
             Sanitized error message: Odoo's own text, without the traceback
         """
-        if (fault_string or "").strip().startswith("Access Denied"):
-            # Odoo's login failure: the bare words carry no more than this
-            return "Access denied: Invalid credentials or insufficient permissions"
         # The repr form some versions put in the fault: UserError('...')
         user_msg_match = re.search(r'UserError\(["\']([^"\']+)["\']', fault_string or "")
         if user_msg_match:

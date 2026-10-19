@@ -197,7 +197,7 @@ class CrudToolsMixin:
         except ValidationError:
             raise
         except AccessControlError as e:
-            raise ValidationError(f"Access denied: {e}") from e
+            raise ValidationError(f"AccessError: {e}") from e
         except OdooConnectionError as e:
             raise odoo_error_as_validation(e, writes=True) from e
         except Exception as e:
@@ -289,7 +289,7 @@ class CrudToolsMixin:
         except NotFoundError as e:
             raise ValidationError(str(e)) from e
         except AccessControlError as e:
-            raise ValidationError(f"Access denied: {e}") from e
+            raise ValidationError(f"AccessError: {e}") from e
         except OdooConnectionError as e:
             raise odoo_error_as_validation(e, writes=True) from e
         except Exception as e:
@@ -352,7 +352,7 @@ class CrudToolsMixin:
         except NotFoundError as e:
             raise ValidationError(str(e)) from e
         except AccessControlError as e:
-            raise ValidationError(f"Access denied: {e}") from e
+            raise ValidationError(f"AccessError: {e}") from e
         except OdooConnectionError as e:
             raise odoo_error_as_validation(e, writes=True) from e
         except Exception as e:

@@ -22,6 +22,13 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 - `create_fastmcp_app(on_skill_call=...)`: an optional hook told which skill
   `find_skill` and `get_skill` served, so a host can count skill usage.
 
+### Changed
+- Errors from Odoo read the way Odoo says them, `<ExceptionClass>: <message>`
+  (`ValidationError: ...`, `AccessError: ...`, `NotFound: ...`), on JSON/2 and
+  XML-RPC alike, replacing our own prefixes ("Invalid request:", "Not found:",
+  "Operation failed:", "Access denied:"). The class is on
+  `OdooExecutionError.error_type`. ADR 0003 amended accordingly.
+
 ### Fixed
 - Error messages keep what Odoo said. The sanitizer still strips paths, code
   line numbers and tracebacks, but no longer swaps Odoo's text for a generic

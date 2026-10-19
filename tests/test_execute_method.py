@@ -173,7 +173,7 @@ class TestExecuteMethod:
         """Odoo-side access denial surfaces as a clean error."""
         mock_access_controller.validate_model_access.side_effect = AccessControlError("nope")
 
-        with pytest.raises(ValidationError, match="Access denied"):
+        with pytest.raises(ValidationError, match="AccessError"):
             await handler._handle_execute_method_tool("account.move", "action_post", ids=[1])
 
     @pytest.mark.asyncio

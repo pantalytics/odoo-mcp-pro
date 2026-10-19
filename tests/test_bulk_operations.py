@@ -98,7 +98,7 @@ class TestBulkCreate:
 
         mock_access_controller.validate_model_access.side_effect = AccessControlError("Not allowed")
 
-        with pytest.raises(ValidationError, match="Access denied"):
+        with pytest.raises(ValidationError, match="AccessError"):
             await handler._handle_create_records_tool("res.partner", [{"name": "test"}])
 
 
