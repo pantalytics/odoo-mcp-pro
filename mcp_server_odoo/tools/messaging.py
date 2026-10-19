@@ -483,7 +483,7 @@ class MessagingToolsMixin:
         except AccessControlError as e:
             raise ValidationError(f"Access denied: {e}") from e
         except OdooConnectionError as e:
-            raise odoo_error_as_validation(e) from e
+            raise odoo_error_as_validation(e, writes=True) from e
         except Exception as e:
             logger.error(f"Error in post_message tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))

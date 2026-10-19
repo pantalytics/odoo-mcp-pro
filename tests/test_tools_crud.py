@@ -114,7 +114,10 @@ class TestOdooToolHandlerErrors:
         with pytest.raises(ToolError) as exc_info:
             await search_records(model="res.partner", domain=invalid_domain, limit=5)
 
-        assert "Invalid search criteria format" in str(exc_info.value)
+        # Not re-wrapped as "Search failed: ...": the caller sees what to send
+        assert "Invalid domain" in str(exc_info.value)
+        assert "Expected a list of conditions" in str(exc_info.value)
+        assert "Search failed" not in str(exc_info.value)
 
         assert isinstance(exc_info.value.__cause__, ValidationError)
 

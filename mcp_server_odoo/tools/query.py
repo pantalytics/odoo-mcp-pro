@@ -177,9 +177,12 @@ class QueryToolsMixin:
                             f"Invalid fields parameter. Expected JSON array, got: {fields[:100]}..."
                         ) from e
 
-                # Set defaults
-                if limit <= 0 or limit > self.config.max_limit:
+                # Set defaults. Over the cap means "as many as you allow", so
+                # give the cap; the result's `limit` says what was used.
+                if limit <= 0:
                     limit = self.config.default_limit
+                elif limit > self.config.max_limit:
+                    limit = self.config.max_limit
 
                 # Get total count
                 total_count = await run_blocking(
@@ -238,6 +241,8 @@ class QueryToolsMixin:
                     "model": model,
                 }
 
+        except ValidationError:
+            raise
         except AccessControlError as e:
             raise ValidationError(f"Access denied: {e}") from e
         except OdooConnectionError as e:

@@ -46,32 +46,56 @@ class TestErrorSanitizer:
         assert 'File "test.py"' not in sanitized
         assert "Test error" in sanitized
 
-    def test_field_error_mapping(self):
-        """Test specific field error mappings."""
-        message = "Invalid field res.partner.invalid_field in leaf ('invalid_field', '=', True)"
-        sanitized = ErrorSanitizer.sanitize_message(message)
-        # The sanitizer extracts just the field name, not the full model.field path
-        assert sanitized == "Invalid field 'invalid_field' in search criteria"
+    def test_odoo_text_is_kept(self):
+        """Odoo's own message is the useful part and is never replaced."""
+        for message in [
+            "Invalid field res.partner.invalid_field in leaf ('invalid_field', '=', True)",
+            "Field bogus_field does not exist",
+            "Model sale.order does not exist",
+            "Access denied: Operation read not allowed on model x",
+            "Failed to execute action_post on account.move: boom",
+            "Record res.partner(5,) does not exist",
+            "Connection refused",
+        ]:
+            assert ErrorSanitizer.sanitize_message(message) == message
 
-        message = "Field bogus_field does not exist"
-        sanitized = ErrorSanitizer.sanitize_message(message)
-        assert sanitized == "Field 'bogus_field' does not exist on this model"
+    def test_data_line_numbers_are_kept(self):
+        """ "line 3" of an invoice is data, not a code location."""
+        for message in [
+            "The field Customer (partner_id) is required on line 3",
+            "Invoice line 3 has no account",
+        ]:
+            assert ErrorSanitizer.sanitize_message(message) == message
 
-    def test_model_error_mapping(self):
-        """Test model error mappings."""
-        message = "Model sale.order does not exist"
-        sanitized = ErrorSanitizer.sanitize_message(message)
-        assert sanitized == "Model 'sale.order' is not available"
+    def test_short_messages_are_kept(self):
+        """A KeyError's message is just the key, and it is the whole clue."""
+        assert ErrorSanitizer.sanitize_message("'qty'") == "'qty'"
 
-    def test_connection_error_mapping(self):
-        """Test connection error mappings."""
-        message = "Connection refused"
-        sanitized = ErrorSanitizer.sanitize_message(message)
-        assert sanitized == "Cannot connect to Odoo server"
+    def test_traceback_reduces_to_final_exception(self):
+        """An XML-RPC fault carries Odoo's whole traceback; the end is the error."""
+        fault = (
+            "Traceback (most recent call last):\n"
+            '  File "/opt/odoo/odoo/service/model.py", line 12, in execute_kw\n'
+            "    return execute(db, uid)\n"
+            '  File "/opt/odoo/addons/sale/models/sale_order.py", line 99, in action_confirm\n'
+            "    x()\n"
+            "TypeError: SaleOrder.action_confirm() takes 1 positional argument but 2 were given\n"
+        )
+        assert ErrorSanitizer.sanitize_message(fault) == (
+            "TypeError: SaleOrder.action_confirm() takes 1 positional argument but 2 were given"
+        )
 
-        message = "Operation timeout after 30 seconds"
-        sanitized = ErrorSanitizer.sanitize_message(message)
-        assert sanitized == "Request timed out"
+    def test_exception_class_kept_module_path_dropped(self):
+        fault = (
+            "Traceback (most recent call last):\n"
+            '  File "/opt/odoo/odoo/http.py", line 1589, in _serve_db\n'
+            "odoo.exceptions.ValidationError: The operation cannot be completed:\n"
+            "- Create/update: a mandatory field is not set."
+        )
+        assert ErrorSanitizer.sanitize_message(fault) == (
+            "ValidationError: The operation cannot be completed: "
+            "- Create/update: a mandatory field is not set."
+        )
 
     def test_xmlrpc_fault_sanitization(self):
         """Test XML-RPC fault message sanitization."""
@@ -81,7 +105,7 @@ class TestErrorSanitizer:
 
         fault = "ValidationError: Field 'vat' is required"
         sanitized = ErrorSanitizer.sanitize_xmlrpc_fault(fault)
-        assert sanitized == "Validation error: Please check your input"
+        assert sanitized == "ValidationError: Field 'vat' is required"
 
         fault = "UserError('Cannot delete record that has dependencies')"
         sanitized = ErrorSanitizer.sanitize_xmlrpc_fault(fault)
@@ -152,7 +176,6 @@ class TestErrorSanitizer:
         assert "MCPObjectController" not in sanitized
         assert "/opt/odoo" not in sanitized
         assert "line 123" not in sanitized
-        assert "search_count" not in sanitized
 
         # Should contain useful information
         assert "Invalid field" in sanitized or "error" in sanitized.lower()

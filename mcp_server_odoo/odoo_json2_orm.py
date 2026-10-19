@@ -12,7 +12,7 @@ Transport code (HTTP client, _call, error parsing) lives in
 import logging
 from typing import Any, Dict, List, Optional, Union
 
-from .exceptions import OdooConnectionError, OdooTimeoutError
+from .exceptions import OdooConnectionError, OdooExecutionError, OdooTimeoutError
 
 logger = logging.getLogger(__name__)
 
@@ -277,6 +277,11 @@ class Json2OrmMixin:
             if "Not found" in str(e):
                 logger.debug(f"has_access not available for {model}, assuming allowed")
                 return True
+            # A transport failure (502 from a proxy, dropped socket) says
+            # nothing about rights. Returning False here was cached for five
+            # minutes as "Access denied" on every call to the model.
+            if not isinstance(e, OdooExecutionError):
+                raise
             return False
 
     def call_method(

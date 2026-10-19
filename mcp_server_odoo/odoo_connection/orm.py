@@ -456,10 +456,14 @@ class OdooConnectionOrmMixin:
             # stall ending in a misleading "not allowed".
             raise
         except Exception as e:
-            # If model doesn't exist (module not installed), assume no access
+            # A model that doesn't exist (typo, module not installed) is not a
+            # permissions problem; "Access denied" sends the caller the wrong way.
             error_str = str(e).lower()
             if "doesn't exist" in error_str or "does not exist" in error_str:
-                return False
+                raise OdooExecutionError(
+                    f"Model '{model}' does not exist in this Odoo (a typo, or its "
+                    f"app is not installed). Use list_models to find the right name."
+                ) from e
             # For other errors (network, etc.), assume access is granted
             # and let the actual operation fail with a clear error
             return True

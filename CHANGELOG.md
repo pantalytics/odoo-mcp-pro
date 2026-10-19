@@ -23,6 +23,31 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
   `find_skill` and `get_skill` served, so a host can count skill usage.
 
 ### Fixed
+- Error messages keep what Odoo said. The sanitizer still strips paths, code
+  line numbers and tracebacks, but no longer swaps Odoo's text for a generic
+  sentence ("Validation error: Please check your input", "Operation failed: {}"),
+  no longer cuts "line 3" out of "required on line 3", keeps short messages, and
+  reduces an XML-RPC traceback to its final `ExceptionType: message`.
+- A transport failure during a write (timeout, 502, dropped socket) says the
+  outcome is unknown and to check the record, instead of "Connection error",
+  which invited a second post or payment.
+- `execute_method` says the method ran when Odoo could not encode its return
+  value, instead of reporting a failure; refuses `ids` inside `kwargs`.
+- Wizard decisions refuse unknown fields instead of dropping them (a dropped
+  `amount_to_pay` paid the full residual and reported success).
+- `import_records` returns Odoo's warnings (e.g. several matches for a value),
+  keeps the field on each error, and says when Odoo rolled back the whole batch.
+- `delete_records` and `delete_record` check the ids exist first; Odoo's unlink
+  answers true for an id that is not there, and so does its read.
+- A misspelled model on Odoo 14-18 is named as such, not reported as "Access
+  denied". On Odoo 19+ a transport failure during the access check is no
+  longer cached as "Access denied" for five minutes.
+- `search_records` no longer wraps its own validation errors as "Search failed:
+  Invalid search criteria format"; a limit over the cap gives the cap, not the
+  default; Python-style domains parse as literals, so "O'Brien" and
+  "True Value Inc" survive.
+- `list_models` raises when the model list cannot be read, instead of returning
+  an empty list.
 - `execute_method` refuses a call that would run on no records: positional
   `args` (the SDK used to drop them silently, so the method ran on an empty
   recordset and `write` returned `true`) and `ids=[]`. The error says where the

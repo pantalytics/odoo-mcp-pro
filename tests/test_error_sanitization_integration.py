@@ -151,7 +151,8 @@ class TestErrorSanitizationIntegration:
         mcp_error = error.to_mcp_error()
 
         # Check sanitized message
-        assert "Failed to execute search_count" not in mcp_error.message
+        # Odoo's text survives: which field is invalid is the useful part
+        assert "Invalid field res.partner.test_field" in mcp_error.message
         assert "XMLRPCFault" not in str(mcp_error.data)
         assert "traceback" not in mcp_error.data["details"]
         assert mcp_error.data["details"]["field"] == "test_field"

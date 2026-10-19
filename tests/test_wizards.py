@@ -121,7 +121,7 @@ class TestWizardFollowup:
     async def test_invalid_decision_raises(self, handler, mock_connection):
         mock_connection.call_method.side_effect = [BACKORDER_ACTION]
 
-        with pytest.raises(ValidationError, match="Invalid decision"):
+        with pytest.raises(ValidationError, match="Unknown decision field.*wrong_field"):
             await handler._handle_execute_method_tool(
                 "stock.picking", "button_validate", ids=[5], decision={"wrong_field": 1}
             )
@@ -221,21 +221,24 @@ class TestWizardFollowup:
         assert ctx["active_ids"] == [101, 102]
 
     @pytest.mark.asyncio
-    async def test_decision_ignores_unknown_keys(self, handler, mock_connection):
-        """Extra keys in decision are ignored (pydantic extra=ignore default)."""
-        mock_connection.call_method.side_effect = [BACKORDER_ACTION, True]
-        mock_connection.create.return_value = 99
+    async def test_decision_refuses_unknown_keys(self, handler, mock_connection):
+        """An unknown key is refused, never dropped: a dropped `amount_to_pay`
+        would pay the full residual and report success."""
+        mock_connection.call_method.side_effect = [PAYMENT_ACTION]
 
-        result = await handler._handle_execute_method_tool(
-            "stock.picking",
-            "button_validate",
-            ids=[5],
-            decision={"create_backorder": True, "bogus": 9},
-        )
+        with pytest.raises(ValidationError) as exc:
+            await handler._handle_execute_method_tool(
+                "account.move",
+                "action_register_payment",
+                ids=[10],
+                decision={"amount_to_pay": 50, "journal": 7},
+            )
 
-        assert result["result_kind"] == "completed"
-        _, vals_arg = mock_connection.create.call_args.args
-        assert "bogus" not in vals_arg
+        msg = str(exc.value)
+        assert "amount_to_pay, journal" in msg
+        assert "Allowed: journal_id, amount, payment_date, communication" in msg
+        assert "Nothing was changed" in msg
+        mock_connection.create.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_followup_descriptor_payment_fields(self, handler, mock_connection):
