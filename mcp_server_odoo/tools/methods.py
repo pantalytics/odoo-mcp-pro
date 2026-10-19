@@ -126,6 +126,7 @@ class MethodsToolsMixin:
             kwargs: Optional[Dict[str, Any]] = None,
             decision: Optional[Dict[str, Any]] = None,
             connection: Optional[str] = None,
+            args: Optional[List[Any]] = None,
             ctx: Optional[Context] = None,  # injected by the SDK, never by the model
         ) -> Union[ExecuteMethodResult, InputRequiredResult]:
             """Call a public method on an Odoo model or recordset.
@@ -157,6 +158,7 @@ class MethodsToolsMixin:
                 ids: Record ids to call the method on (the recordset). Omit for
                     a model-level (`@api.model`) method.
                 kwargs: Keyword arguments for the method, if it takes any.
+                    Arguments go here by name, e.g. {"vals": {...}} for write.
                 decision: Answer for a follow-up wizard, e.g.
                     {"create_backorder": true} or {"journal_id": 7}. OMIT it on
                     the first call to discover the fields via `followup`; pass it
@@ -168,6 +170,9 @@ class MethodsToolsMixin:
                 connection: Optional. Target a specific Odoo connection by the id
                     from server_info's `connections` list. Hosted multi-tenant
                     only; ignored when self-hosting a single connection.
+                args: Not supported; always refused. Unlike Odoo's execute_kw
+                    there are no positional arguments: record ids go in `ids`,
+                    everything else in `kwargs`.
 
             Returns:
                 The raw return value, classified as a plain value, record ids, an
@@ -182,6 +187,7 @@ class MethodsToolsMixin:
                 decision=decision,
                 connection_selector=connection,
                 ctx=ctx,
+                positional_args=args,
             )
             self._track_usage(_current_sub.get(), "execute_method")
             if isinstance(result, InputRequiredResult):
@@ -197,9 +203,25 @@ class MethodsToolsMixin:
         decision: Optional[Dict[str, Any]] = None,
         connection_selector: Optional[str] = None,
         ctx: Optional[Context] = None,
+        positional_args: Optional[List[Any]] = None,
     ) -> Union[Dict[str, Any], InputRequiredResult]:
         """Handle execute_method tool request."""
         try:
+            # Both run the method on an empty recordset, where Odoo answers
+            # read with [] and write with true and changes nothing (ticket #237).
+            if positional_args is not None:
+                raise ValidationError(
+                    f"execute_method takes no positional args. Pass record ids as "
+                    f"ids=[...] and the method's arguments by name in kwargs, e.g. "
+                    f"execute_method(model='{model}', method='{method}', ids=[42], "
+                    f"kwargs={{...}}). Nothing was called."
+                )
+            if ids is not None and not ids:
+                raise ValidationError(
+                    f"ids is empty, so {model}.{method} would run on no records and "
+                    f"change nothing. Pass the record ids, or omit ids for a "
+                    f"model-level method. Nothing was called."
+                )
             if decision is None:
                 # A retry of the form we asked for (input_required) carries the
                 # answer here; it is the `decision` the caller would have passed.

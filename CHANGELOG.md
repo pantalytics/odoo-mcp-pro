@@ -23,6 +23,10 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
   `find_skill` and `get_skill` served, so a host can count skill usage.
 
 ### Fixed
+- `execute_method` refuses a call that would run on no records: positional
+  `args` (the SDK used to drop them silently, so the method ran on an empty
+  recordset and `write` returned `true`) and `ids=[]`. The error says where the
+  ids go.
 - `import_records` and the server instructions now explain what `lang` does to a
   translatable field when English (en_US) is not active in Odoo: Odoo writes the
   value as the base text too, so every language without its own translation shows
