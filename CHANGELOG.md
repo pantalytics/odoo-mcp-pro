@@ -11,6 +11,8 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+## [3.1.4] - 2026-10-19
+
 ### Added
 - `aggregate_records` tool: grouped totals computed by Odoo (`read_group` on
   Odoo 14-18, `formatted_read_group` on 19+). A report over thousands of lines
