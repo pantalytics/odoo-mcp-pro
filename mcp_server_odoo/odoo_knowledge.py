@@ -106,4 +106,9 @@ Ask yourself: what is the user trying to do?
 ### Language
 - Respect the user's language. If they write in Dutch, respond in Dutch.
 - Odoo field values may be in the database language (often English).
+
+### Translations
+- Writing a translatable field with `context={"lang": "nl_BE"}` sets that language's value.
+- If English (en_US) is not active in the database, Odoo also writes that value as the base text, and every language without its own translation shows it. This is Odoo's behaviour, the same as editing in its UI.
+- To set one language and leave the others alone, call `execute_method` with `method="update_field_translations"`, `ids=[...]`, `kwargs={"field_name": "name", "translations": {"nl_BE": "..."}}`. Check the result with `get_field_translations`.
 """

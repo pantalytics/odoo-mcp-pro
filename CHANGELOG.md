@@ -22,6 +22,12 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 - `create_fastmcp_app(on_skill_call=...)`: an optional hook told which skill
   `find_skill` and `get_skill` served, so a host can count skill usage.
 
+### Fixed
+- `import_records` and the server instructions now explain what `lang` does to a
+  translatable field when English (en_US) is not active in Odoo: Odoo writes the
+  value as the base text too, so every language without its own translation shows
+  it. To set one language only, use `update_field_translations`.
+
 ### Security
 - `set_binary_field` no longer fetches from private, loopback, link-local or
   reserved addresses (cloud metadata included), and checks every redirect hop
