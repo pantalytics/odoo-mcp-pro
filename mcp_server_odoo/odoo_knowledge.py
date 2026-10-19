@@ -106,4 +106,17 @@ Ask yourself: what is the user trying to do?
 ### Language
 - Respect the user's language. If they write in Dutch, respond in Dutch.
 - Odoo field values may be in the database language (often English).
+
+### Errors
+- A failed call starts with the exception Odoo raised, then Odoo's own message:
+  - `UserError` / `ValidationError`: a business rule refused it. Don't retry as is: fix the data or ask the user.
+  - `AccessError`: the user lacks the rights. Tell them which access is missing.
+  - `MissingError`: the record is gone. Search again; don't recreate it blindly.
+  - `NotFound`, `UnprocessableEntity`, `TypeError` or `ValueError`: the call itself is wrong (model, method, argument or field). Fix the call.
+- `Outcome unknown` after a write: Odoo may have applied it. Read the record before trying again.
+
+### Translations
+- Writing a translatable field with `context={"lang": "nl_BE"}` sets that language's value.
+- If English (en_US) is not active in the database, Odoo also writes that value as the base text, and every language without its own translation shows it. This is Odoo's behaviour, the same as editing in its UI.
+- To set one language and leave the others alone, call `execute_method` with `method="update_field_translations"`, `ids=[...]`, `kwargs={"field_name": "name", "translations": {"nl_BE": "..."}}`. Check the result with `get_field_translations`.
 """

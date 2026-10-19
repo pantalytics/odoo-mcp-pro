@@ -138,16 +138,13 @@ class TestXMLRPCOperations:
         """Test execute_kw handles XML-RPC fault."""
         # Mock object proxy
         mock_proxy = Mock()
-        mock_proxy.execute_kw.side_effect = Fault(1, "Access Denied")
+        mock_proxy.execute_kw.side_effect = Fault(3, "Access Denied")
         authenticated_connection._object_proxy = mock_proxy
 
         # A Fault is an application error Odoo returned, not a connection
         # outage: it must raise OdooExecutionError so it is not counted as one
-        # nor retried. The sanitized message still reaches the user.
-        with pytest.raises(
-            OdooExecutionError,
-            match="Access denied: Invalid credentials or insufficient permissions",
-        ):
+        # nor retried. Odoo's fault code names the exception (3 = AccessDenied).
+        with pytest.raises(OdooExecutionError, match="^AccessDenied: Access Denied$"):
             authenticated_connection.execute_kw("res.partner", "unlink", [[1]], {})
 
     def test_execute_kw_transport_error_is_connection_error(self, authenticated_connection):

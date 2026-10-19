@@ -15,7 +15,7 @@ from mcp_server_odoo.access_control import (
     AccessController,
 )
 from mcp_server_odoo.config import OdooConfig
-from mcp_server_odoo.exceptions import OdooConnectionError, OdooTimeoutError
+from mcp_server_odoo.exceptions import OdooConnectionError, OdooExecutionError, OdooTimeoutError
 from mcp_server_odoo.odoo_connection.orm import OdooConnectionOrmMixin
 from mcp_server_odoo.odoo_json2_orm import Json2OrmMixin
 from mcp_server_odoo.tools._common import validate_access
@@ -391,8 +391,21 @@ class TestAccessCheckTimeouts:
         conn.execute_kw.side_effect = OdooConnectionError("Operation failed: boom")
         assert OdooConnectionOrmMixin.check_access_rights(conn, "res.partner", "read") is True
 
+        # A missing model is named as such, not reported as "Access denied"
         conn.execute_kw.side_effect = OdooConnectionError("Model doesn't exist")
-        assert OdooConnectionOrmMixin.check_access_rights(conn, "res.partner", "read") is False
+        with pytest.raises(OdooExecutionError, match="'sale.ordr' does not exist.*list_models"):
+            OdooConnectionOrmMixin.check_access_rights(conn, "sale.ordr", "read")
+
+    def test_json2_check_access_rights_transport_error_is_not_a_denial(self):
+        # A 502 from a proxy says nothing about rights; it must not be cached
+        # as "Access denied" for five minutes.
+        conn = MagicMock()
+        conn._call.side_effect = OdooConnectionError("Server error (502): Bad Gateway")
+        with pytest.raises(OdooConnectionError):
+            Json2OrmMixin.check_access_rights(conn, "res.partner", "read")
+
+        conn._call.side_effect = OdooExecutionError("Invalid request: nope")
+        assert Json2OrmMixin.check_access_rights(conn, "res.partner", "read") is False
 
     def test_json2_check_access_rights_propagates_timeout(self):
         conn = MagicMock()

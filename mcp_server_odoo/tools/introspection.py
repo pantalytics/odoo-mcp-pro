@@ -167,20 +167,18 @@ class IntrospectionToolsMixin:
 
                 # In JSON/2 mode, get_enabled_models() returns [] because Odoo
                 # handles ACLs server-side. Fetch models from ir.model instead.
+                # A failure here raises: an empty list reads as "this Odoo has
+                # no models", which sends the caller looking in the wrong place.
                 if not models and hasattr(connection, "search_read"):
-                    try:
-                        ir_models = await run_blocking(
-                            connection,
-                            connection.search_read,
-                            "ir.model",
-                            [["transient", "=", False]],
-                            fields=["model", "name"],
-                            order="model asc",
-                        )
-                        models = [{"model": m["model"], "name": m["name"]} for m in ir_models]
-                    except Exception as e:
-                        logger.warning(f"Could not fetch models from ir.model: {e}")
-                        models = []
+                    ir_models = await run_blocking(
+                        connection,
+                        connection.search_read,
+                        "ir.model",
+                        [["transient", "=", False]],
+                        fields=["model", "name"],
+                        order="model asc",
+                    )
+                    models = [{"model": m["model"], "name": m["name"]} for m in ir_models]
 
                 # Return model list without per-model permission checks.
                 # Permissions are enforced per-operation to avoid N×4 API calls.

@@ -159,6 +159,7 @@ class TestWriteTools:
         record_id = 123
         existing_record = {"id": record_id, "name": "Test Partner"}
 
+        mock_connection.search.return_value = [record_id]
         mock_connection.read.return_value = [existing_record]
         mock_connection.unlink.return_value = True
 
@@ -201,8 +202,9 @@ class TestWriteTools:
 
     @pytest.mark.asyncio
     async def test_delete_record_not_found(self, tool_handler, mock_connection):
-        """Test delete record that doesn't exist."""
-        mock_connection.read.return_value = []
+        """Test delete record that doesn't exist (read would still answer)."""
+        mock_connection.search.return_value = []
+        mock_connection.read.return_value = [{"id": 999}]
 
         with pytest.raises(ValidationError, match="Record not found"):
             await tool_handler._handle_delete_record_tool("res.partner", 999)
@@ -230,7 +232,8 @@ class TestWriteTools:
         """Test update record with connection error."""
         mock_connection.read.side_effect = OdooConnectionError("Connection failed")
 
-        with pytest.raises(ValidationError, match="Connection error"):
+        # A write that failed in transport may still have committed
+        with pytest.raises(ValidationError, match="Outcome unknown.*check before retrying"):
             await tool_handler._handle_update_record_tool("res.partner", 123, {"name": "Test"})
 
     def test_tools_registered(self, mock_app, mock_connection, mock_access_controller, mock_config):

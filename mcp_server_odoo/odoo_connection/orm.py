@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from ..error_sanitizer import ErrorSanitizer
 from ..exceptions import OdooConnectionError, OdooExecutionError, OdooTimeoutError
+from .faults import _fault_as_execution_error
 
 logger = logging.getLogger(__name__)
 
@@ -116,8 +117,7 @@ class OdooConnectionOrmMixin:
                 return None
             logger.error(f"XML-RPC fault during {method} on {model}: {e}")
             # Application fault, not a transport failure. See OdooExecutionError.
-            sanitized_message = ErrorSanitizer.sanitize_xmlrpc_fault(e.faultString)
-            raise OdooExecutionError(f"Operation failed: {sanitized_message}") from e
+            raise _fault_as_execution_error(e) from e
         except socket.timeout:
             logger.error(f"Timeout during {method} on {model}")
             raise OdooTimeoutError(f"Operation timeout after {self.timeout} seconds") from None
@@ -456,10 +456,14 @@ class OdooConnectionOrmMixin:
             # stall ending in a misleading "not allowed".
             raise
         except Exception as e:
-            # If model doesn't exist (module not installed), assume no access
+            # A model that doesn't exist (typo, module not installed) is not a
+            # permissions problem; "Access denied" sends the caller the wrong way.
             error_str = str(e).lower()
             if "doesn't exist" in error_str or "does not exist" in error_str:
-                return False
+                raise OdooExecutionError(
+                    f"Model '{model}' does not exist in this Odoo (a typo, or its "
+                    f"app is not installed). Use list_models to find the right name."
+                ) from e
             # For other errors (network, etc.), assume access is granted
             # and let the actual operation fail with a clear error
             return True

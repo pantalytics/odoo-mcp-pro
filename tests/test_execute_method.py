@@ -173,7 +173,7 @@ class TestExecuteMethod:
         """Odoo-side access denial surfaces as a clean error."""
         mock_access_controller.validate_model_access.side_effect = AccessControlError("nope")
 
-        with pytest.raises(ValidationError, match="Access denied"):
+        with pytest.raises(ValidationError, match="AccessError"):
             await handler._handle_execute_method_tool("account.move", "action_post", ids=[1])
 
     @pytest.mark.asyncio
@@ -221,3 +221,51 @@ class TestExecuteMethod:
         mock_connection.call_method.assert_called_once_with(
             "sale.order", "action_confirm", ids=[1], body="not a message"
         )
+
+
+class TestExecuteMethodEmptyRecordset:
+    """Calls that would run on no records are refused (ticket #237).
+
+    Odoo answers a method on an empty recordset without complaint: read
+    returns [], write returns true. The caller then believes it worked.
+    """
+
+    @pytest.fixture
+    def handler(self):
+        conn = Mock()
+        conn.is_authenticated = True
+        controller = Mock()
+        app = Mock()
+        app.tool = Mock(side_effect=lambda **kwargs: lambda func: func)
+        handler = OdooToolHandler(app, conn, controller, Mock())
+        return handler, conn
+
+    @pytest.mark.asyncio
+    async def test_positional_args_are_refused(self, handler):
+        handler, conn = handler
+        with pytest.raises(ValidationError, match=r"ids=\[\.\.\.\]"):
+            await handler._handle_execute_method_tool(
+                "res.partner.category",
+                "write",
+                positional_args=[[52], {"name": "X"}],
+            )
+        conn.call_method.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_empty_ids_are_refused(self, handler):
+        handler, conn = handler
+        with pytest.raises(ValidationError, match="ids is empty"):
+            await handler._handle_execute_method_tool(
+                "res.partner.category", "write", ids=[], kwargs={"vals": {"name": "X"}}
+            )
+        conn.call_method.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_model_level_call_without_ids_still_runs(self, handler):
+        handler, conn = handler
+        conn.call_method.return_value = 3
+        result = await handler._handle_execute_method_tool(
+            "res.partner", "search_count", kwargs={"domain": []}
+        )
+        assert result["success"] is True
+        conn.call_method.assert_called_once()

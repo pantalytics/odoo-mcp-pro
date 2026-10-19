@@ -197,9 +197,9 @@ class CrudToolsMixin:
         except ValidationError:
             raise
         except AccessControlError as e:
-            raise ValidationError(f"Access denied: {e}") from e
+            raise ValidationError(f"AccessError: {e}") from e
         except OdooConnectionError as e:
-            raise odoo_error_as_validation(e) from e
+            raise odoo_error_as_validation(e, writes=True) from e
         except Exception as e:
             logger.error(f"Error in create_record tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))
@@ -289,9 +289,9 @@ class CrudToolsMixin:
         except NotFoundError as e:
             raise ValidationError(str(e)) from e
         except AccessControlError as e:
-            raise ValidationError(f"Access denied: {e}") from e
+            raise ValidationError(f"AccessError: {e}") from e
         except OdooConnectionError as e:
-            raise odoo_error_as_validation(e) from e
+            raise odoo_error_as_validation(e, writes=True) from e
         except Exception as e:
             logger.error(f"Error in update_record tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))
@@ -316,10 +316,18 @@ class CrudToolsMixin:
                 if not connection.is_authenticated:
                     raise ValidationError("Not authenticated with Odoo")
 
-                # Check if record exists
-                existing = await run_blocking(connection, connection.read, model, [record_id])
-                if not existing:
+                # Check if record exists. search, not read: Odoo's read answers
+                # for an id that is not there, and unlink then "deletes" it.
+                found = await run_blocking(
+                    connection,
+                    connection.search,
+                    model,
+                    [["id", "=", record_id]],
+                    context={"active_test": False},
+                )
+                if not found:
                     raise NotFoundError(f"Record not found: {model} with ID {record_id}")
+                existing = await run_blocking(connection, connection.read, model, [record_id])
 
                 # Store some info about the record before deletion. Odoo returns
                 # `False` (not a missing key) for an empty char field, so a plain
@@ -344,9 +352,9 @@ class CrudToolsMixin:
         except NotFoundError as e:
             raise ValidationError(str(e)) from e
         except AccessControlError as e:
-            raise ValidationError(f"Access denied: {e}") from e
+            raise ValidationError(f"AccessError: {e}") from e
         except OdooConnectionError as e:
-            raise odoo_error_as_validation(e) from e
+            raise odoo_error_as_validation(e, writes=True) from e
         except Exception as e:
             logger.error(f"Error in delete_record tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))

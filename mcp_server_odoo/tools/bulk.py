@@ -175,6 +175,11 @@ class BulkToolsMixin:
                 context: Optional context dict. Useful flags:
                     - tracking_disable: True — suppress mail/activity notifications
                     - defer_fields_computation: True — batch computed field updates
+                    - lang: 'nl_BE' — write translatable fields in that language.
+                      If English (en_US) is not active in Odoo, Odoo also writes
+                      the value as the base text that every language without its
+                      own translation falls back to. To set one translation only,
+                      use execute_method with update_field_translations.
                 connection: Optional. Target a specific Odoo connection by the id
                     from server_info's `connections` list. Hosted multi-tenant
                     only; ignored when self-hosting a single connection.
@@ -227,9 +232,9 @@ class BulkToolsMixin:
         except ValidationError:
             raise
         except AccessControlError as e:
-            raise ValidationError(f"Access denied: {e}") from e
+            raise ValidationError(f"AccessError: {e}") from e
         except OdooConnectionError as e:
-            raise odoo_error_as_validation(e) from e
+            raise odoo_error_as_validation(e, writes=True) from e
         except Exception as e:
             logger.error(f"Error in create_records tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))
@@ -273,9 +278,9 @@ class BulkToolsMixin:
         except ValidationError:
             raise
         except AccessControlError as e:
-            raise ValidationError(f"Access denied: {e}") from e
+            raise ValidationError(f"AccessError: {e}") from e
         except OdooConnectionError as e:
-            raise odoo_error_as_validation(e) from e
+            raise odoo_error_as_validation(e, writes=True) from e
         except Exception as e:
             logger.error(f"Error in update_records tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))
@@ -303,6 +308,24 @@ class BulkToolsMixin:
                         f"Bulk delete limited to {MAX_BULK_SIZE} records, got {len(record_ids)}"
                     )
 
+                # Odoo's unlink skips ids that do not exist and still returns
+                # true, so check first: "deleted 3" must mean three were there.
+                # search, not read: read answers for an id that is not there.
+                existing = await run_blocking(
+                    connection,
+                    connection.search,
+                    model,
+                    [["id", "in", record_ids]],
+                    context={"active_test": False},
+                )
+                found = set(existing or [])
+                missing = [id_ for id_ in record_ids if id_ not in found]
+                if missing:
+                    raise ValidationError(
+                        f"No {model} record with id(s) {missing}: already deleted or "
+                        f"never existed. Nothing was deleted; resend without them."
+                    )
+
                 await run_blocking(connection, connection.unlink, model, record_ids)
 
                 return {
@@ -316,9 +339,9 @@ class BulkToolsMixin:
         except ValidationError:
             raise
         except AccessControlError as e:
-            raise ValidationError(f"Access denied: {e}") from e
+            raise ValidationError(f"AccessError: {e}") from e
         except OdooConnectionError as e:
-            raise odoo_error_as_validation(e) from e
+            raise odoo_error_as_validation(e, writes=True) from e
         except Exception as e:
             logger.error(f"Error in delete_records tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))
@@ -387,16 +410,20 @@ class BulkToolsMixin:
                 # Filter out False/None from ids (failed rows return False)
                 valid_ids = [id_ for id_ in ids if id_]
 
-                # Separate errors from warnings
-                errors = [
-                    {
+                # Odoo reports problems per row as messages. Warnings matter
+                # too: "found multiple matches for X" links the first match.
+                def _row_message(msg: Dict[str, Any]) -> Dict[str, Any]:
+                    entry = {
                         "row": msg.get("rows", {}).get("from", -1),
                         "message": msg.get("message", ""),
                         "type": msg.get("type", "error"),
                     }
-                    for msg in messages
-                    if msg.get("type") == "error"
-                ]
+                    if msg.get("field"):
+                        entry["field"] = msg["field"]
+                    return entry
+
+                errors = [_row_message(m) for m in messages if m.get("type") == "error"]
+                warnings = [_row_message(m) for m in messages if m.get("type") == "warning"]
 
                 # Determine created vs updated counts
                 # load() doesn't distinguish, but we can check if 'id' column was provided
@@ -407,6 +434,15 @@ class BulkToolsMixin:
                 if success:
                     action = "imported (created/updated)" if has_external_ids else "created"
                     message = f"Successfully {action} {len(valid_ids)} {model} record(s)"
+                    if warnings:
+                        message += f", with {len(warnings)} warning(s): check `warnings`"
+                elif not valid_ids:
+                    # load() rolls the whole batch back on any error
+                    message = (
+                        f"Nothing was imported: {len(errors)} error(s), and Odoo rolls "
+                        f"back all {len(data)} row(s) when any row fails. Fix the "
+                        f"rows in `errors` and send all rows again."
+                    )
                 else:
                     message = (
                         f"Import completed with {len(errors)} error(s). "
@@ -417,6 +453,7 @@ class BulkToolsMixin:
                     "success": success,
                     "imported": len(valid_ids),
                     "errors": errors,
+                    "warnings": warnings,
                     "ids": valid_ids,
                     "model": model,
                     "message": message,
@@ -425,9 +462,9 @@ class BulkToolsMixin:
         except ValidationError:
             raise
         except AccessControlError as e:
-            raise ValidationError(f"Access denied: {e}") from e
+            raise ValidationError(f"AccessError: {e}") from e
         except OdooConnectionError as e:
-            raise odoo_error_as_validation(e) from e
+            raise odoo_error_as_validation(e, writes=True) from e
         except Exception as e:
             logger.error(f"Error in import_records tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))

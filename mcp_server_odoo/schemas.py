@@ -321,7 +321,11 @@ class ImportResult(BaseModel):
     imported: int = Field(description="Number of records imported (created or updated)")
     errors: List[Dict[str, Any]] = Field(
         default_factory=list,
-        description="List of errors with row index and message",
+        description="List of errors with row index, message and field",
+    )
+    warnings: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Rows Odoo imported with a caveat, e.g. several matches for a value",
     )
     ids: List[int] = Field(
         default_factory=list,
