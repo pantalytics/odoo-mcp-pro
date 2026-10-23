@@ -1,4 +1,4 @@
-"""Test smart field selection for search_records."""
+"""Test smart field selection for record_search."""
 
 from unittest.mock import Mock
 
@@ -8,7 +8,7 @@ from mcp_server_odoo.tools import OdooToolHandler
 
 
 class TestSearchSmartDefaults:
-    """Test smart field selection for search_records when fields not specified."""
+    """Test smart field selection for record_search when fields not specified."""
 
     @pytest.fixture
     def tool_handler(self):
@@ -25,7 +25,7 @@ class TestSearchSmartDefaults:
 
     @pytest.mark.asyncio
     async def test_search_with_no_fields_uses_smart_defaults(self, tool_handler):
-        """Test that search_records uses smart defaults when fields is None."""
+        """Test that record_search uses smart defaults when fields is None."""
         # Setup mocks
         tool_handler.connection.is_authenticated = True
         tool_handler.connection.search_count.return_value = 2
@@ -83,7 +83,7 @@ class TestSearchSmartDefaults:
 
     @pytest.mark.asyncio
     async def test_search_with_specific_fields(self, tool_handler):
-        """Test that search_records uses specified fields when provided."""
+        """Test that record_search uses specified fields when provided."""
         # Setup mocks
         tool_handler.connection.is_authenticated = True
         tool_handler.connection.search_count.return_value = 1
@@ -102,7 +102,7 @@ class TestSearchSmartDefaults:
 
     @pytest.mark.asyncio
     async def test_search_with_all_fields(self, tool_handler):
-        """Test that search_records can fetch all fields when explicitly requested."""
+        """Test that record_search can fetch all fields when explicitly requested."""
         # Setup mocks
         tool_handler.connection.is_authenticated = True
         tool_handler.connection.search_count.return_value = 1

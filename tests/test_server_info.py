@@ -1,4 +1,4 @@
-"""Tests for the server_info tool's connection-status reporting.
+"""Tests for the server_info_get tool's connection-status reporting.
 
 Shared tool fixtures live in tests/helpers/tool_fixtures.py.
 """
@@ -24,7 +24,7 @@ __all__ = [
 
 
 class TestServerInfo:
-    """server_info should explain WHY it is not connected, not just that it isn't."""
+    """server_info_get should explain WHY it is not connected, not just that it isn't."""
 
     @pytest.mark.asyncio
     async def test_surfaces_connection_error(self, handler, mock_app):
@@ -37,7 +37,7 @@ class TestServerInfo:
 
         handler._get_user_context = _raise
 
-        result = await mock_app._tools["server_info"]()
+        result = await mock_app._tools["server_info_get"]()
 
         assert result.connected is False
         assert result.error is not None
@@ -49,7 +49,7 @@ class TestServerInfo:
         mock_connection.database = "test_db"
         mock_connection.search_read.return_value = []
 
-        result = await mock_app._tools["server_info"]()
+        result = await mock_app._tools["server_info_get"]()
 
         assert result.connected is True
         assert result.error is None

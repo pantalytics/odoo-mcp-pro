@@ -148,10 +148,10 @@ def register_skills(app: MCPServer, on_call: Optional[SkillCallHook] = None) -> 
     Resources (skill://{name}) are discoverable by MCP clients that
     surface them in their UI (browse/@-mention). Claude.ai's web client
     currently only surfaces resources to users, not to the model, so
-    we also expose `find_skill` and `get_skill` as tools so the model
+    we also expose `skill_find` and `skill_get` as tools so the model
     can pull a skill into context on its own when a workflow needs it.
 
-    ``on_call`` is told about every find_skill / get_skill call (see
+    ``on_call`` is told about every skill_find / skill_get call (see
     ``SkillCallHook``). Safe to call at server init — no Odoo connection required.
     Returns the number of skills registered (entry points only).
     """
@@ -161,7 +161,7 @@ def register_skills(app: MCPServer, on_call: Optional[SkillCallHook] = None) -> 
 
     # Build lookup maps for the tool handlers
     skill_by_name: Dict[str, Path] = {str(s["name"]): Path(str(s["path"])) for s in skills}
-    # For find_skill matching: pre-compile one regex per skill matching
+    # For skill_find matching: pre-compile one regex per skill matching
     # any of its triggers at a word-start boundary (so "offerte" matches
     # "offertes", but trigger "po" does NOT match inside "importeer").
     # Fall back to the skill name if no triggers are in the frontmatter.
@@ -218,7 +218,7 @@ def register_skills(app: MCPServer, on_call: Optional[SkillCallHook] = None) -> 
             open_world_hint=False,
         ),
     )
-    async def find_skill(question: str) -> Dict[str, object]:
+    async def skill_find(question: str) -> Dict[str, object]:
         """Return the Odoo skill most relevant to a question, with its content.
 
         Prefer this tool — it picks the right skill by keyword match
@@ -226,7 +226,7 @@ def register_skills(app: MCPServer, on_call: Optional[SkillCallHook] = None) -> 
         you're about to execute a domain workflow (selling, buying,
         inventory, etc.) and want the reference material first.
 
-        If `find_skill` returns nothing, fall back to `get_skill(name)`
+        If `skill_find` returns nothing, fall back to `skill_get(name)`
         with a guessed name.
 
         Args:
@@ -243,17 +243,17 @@ def register_skills(app: MCPServer, on_call: Optional[SkillCallHook] = None) -> 
             if score > 0:
                 scored.append((score, name))
         if not scored:
-            _notify(on_call, "find_skill", None)
+            _notify(on_call, "skill_find", None)
             return {}
         scored.sort(key=lambda s: (-s[0], s[1]))
         top_name = scored[0][1]
-        _notify(on_call, "find_skill", top_name)
+        _notify(on_call, "skill_find", top_name)
         top = next(s for s in skills if s["name"] == top_name)
         path = Path(str(top["path"]))
         try:
             content = path.read_text(encoding="utf-8")
         except OSError as e:
-            logger.warning(f"find_skill({top_name!r}) read failed: {e}")
+            logger.warning(f"skill_find({top_name!r}) read failed: {e}")
             content = ""
         result: Dict[str, object] = {
             "name": top_name,
@@ -273,32 +273,32 @@ def register_skills(app: MCPServer, on_call: Optional[SkillCallHook] = None) -> 
             open_world_hint=False,
         ),
     )
-    async def get_skill(name: str) -> str:
+    async def skill_get(name: str) -> str:
         """Read an Odoo workflow skill by name.
 
         Returns the full SKILL.md content — load this as context before
         executing a multi-step workflow in that domain.
 
         Args:
-            name: Skill name as returned by `find_skill` (e.g. "selling").
+            name: Skill name as returned by `skill_find` (e.g. "selling").
 
         Returns:
             The markdown body of the SKILL.md file. Empty string if
             the skill name is not known.
         """
         path = skill_by_name.get(name)
-        _notify(on_call, "get_skill", name if path is not None else None)
+        _notify(on_call, "skill_get", name if path is not None else None)
         if path is None:
             return ""
         try:
             return path.read_text(encoding="utf-8")
         except OSError as e:
-            logger.warning(f"get_skill({name!r}) read failed: {e}")
+            logger.warning(f"skill_get({name!r}) read failed: {e}")
             return ""
 
     logger.info(
         f"Registered {len(skills)} skill resources "
         f"({companion_count} companion files) "
-        f"+ 2 tools (find_skill, get_skill)"
+        f"+ 2 tools (skill_find, skill_get)"
     )
     return len(skills)

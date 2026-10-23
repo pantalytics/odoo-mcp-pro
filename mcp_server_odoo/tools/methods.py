@@ -1,4 +1,4 @@
-"""Generic ORM method tool: execute_method.
+"""Generic ORM method tool: method_execute.
 
 Calls a public Odoo method on a model or recordset, the same way Odoo's own
 external API (`execute_kw`) does. Nothing is reimplemented; we pass the call
@@ -91,10 +91,10 @@ def _is_wizard(action: Dict[str, Any]) -> bool:
 
 
 class MethodsToolsMixin:
-    """execute_method tool."""
+    """method_execute tool."""
 
     def _register_methods_tools(self):
-        """Register the execute_method tool with the MCP server."""
+        """Register the method_execute tool with the MCP server."""
 
         @self.tool(
             title="Execute Odoo Method (call a standard Odoo action)",
@@ -107,7 +107,7 @@ class MethodsToolsMixin:
                 open_world_hint=True,
             ),
         )
-        async def execute_method(
+        async def method_execute(
             model: str,
             method: str,
             ids: Optional[List[int]] = None,
@@ -134,9 +134,10 @@ class MethodsToolsMixin:
             with `decision` filled in. Either way the flow is stateless: it
             needs no live back-and-forth with your client.
 
-            For a chatter message use `post_message` instead: it reports who was
-            notified and whether the mail left. Calling `message_post` here works
-            and keeps HTML bodies intact, but tells you neither.
+            For a chatter message use the `message_post` tool instead: it reports
+            who was notified and whether the mail left. Calling Odoo's
+            `message_post` method here works and keeps HTML bodies intact, but
+            tells you neither.
 
             Args:
                 model: Odoo model name, e.g. 'sale.order', 'account.move'.
@@ -156,7 +157,7 @@ class MethodsToolsMixin:
                     journal). An omitted decision discovers; any provided
                     decision -- even {} -- completes.
                 connection: Optional. Target a specific Odoo connection by the id
-                    from server_info's `connections` list. Hosted multi-tenant
+                    from server_info_get's `connections` list. Hosted multi-tenant
                     only; ignored when self-hosting a single connection.
                 args: Not supported; always refused. Unlike Odoo's execute_kw
                     there are no positional arguments: record ids go in `ids`,
@@ -177,7 +178,7 @@ class MethodsToolsMixin:
                 ctx=ctx,
                 positional_args=args,
             )
-            self._track_usage(_current_sub.get(), "execute_method")
+            self._track_usage(_current_sub.get(), "method_execute")
             if isinstance(result, InputRequiredResult):
                 return result
             return ExecuteMethodResult(**result)
@@ -193,7 +194,7 @@ class MethodsToolsMixin:
         ctx: Optional[Context] = None,
         positional_args: Optional[List[Any]] = None,
     ) -> Union[Dict[str, Any], InputRequiredResult]:
-        """Handle execute_method tool request."""
+        """Handle method_execute tool request."""
         try:
             refuse_empty_recordset(model, method, ids, kwargs, positional_args)
             if decision is None:
@@ -248,7 +249,7 @@ class MethodsToolsMixin:
                 except OdooExecutionError as e:
                     # Odoo encodes the return value after the method ran. A
                     # "Connection error" here invites a retry: a second post or
-                    # payment (same failure post_message recovers from).
+                    # payment (same failure message_post recovers from).
                     if not _is_response_encoding_error(e):
                         raise
                     raise ValidationError(
@@ -344,7 +345,7 @@ class MethodsToolsMixin:
         except OdooConnectionError as e:
             raise odoo_error_as_validation(e, writes=True) from e
         except Exception as e:
-            logger.error(f"Error in execute_method tool: {e}")
+            logger.error(f"Error in method_execute tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))
             raise ValidationError(f"Failed to execute {model}.{method}: {sanitized_msg}") from e
 

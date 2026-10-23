@@ -99,7 +99,7 @@ class TestDateTimeFormatting:
 
     @pytest.mark.asyncio
     async def test_search_records_formats_dates(self, tool_handler):
-        """Test that search_records formats datetime fields."""
+        """Test that record_search formats datetime fields."""
         # Setup mocks
         tool_handler.connection.is_authenticated = True
         tool_handler.connection.search_count.return_value = 1
@@ -125,7 +125,7 @@ class TestDateTimeFormatting:
 
     @pytest.mark.asyncio
     async def test_get_record_formats_dates(self, tool_handler):
-        """Test that get_record formats datetime fields."""
+        """Test that record_get formats datetime fields."""
         # Setup mocks
         tool_handler.connection.is_authenticated = True
         tool_handler.connection.read.return_value = [

@@ -12,8 +12,8 @@ You are connected to an Odoo ERP instance via MCP. Use this knowledge to make be
 
 - **res.partner**: Contacts (companies and individuals). Used everywhere. NOT the same as CRM leads.
 - **product.template**: Product catalog (shared fields). **product.product**: Variants (size, color).
-- **ir.model**: List of all models. Use `list_models` to discover available models.
-- **External IDs**: Use `import_records` with `__import__.your_id` for idempotent imports. Running twice = no duplicates.
+- **ir.model**: List of all models. Use `model_list` to discover available models.
+- **External IDs**: Use `record_import` with `__import__.your_id` for idempotent imports. Running twice = no duplicates.
 
 ## App Selection Guide
 
@@ -80,9 +80,9 @@ Ask yourself: what is the user trying to do?
 ## Common Patterns
 
 ### Creating records
-- Always check which fields are required: `search_records` with `fields=["__all__"]` on a small set first.
-- Use `import_records` for bulk data with external IDs (idempotent).
-- Use `create_record`/`create_records` for one-off creates.
+- Always check which fields are required: `record_search` with `fields=["__all__"]` on a small set first.
+- Use `record_import` for bulk data with external IDs (idempotent).
+- Use `record_create`/`records_create` for one-off creates.
 
 ### Searching
 - Default limit is 100 records. Use `limit` param for more (max 500).
@@ -91,7 +91,7 @@ Ask yourself: what is the user trying to do?
 - Combine with `|` (OR): `["|", ["field1", "=", "a"], ["field2", "=", "b"]]`.
 
 ### Totals and reports
-- Use `aggregate_records` for sums, averages and counts per group (Odoo `read_group`), e.g. revenue per product per month. Do not page through records to add them up.
+- Use `record_aggregate` for sums, averages and counts per group (Odoo `read_group`), e.g. revenue per product per month. Do not page through records to add them up.
 - Group dates with a granularity: `"invoice_date:month"`. Sort a top-N with `order="price_subtotal:sum desc"`.
 
 ### Relationships
@@ -118,5 +118,5 @@ Ask yourself: what is the user trying to do?
 ### Translations
 - Writing a translatable field with `context={"lang": "nl_BE"}` sets that language's value.
 - If English (en_US) is not active in the database, Odoo also writes that value as the base text, and every language without its own translation shows it. This is Odoo's behaviour, the same as editing in its UI.
-- To set one language and leave the others alone, call `execute_method` with `method="update_field_translations"`, `ids=[...]`, `kwargs={"field_name": "name", "translations": {"nl_BE": "..."}}`. Check the result with `get_field_translations`.
+- To set one language and leave the others alone, call `method_execute` with `method="update_field_translations"`, `ids=[...]`, `kwargs={"field_name": "name", "translations": {"nl_BE": "..."}}`. Check the result with `get_field_translations`.
 """

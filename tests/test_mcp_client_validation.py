@@ -153,7 +153,7 @@ class TestMCPProtocolCompliance:
             # Try to read a specific resource
             # First, search for a record
             search_result = await connected_client.call_tool(
-                "search_records", {"model": "res.partner", "domain": [], "limit": 1}
+                "record_search", {"model": "res.partner", "domain": [], "limit": 1}
             )
 
             # Extract record ID from result
@@ -206,7 +206,7 @@ class TestMCPProtocolCompliance:
             assert "list_resources" in results
             # Tools are not implemented yet
             assert "list_tools" in results
-            assert results["server_info"] is True
+            assert results["server_info_get"] is True
 
     @pytest.mark.asyncio
     async def test_mcp_response_validation(self, test_env):

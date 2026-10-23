@@ -4,7 +4,7 @@
 #
 # Derived from mcp-server-odoo (https://github.com/ivnvxd/mcp-server-odoo).
 # This file stays under the Mozilla Public License 2.0; see LICENSE.MPL-2.0.
-"""Introspection MCP tools: list_models, list_resource_templates, server_info."""
+"""Introspection MCP tools: model_list, resource_template_list, server_info_get."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from ._common import _current_sub, logger, run_blocking
 
 
 class IntrospectionToolsMixin:
-    """list_models, list_resource_templates and server_info tools."""
+    """model_list, resource_template_list and server_info_get tools."""
 
     def _register_introspection_tools(self):
         """Register introspection tool handlers with the MCP server."""
@@ -34,12 +34,12 @@ class IntrospectionToolsMixin:
                 open_world_hint=False,
             ),
         )
-        async def list_models(connection: Optional[str] = None) -> ModelsResult:
+        async def model_list(connection: Optional[str] = None) -> ModelsResult:
             """List all models enabled for MCP access with their allowed operations.
 
             Args:
                 connection: Optional. Target a specific Odoo connection by the id
-                    from server_info's `connections` list. Hosted multi-tenant
+                    from server_info_get's `connections` list. Hosted multi-tenant
                     only; ignored when self-hosting a single connection.
 
             Returns:
@@ -47,7 +47,7 @@ class IntrospectionToolsMixin:
                 and allowed operations (read, write, create, unlink).
             """
             result = await self._handle_list_models_tool(connection)
-            self._track_usage(_current_sub.get(), "list_models")
+            self._track_usage(_current_sub.get(), "model_list")
             return ModelsResult(**result)
 
         @self.tool(
@@ -59,7 +59,7 @@ class IntrospectionToolsMixin:
                 open_world_hint=False,
             ),
         )
-        async def list_resource_templates() -> ResourceTemplatesResult:
+        async def resource_template_list() -> ResourceTemplatesResult:
             """List available resource URI templates.
 
             Since MCP resources with parameters are registered as templates,
@@ -70,7 +70,7 @@ class IntrospectionToolsMixin:
                 Resource template definitions with examples and enabled models.
             """
             result = await self._handle_list_resource_templates_tool()
-            self._track_usage(_current_sub.get(), "list_resource_templates")
+            self._track_usage(_current_sub.get(), "resource_template_list")
             return ResourceTemplatesResult(**result)
 
         @self.tool(
@@ -82,7 +82,7 @@ class IntrospectionToolsMixin:
                 open_world_hint=False,
             ),
         )
-        async def server_info() -> ServerInfoResult:
+        async def server_info_get() -> ServerInfoResult:
             """Get MCP server version and connection status.
 
             Returns:
@@ -133,7 +133,7 @@ class IntrospectionToolsMixin:
                 except Exception:
                     pass
 
-            self._track_usage(_current_sub.get(), "server_info")
+            self._track_usage(_current_sub.get(), "server_info_get")
             info = ServerInfoResult(
                 version=SERVER_VERSION,
                 git_commit=GIT_COMMIT,
@@ -186,7 +186,7 @@ class IntrospectionToolsMixin:
         except ValidationError:
             raise
         except Exception as e:
-            logger.error(f"Error in list_models tool: {e}")
+            logger.error(f"Error in model_list tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))
             raise ValidationError(f"Failed to list models: {sanitized_msg}") from e
 
@@ -216,7 +216,7 @@ class IntrospectionToolsMixin:
                         "model": "Odoo model name",
                     },
                     "example": "odoo://res.partner/search",
-                    "note": "Query parameters are not supported. Use search_records tool for advanced queries.",
+                    "note": "Query parameters are not supported. Use record_search tool for advanced queries.",
                 },
                 {
                     "uri_template": "odoo://{model}/count",
@@ -225,7 +225,7 @@ class IntrospectionToolsMixin:
                         "model": "Odoo model name",
                     },
                     "example": "odoo://res.partner/count",
-                    "note": "Query parameters are not supported. Use search_records tool for filtered counts.",
+                    "note": "Query parameters are not supported. Use record_search tool for filtered counts.",
                 },
                 {
                     "uri_template": "odoo://{model}/fields",
@@ -240,10 +240,10 @@ class IntrospectionToolsMixin:
                 "templates": templates,
                 "enabled_models": model_names[:10],  # Show first 10 as examples
                 "total_models": len(model_names),
-                "note": "Resource URIs do not support query parameters. Use tools (search_records, get_record) for advanced operations with filtering, pagination, and field selection.",
+                "note": "Resource URIs do not support query parameters. Use tools (record_search, record_get) for advanced operations with filtering, pagination, and field selection.",
             }
 
         except Exception as e:
-            logger.error(f"Error in list_resource_templates tool: {e}")
+            logger.error(f"Error in resource_template_list tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))
             raise ValidationError(f"Failed to list resource templates: {sanitized_msg}") from e

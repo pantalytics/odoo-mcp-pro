@@ -1,7 +1,7 @@
 """Fetching a user-supplied URL without reaching into the server's own network.
 
 Every outbound HTTP call the server makes to a URL a caller chose (today: the
-`source` of `set_binary_field`) goes through here. The guard refuses hosts the
+`source` of `binary_field_set`) goes through here. The guard refuses hosts the
 server should never dial on a caller's behalf: loopback, RFC1918 private
 ranges, link-local (the 169.254.169.254 cloud metadata address), reserved and
 unspecified addresses, their IPv4-mapped IPv6 forms, `localhost` and `.local`

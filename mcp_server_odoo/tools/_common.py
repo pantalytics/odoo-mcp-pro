@@ -23,8 +23,8 @@ from ..logging_config import get_logger
 logger = get_logger("mcp_server_odoo.tools")
 
 MAX_BULK_SIZE = 1000  # Maximum records per bulk operation
-MAX_BINARY_SIZE_BYTES = 25 * 1024 * 1024  # set_binary_field upload cap
-MAX_CONCURRENT_BINARY_UPLOADS = 3  # parallel set_binary_field calls; higher OOMs the server
+MAX_BINARY_SIZE_BYTES = 25 * 1024 * 1024  # binary_field_set upload cap
+MAX_CONCURRENT_BINARY_UPLOADS = 3  # parallel binary_field_set calls; higher OOMs the server
 _BINARY_UPLOAD_SEMAPHORE = asyncio.Semaphore(MAX_CONCURRENT_BINARY_UPLOADS)
 _AVATAR_FIELD_RE = re.compile(r"^avatar_(128|256|512|1024|1920)$")
 

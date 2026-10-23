@@ -1,6 +1,6 @@
 """SSRF guard on caller-supplied URLs (`safe_fetch`).
 
-`set_binary_field` fetches whatever URL the caller passes. Without this guard
+`binary_field_set` fetches whatever URL the caller passes. Without this guard
 the server would read its own network (loopback services, RFC1918 hosts, the
 169.254.169.254 cloud metadata address) and hand the bytes back as an Odoo
 attachment. The guard must:

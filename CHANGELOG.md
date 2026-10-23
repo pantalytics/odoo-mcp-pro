@@ -11,6 +11,35 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-10-23
+
+### Changed (breaking)
+- Every tool is now named `<object>_<verb>`, the same scheme as the hosted
+  service's own tools. AI clients read the tool list on connect, so they pick
+  the new names up by themselves; a prompt, skill or script that names a tool
+  needs the new name.
+
+  | Was | Now |
+  |---|---|
+  | `search_records` | `record_search` |
+  | `get_record` | `record_get` |
+  | `aggregate_records` | `record_aggregate` |
+  | `create_record` / `create_records` | `record_create` / `records_create` |
+  | `update_record` / `update_records` | `record_update` / `records_update` |
+  | `delete_record` / `delete_records` | `record_delete` / `records_delete` |
+  | `import_records` | `record_import` |
+  | `list_models` | `model_list` |
+  | `list_resource_templates` | `resource_template_list` |
+  | `server_info` | `server_info_get` |
+  | `set_binary_field` | `binary_field_set` |
+  | `post_message` | `message_post` |
+  | `execute_method` | `method_execute` |
+  | `register_payment` | `payment_register` |
+  | `find_skill` / `get_skill` | `skill_find` / `skill_get` |
+
+### Added
+- `tests/test_tool_names.py` refuses a tool name that is not `<object>_<verb>`.
+
 ## [3.1.5] - 2026-10-23
 
 ### Fixed

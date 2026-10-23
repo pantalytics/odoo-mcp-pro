@@ -130,7 +130,7 @@ The client approves by setting `client_approved` on the project, or the consulta
 
 ### Step 7: Import
 
-Use Odoo's `import_records` (load method) via MCP with external IDs.
+Use Odoo's `record_import` (load method) via MCP with external IDs.
 
 Load order (dependencies first):
 1. `res.partner` (companies)
@@ -163,7 +163,7 @@ Compare record counts between source and Odoo:
 - Are there duplicates? Check for records with the same name/key.
 - Are all external IDs (`__import__.*`) present and unique?
 
-Do this via MCP: `search_records` with count, compare against source data.
+Do this via MCP: `record_search` with count, compare against source data.
 
 **Layer 2 — Field Spot Checks (data quality)**
 Pick 3-5 random records per model and verify field values against the source:

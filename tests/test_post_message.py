@@ -1,4 +1,4 @@
-"""Tests for the post_message chatter tool."""
+"""Tests for the message_post chatter tool."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from mcp_server_odoo.tools import OdooToolHandler
 
 
 class TestPostMessageUnit:
-    """Mock-driven tests for post_message argument assembly + return shape."""
+    """Mock-driven tests for message_post argument assembly + return shape."""
 
     @pytest.fixture
     def mock_app(self):
@@ -194,7 +194,7 @@ class TestPostMessageUnit:
         """The probe must call fields_get the way the connection protocol
         declares it: fields_get(model, attributes). It used to pass an
         allfields kwarg first and catch the resulting TypeError as a fallback,
-        which no implementation ever accepted, so every post_message raised a
+        which no implementation ever accepted, so every message_post raised a
         TypeError that callers then swallowed. Anything watching the connection
         (SaaS failure telemetry) recorded that as a failed Odoo call.
         """

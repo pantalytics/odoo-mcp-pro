@@ -24,11 +24,11 @@ class TestFixesIntegration:
 
     @pytest.mark.asyncio
     async def test_all_fixes_work_together(self, tool_handler):
-        """Test datetime formatting, list_models JSON, and smart fields all work."""
+        """Test datetime formatting, model_list JSON, and smart fields all work."""
         # Setup connection mock
         tool_handler.connection.is_authenticated = True
 
-        # Test 1: list_models returns proper JSON structure
+        # Test 1: model_list returns proper JSON structure
         mock_models = [
             {"model": "res.partner", "name": "Contact"},
             {"model": "res.company", "name": "Companies"},
@@ -51,7 +51,7 @@ class TestFixesIntegration:
         assert isinstance(models_result["models"], list)
         assert len(models_result["models"]) == 2
 
-        # Test 2: get_record with smart defaults and datetime formatting
+        # Test 2: record_get with smart defaults and datetime formatting
         tool_handler.connection.fields_get.return_value = {
             "id": {"type": "integer"},
             "name": {"type": "char", "required": True},
@@ -92,7 +92,7 @@ class TestFixesIntegration:
         # Should have formatted datetime
         assert record_result.record["create_date"] == "2025-06-06T13:50:23+00:00"
 
-        # Test 3: search_records with datetime formatting
+        # Test 3: record_search with datetime formatting
         tool_handler.connection.search_count.return_value = 2
         tool_handler.connection.search.return_value = [1, 2]
         tool_handler.connection.read.return_value = [
@@ -127,7 +127,7 @@ class TestFixesIntegration:
 
     @pytest.mark.asyncio
     async def test_get_record_with_all_fields_option(self, tool_handler):
-        """Test get_record with __all__ option returns all fields without metadata."""
+        """Test record_get with __all__ option returns all fields without metadata."""
         tool_handler.connection.is_authenticated = True
 
         # Mock a large response with many fields
@@ -157,7 +157,7 @@ class TestFixesIntegration:
 
     @pytest.mark.asyncio
     async def test_get_record_with_specific_fields(self, tool_handler):
-        """Test get_record with specific fields returns only those fields."""
+        """Test record_get with specific fields returns only those fields."""
         tool_handler.connection.is_authenticated = True
 
         tool_handler.connection.read.return_value = [

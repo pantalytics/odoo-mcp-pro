@@ -1,4 +1,4 @@
-"""Tests for the aggregate_records tool and the read_group connection methods."""
+"""Tests for the record_aggregate tool and the read_group connection methods."""
 
 # ruff: noqa: F811 -- fixture parameters intentionally shadow imported fixtures
 
@@ -37,7 +37,7 @@ class TestAggregateRecordsTool:
     async def test_grouped_totals(self, handler, mock_connection, mock_app):
         mock_connection.read_group.return_value = _groups(2)
 
-        result = await mock_app._tools["aggregate_records"](
+        result = await mock_app._tools["record_aggregate"](
             model="account.move.line",
             groupby=["product_id", "date:month"],
             aggregates=["price_subtotal:sum", "quantity:sum"],
@@ -62,7 +62,7 @@ class TestAggregateRecordsTool:
         """Weighted sum over all lines comes back as one compact row."""
         mock_connection.read_group.return_value = [{"balance:sum": 1234.5, "__count": 9000}]
 
-        result = await mock_app._tools["aggregate_records"](
+        result = await mock_app._tools["record_aggregate"](
             model="account.move.line", aggregates=["balance:sum"]
         )
 
@@ -73,7 +73,7 @@ class TestAggregateRecordsTool:
     async def test_pagination_reports_has_more(self, handler, mock_connection, mock_app):
         mock_connection.read_group.return_value = _groups(4)
 
-        result = await mock_app._tools["aggregate_records"](
+        result = await mock_app._tools["record_aggregate"](
             model="sale.order.line", groupby=["product_id"], limit=3, offset=6
         )
 
@@ -88,7 +88,7 @@ class TestAggregateRecordsTool:
     async def test_domain_string_is_parsed(self, handler, mock_connection, mock_app):
         mock_connection.read_group.return_value = []
 
-        await mock_app._tools["aggregate_records"](
+        await mock_app._tools["record_aggregate"](
             model="sale.order", groupby=["user_id"], domain="[['state', '=', 'sale']]"
         )
 
@@ -98,7 +98,7 @@ class TestAggregateRecordsTool:
     async def test_count_aggregate_is_implicit(self, handler, mock_connection, mock_app):
         mock_connection.read_group.return_value = []
 
-        await mock_app._tools["aggregate_records"](
+        await mock_app._tools["record_aggregate"](
             model="sale.order", groupby=["user_id"], aggregates=["__count", "amount_total:sum"]
         )
 
@@ -119,7 +119,7 @@ class TestAggregateRecordsTool:
     )
     async def test_rejects_unsafe_input(self, handler, mock_connection, mock_app, kwargs, message):
         with pytest.raises(ToolError, match=message):
-            await mock_app._tools["aggregate_records"](model="sale.order", **kwargs)
+            await mock_app._tools["record_aggregate"](model="sale.order", **kwargs)
         mock_connection.read_group.assert_not_called()
 
     @pytest.mark.asyncio
@@ -127,7 +127,7 @@ class TestAggregateRecordsTool:
         mock_access_controller.validate_model_access.side_effect = AccessControlError("no read")
 
         with pytest.raises(ToolError, match="AccessError"):
-            await mock_app._tools["aggregate_records"](model="account.move.line")
+            await mock_app._tools["record_aggregate"](model="account.move.line")
 
 
 class TestXmlRpcReadGroup:

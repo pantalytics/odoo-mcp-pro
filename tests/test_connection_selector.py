@@ -9,7 +9,7 @@ two contracts:
    (and None when omitted) to `_get_user_context`. Mutating tools also pass
    `writes=True` so the hosted layer can refuse an ambiguous write; read tools
    do not.
-2. server_info exposes a `connections` list iff `_available_connections`
+2. server_info_get exposes a `connections` list iff `_available_connections`
    returns one, and omits it (None) otherwise.
 
 Shared tool fixtures live in tests/helpers/tool_fixtures.py.
@@ -59,9 +59,7 @@ class TestSelectorForwarding:
         mock_connection.search_count.return_value = 0
         mock_connection.search.return_value = []
 
-        await mock_app._tools["search_records"](
-            model="res.partner", fields=["name"], connection="7"
-        )
+        await mock_app._tools["record_search"](model="res.partner", fields=["name"], connection="7")
 
         ctx.assert_awaited_once_with("7")
 
@@ -73,7 +71,7 @@ class TestSelectorForwarding:
         mock_connection.search_count.return_value = 0
         mock_connection.search.return_value = []
 
-        await mock_app._tools["search_records"](model="res.partner", fields=["name"])
+        await mock_app._tools["record_search"](model="res.partner", fields=["name"])
 
         ctx.assert_awaited_once_with(None)
 
@@ -84,7 +82,7 @@ class TestSelectorForwarding:
         ctx = _patch_user_context(handler, mock_connection, mock_access_controller)
         mock_connection.read.return_value = [{"id": 1, "name": "x"}]
 
-        await mock_app._tools["get_record"](
+        await mock_app._tools["record_get"](
             model="res.partner", record_id=1, fields=["name"], connection="7"
         )
 
@@ -99,7 +97,7 @@ class TestSelectorForwarding:
         mock_connection.fields_get.return_value = {"id": {}, "name": {}}
         mock_connection.read.return_value = [{"id": 1, "name": "x"}]
 
-        await mock_app._tools["create_record"](
+        await mock_app._tools["record_create"](
             model="res.partner", values={"name": "x"}, connection="7"
         )
 
@@ -114,7 +112,7 @@ class TestSelectorForwarding:
         mock_connection.write.return_value = True
         mock_connection.fields_get.return_value = {"id": {}, "name": {}}
 
-        await mock_app._tools["update_record"](
+        await mock_app._tools["record_update"](
             model="res.partner", record_id=1, values={"name": "y"}, connection="7"
         )
 
@@ -128,7 +126,7 @@ class TestSelectorForwarding:
         mock_connection.read.return_value = [{"id": 1, "name": "x"}]
         mock_connection.unlink.return_value = True
 
-        await mock_app._tools["delete_record"](model="res.partner", record_id=1, connection="7")
+        await mock_app._tools["record_delete"](model="res.partner", record_id=1, connection="7")
 
         ctx.assert_awaited_once_with("7", writes=True)
 
@@ -139,7 +137,7 @@ class TestSelectorForwarding:
         ctx = _patch_user_context(handler, mock_connection, mock_access_controller)
         mock_connection.create_bulk.return_value = [1, 2]
 
-        await mock_app._tools["create_records"](
+        await mock_app._tools["records_create"](
             model="res.partner", vals_list=[{"name": "a"}, {"name": "b"}], connection="7"
         )
 
@@ -152,7 +150,7 @@ class TestSelectorForwarding:
         ctx = _patch_user_context(handler, mock_connection, mock_access_controller)
         mock_connection.write.return_value = True
 
-        await mock_app._tools["update_records"](
+        await mock_app._tools["records_update"](
             model="res.partner", record_ids=[1, 2], values={"name": "y"}, connection="7"
         )
 
@@ -166,7 +164,7 @@ class TestSelectorForwarding:
         mock_connection.search.return_value = [1, 2]
         mock_connection.unlink.return_value = True
 
-        await mock_app._tools["delete_records"](
+        await mock_app._tools["records_delete"](
             model="res.partner", record_ids=[1, 2], connection="7"
         )
 
@@ -179,7 +177,7 @@ class TestSelectorForwarding:
         ctx = _patch_user_context(handler, mock_connection, mock_access_controller)
         mock_connection.load_records.return_value = {"ids": [1], "messages": []}
 
-        await mock_app._tools["import_records"](
+        await mock_app._tools["record_import"](
             model="res.partner",
             fields=["name"],
             data=[["Acme"]],
@@ -197,7 +195,7 @@ class TestSelectorForwarding:
             {"model": "res.partner", "name": "Contact"}
         ]
 
-        await mock_app._tools["list_models"](connection="7")
+        await mock_app._tools["model_list"](connection="7")
 
         ctx.assert_awaited_once_with("7")
 
@@ -208,7 +206,7 @@ class TestSelectorForwarding:
         ctx = _patch_user_context(handler, mock_connection, mock_access_controller)
         mock_connection.call_method.return_value = True
 
-        await mock_app._tools["execute_method"](
+        await mock_app._tools["method_execute"](
             model="sale.order", method="action_confirm", ids=[1], connection="7"
         )
 
@@ -216,7 +214,7 @@ class TestSelectorForwarding:
 
 
 class TestServerInfoConnections:
-    """server_info exposes `connections` iff the hook returns a list."""
+    """server_info_get exposes `connections` iff the hook returns a list."""
 
     @pytest.mark.asyncio
     async def test_includes_connections_when_hook_returns_list(
@@ -230,7 +228,7 @@ class TestServerInfoConnections:
         ]
         handler._available_connections = AsyncMock(return_value=conns)
 
-        result = await mock_app._tools["server_info"]()
+        result = await mock_app._tools["server_info_get"]()
 
         assert result.connections == conns
 
@@ -242,6 +240,6 @@ class TestServerInfoConnections:
         mock_connection.database = "test_db"
         mock_connection.search_read.return_value = []
 
-        result = await mock_app._tools["server_info"]()
+        result = await mock_app._tools["server_info_get"]()
 
         assert result.connections is None

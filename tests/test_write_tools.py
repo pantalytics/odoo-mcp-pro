@@ -253,9 +253,9 @@ class TestWriteTools:
         register_tools(mock_app, mock_connection, mock_access_controller, mock_config)
 
         # Check that tool decorator was called for write operations
-        assert "create_record" in decorated_functions
-        assert "update_record" in decorated_functions
-        assert "delete_record" in decorated_functions
+        assert "record_create" in decorated_functions
+        assert "record_update" in decorated_functions
+        assert "record_delete" in decorated_functions
 
 
 class TestWriteToolsIntegration:
@@ -335,7 +335,7 @@ class TestWriteToolsIntegration:
             )
             assert update_result["success"] is True
 
-            # Verify updated values via get_record (update result only has essential fields)
+            # Verify updated values via record_get (update result only has essential fields)
             get_result = await handler._handle_get_record_tool(
                 "res.partner", record_id, fields=["email", "phone"]
             )

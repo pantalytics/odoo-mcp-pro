@@ -164,7 +164,7 @@ class TestErrorSanitizationIntegration:
 
         # Simulate a complex error message from multiple layers
         complex_error = """
-        Error executing tool search_records: Connection error: Failed to execute search_count on res.partner:
+        Error executing tool record_search: Connection error: Failed to execute search_count on res.partner:
         Internal Server Error in MCPObjectController: Invalid field res.partner.invalid_field in leaf ('invalid_field', '=', True)
         File "/opt/odoo/addons/mcp_server/controllers/xmlrpc.py", line 123, in execute_kw
         File "/usr/lib/python3.10/xmlrpc/client.py", line 1122, in __call__

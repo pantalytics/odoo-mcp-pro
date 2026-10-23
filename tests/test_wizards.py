@@ -1,4 +1,4 @@
-"""Tests for the wizard follow-up layer on execute_method.
+"""Tests for the wizard follow-up layer on method_execute.
 
 Two-step, stateless: a decision either completes the wizard or, when omitted,
 the wizard's fields are returned so the caller re-calls with `decision`. A

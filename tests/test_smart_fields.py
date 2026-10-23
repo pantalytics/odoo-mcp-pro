@@ -176,7 +176,7 @@ class TestSmartFieldSelection:
 
     @pytest.mark.asyncio
     async def test_get_record_with_smart_defaults(self, tool_handler):
-        """Test get_record using smart defaults."""
+        """Test record_get using smart defaults."""
         # Setup mocks
         tool_handler.connection.is_authenticated = True
         tool_handler.connection.fields_get.return_value = {
@@ -225,7 +225,7 @@ class TestSmartFieldSelection:
 
     @pytest.mark.asyncio
     async def test_get_record_with_all_fields(self, tool_handler):
-        """Test get_record with __all__ parameter."""
+        """Test record_get with __all__ parameter."""
         # Setup mocks
         tool_handler.connection.is_authenticated = True
         tool_handler.connection.read.return_value = [
@@ -251,7 +251,7 @@ class TestSmartFieldSelection:
 
     @pytest.mark.asyncio
     async def test_get_record_with_specific_fields(self, tool_handler):
-        """Test get_record with specific fields."""
+        """Test record_get with specific fields."""
         # Setup mocks
         tool_handler.connection.is_authenticated = True
         tool_handler.connection.read.return_value = [
