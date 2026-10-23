@@ -42,7 +42,7 @@ class RetrievalMixin:
             PermissionError: If access is denied
             ValidationError: For invalid inputs
         """
-        context = ErrorContext(model=model, operation="get_record", record_id=record_id)
+        context = ErrorContext(model=model, operation="record_get", record_id=record_id)
 
         logger.info(f"Retrieving record: {model}/{record_id}")
 

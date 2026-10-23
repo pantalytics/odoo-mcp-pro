@@ -10,7 +10,7 @@ Bring external data in without creating duplicates on re-runs.
 
 ## Core pattern: idempotent import
 
-Use `import_records` with `__import__.external_id` on every row:
+Use `record_import` with `__import__.external_id` on every row:
 
 - First run → records get created
 - Second run with same external_id → updates existing records
@@ -20,7 +20,7 @@ External ID format: `__import__.your_stable_key` (e.g. `__import__.contact_12345
 
 ## Typical workflows
 
-1. **Map fields first** — list source columns → Odoo model fields via `list_models` then introspect
+1. **Map fields first** — list source columns → Odoo model fields via `model_list` then introspect
 2. **Resolve references upfront** — m2o fields (e.g. `country_id`) need IDs or external IDs, not names
 3. **Dry-run small batch** — import 5 rows, inspect, then scale
 4. **Batch size** — 500-1000 rows per call is the sweet spot
@@ -28,9 +28,9 @@ External ID format: `__import__.your_stable_key` (e.g. `__import__.contact_12345
 
 ## Choosing the right tool
 
-- `import_records` — best for CSV-shaped data, handles external IDs natively
-- `create_records` — direct writes, no external ID mapping
-- `update_records` — when you already have internal IDs
+- `record_import` — best for CSV-shaped data, handles external IDs natively
+- `records_create` — direct writes, no external ID mapping
+- `records_update` — when you already have internal IDs
 
 ## Gotchas
 

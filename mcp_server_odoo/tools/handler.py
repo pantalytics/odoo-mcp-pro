@@ -110,12 +110,12 @@ class OdooToolHandler(
         raise ValidationError("No Odoo connection available")
 
     async def _available_connections(self) -> Optional[list]:
-        """List the connections this handler can target, for server_info.
+        """List the connections this handler can target, for server_info_get.
 
         Overridable hook: the multi-tenant hosted handler returns a list of
         ``{"id": ..., "url": ..., "db": ...}`` dicts so clients can pass a
         per-call ``connection`` selector. Standalone returns None, so
-        server_info simply omits the ``connections`` key.
+        server_info_get simply omits the ``connections`` key.
         """
         return None
 

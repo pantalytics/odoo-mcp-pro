@@ -233,11 +233,11 @@ async def check_server_capabilities(client: MCPTestClient) -> Dict[str, bool]:
     # Test server info
     try:
         info = await client.get_server_info()
-        results["server_info"] = bool(info.get("name"))
+        results["server_info_get"] = bool(info.get("name"))
         logger.info(f"Server: {info.get('name')} v{info.get('version')}")
     except Exception as e:
         logger.error(f"Failed to get server info: {e}")
-        results["server_info"] = False
+        results["server_info_get"] = False
 
     return results
 

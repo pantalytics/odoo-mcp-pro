@@ -282,7 +282,7 @@ def followup_descriptor(handler: WizardHandler) -> Dict[str, Any]:
         "wizard": handler.res_model,
         "decision_fields": schema.get("properties", {}),
         "hint": (
-            "Re-call execute_method with decision={...} to complete this wizard, "
+            "Re-call method_execute with decision={...} to complete this wizard, "
             "or use a client that supports MCP elicitation."
         ),
     }

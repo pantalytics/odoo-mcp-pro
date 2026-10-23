@@ -462,7 +462,7 @@ class OdooConnectionOrmMixin:
             if "doesn't exist" in error_str or "does not exist" in error_str:
                 raise OdooExecutionError(
                     f"Model '{model}' does not exist in this Odoo (a typo, or its "
-                    f"app is not installed). Use list_models to find the right name."
+                    f"app is not installed). Use model_list to find the right name."
                 ) from e
             # For other errors (network, etc.), assume access is granted
             # and let the actual operation fail with a clear error

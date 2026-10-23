@@ -296,12 +296,12 @@ Story:    As <role> I want <feature> so that <goal>  [cost|efficiency|revenue|jo
 ## With the Odoo MCP
 
 - **Step 2 (standard)**: check what the customer's database already has before
-  calling something a gap -- `list_models`, `search_records` on
-  `ir.module.module` (`state = installed`), and `search_records` with
+  calling something a gap -- `model_list`, `record_search` on
+  `ir.module.module` (`state = installed`), and `record_search` with
   `fields=["__all__"]` on a sample record to see the available fields.
-- **Recording a decision**: `create_record` on `project.task` under the
+- **Recording a decision**: `record_create` on `project.task` under the
   Decisions parent (`parent_id`), the template above as `description`. Then
-  `post_message` with an internal note for the advice and a message for the
+  `message_post` with an internal note for the advice and a message for the
   decision (see the `communications` skill).
 - Never change the customer's configuration from a wish the SPoC has not labelled.
 

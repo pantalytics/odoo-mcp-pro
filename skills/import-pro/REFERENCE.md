@@ -921,7 +921,7 @@ The app descriptions in this guide can be refreshed from any Odoo instance:
 
 ```python
 # Via MCP: get all apps with descriptions
-search_records(
+record_search(
     model="ir.module.module",
     domain=[["summary", "!=", ""], ["application", "=", true]],
     fields=["name", "shortdesc", "summary", "category_id", "state", "description"],

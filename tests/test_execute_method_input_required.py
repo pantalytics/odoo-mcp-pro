@@ -1,4 +1,4 @@
-"""execute_method asks a wizard's question through MCP's own round trip.
+"""method_execute asks a wizard's question through MCP's own round trip.
 
 Drives a real MCPServer with the real 2.x client, in-process. A client that
 speaks 2026-07-28 and can show a form gets an InputRequiredResult and answers
@@ -55,7 +55,7 @@ async def test_form_shown_and_answer_completes_wizard(connection):
         return ElicitResult(action="accept", content={"create_backorder": True})
 
     async with Client(_app(connection), elicitation_callback=answer) as client:
-        result = await client.call_tool("execute_method", CALL)
+        result = await client.call_tool("method_execute", CALL)
 
     assert not result.is_error
     assert result.structured_content["result_kind"] == "completed"
@@ -74,7 +74,7 @@ async def test_declined_form_changes_nothing(connection):
         return ElicitResult(action="decline")
 
     async with Client(_app(connection), elicitation_callback=decline) as client:
-        result = await client.call_tool("execute_method", CALL)
+        result = await client.call_tool("method_execute", CALL)
 
     assert result.structured_content["success"] is False
     assert result.structured_content["result_kind"] == "declined"
@@ -93,7 +93,7 @@ async def test_explicit_decision_skips_the_form(connection):
     connection.call_method.side_effect = [BACKORDER_ACTION, True]
     async with Client(_app(connection), elicitation_callback=never) as client:
         result = await client.call_tool(
-            "execute_method", {**CALL, "decision": {"create_backorder": False}}
+            "method_execute", {**CALL, "decision": {"create_backorder": False}}
         )
 
     assert result.structured_content["result_kind"] == "completed"
@@ -109,7 +109,7 @@ async def test_legacy_client_gets_followup_dict(connection):
         raise AssertionError("a legacy client cannot receive input_required")
 
     async with Client(_app(connection), elicitation_callback=never, mode="legacy") as client:
-        result = await client.call_tool("execute_method", CALL)
+        result = await client.call_tool("method_execute", CALL)
 
     assert not result.is_error
     body = result.structured_content

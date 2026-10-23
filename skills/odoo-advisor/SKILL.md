@@ -53,7 +53,7 @@ When recommending apps, always include:
 
 The guide can be refreshed from any Odoo instance:
 ```python
-search_records(
+record_search(
     model="ir.module.module",
     domain=[["summary", "!=", ""], ["application", "=", true]],
     fields=["name", "shortdesc", "summary", "category_id", "state", "description"],

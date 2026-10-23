@@ -192,7 +192,7 @@ class TestResourceQueryParameterHandling:
         assert "Showing records 1-3 of 50" in result
 
     # Browse test removed - browse resource not supported due to FastMCP query parameter limitations
-    # Use get_record multiple times or search_records tool instead
+    # Use record_get multiple times or record_search tool instead
 
     @pytest.mark.asyncio
     async def test_count_without_domain(self, resource_handler, mock_connection):

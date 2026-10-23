@@ -92,7 +92,7 @@ class OdooResourceHandler(RetrievalMixin, ResourceFormattingMixin):
             description="Retrieve a specific record from an Odoo model by ID",
             annotations=Annotations(audience=["assistant"], priority=0.5),
         )
-        async def get_record(model: str, record_id: str) -> str:
+        async def record_get(model: str, record_id: str) -> str:
             """Retrieve a specific record from Odoo.
 
             Args:
@@ -111,16 +111,16 @@ class OdooResourceHandler(RetrievalMixin, ResourceFormattingMixin):
             description="Search records with default settings (first 10 records)",
             annotations=Annotations(audience=["assistant"], priority=0.5),
         )
-        async def search_records(model: str) -> str:
+        async def record_search(model: str) -> str:
             """Search records with default settings.
 
             Returns first 10 records with all fields.
-            For more control, use the search_records tool instead.
+            For more control, use the record_search tool instead.
             """
             return await self._handle_search(model, None, None, None, None, None)
 
         # Note: Browse resource removed; URI templates carry no query parameters
-        # Use get_record multiple times or search_records tool instead
+        # Use record_get multiple times or record_search tool instead
 
         # Register count resource (no parameters: the SDK maps URI templates only)
         @self.resource(
@@ -132,7 +132,7 @@ class OdooResourceHandler(RetrievalMixin, ResourceFormattingMixin):
         async def count_records(model: str) -> str:
             """Count all records in the model.
 
-            For filtered counts, use the search_records tool with limit=0.
+            For filtered counts, use the record_search tool with limit=0.
             """
             return await self._handle_count(model, None)
 
@@ -159,7 +159,7 @@ class OdooResourceHandler(RetrievalMixin, ResourceFormattingMixin):
 
         Note: In the SDK, resources with parameters
         are registered as templates and won't show in list_resources().
-        This is expected behavior - use list_resource_templates() to see them.
+        This is expected behavior - use resource_template_list() to see them.
         """
         # The template resources registered with decorators are sufficient
         # The SDK handles them as templates

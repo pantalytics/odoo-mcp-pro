@@ -1,4 +1,4 @@
-"""import_records hands its context to Odoo's load() as given.
+"""record_import hands its context to Odoo's load() as given.
 
 Element X (ticket #237) saw a `lang` import overwrite the base text. Odoo
 does that itself when en_US is inactive (reproduced on Odoo 19 at the ORM),
@@ -38,7 +38,7 @@ def ready(handler, mock_connection, mock_access_controller):
 
 @pytest.mark.asyncio
 async def test_lang_reaches_load_unchanged(ready, mock_app):
-    await mock_app._tools["import_records"](
+    await mock_app._tools["record_import"](
         model="res.partner.category",
         fields=["id", "name"],
         data=[["__import__.zz_lang_test2", "ZZ lang test NL2"]],
@@ -53,7 +53,7 @@ async def test_lang_reaches_load_unchanged(ready, mock_app):
 @pytest.mark.asyncio
 async def test_unsafe_context_key_is_refused(ready, mock_app):
     with pytest.raises(Exception) as exc:
-        await mock_app._tools["import_records"](
+        await mock_app._tools["record_import"](
             model="res.partner.category",
             fields=["id", "name"],
             data=[["__import__.x", "X"]],

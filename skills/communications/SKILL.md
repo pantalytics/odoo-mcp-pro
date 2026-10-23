@@ -249,7 +249,7 @@ right outbound flow, the right config model, and even the right
 `email_from` semantics depend on it.
 
 ```python
-search_records(
+record_search(
     model="ir.module.module",
     domain=[
         ["name", "in", ["pan_outlook_pro", "microsoft_outlook", "google_gmail"]],
@@ -275,7 +275,7 @@ mailbox, not by `ir.mail_server`.
 ### Outlook Pro mailboxes — `x_microsoft.mailbox` fields
 
 ```python
-search_records(
+record_search(
     model="x_microsoft.mailbox",
     fields=[
         "email",
@@ -351,7 +351,7 @@ referenced by the mail's responsible user for "configured for sending".
 - `message_type='user_notification'` is reserved for `message_notify`; `message_post` rejects it.
 - `outgoing_email_to` (and `incoming_email_to` / `incoming_email_cc`) are **Odoo v19+ only**. On v18 they raise `ValueError: Those values are not supported when posting or notifying`. For pre-v19, add CC recipients as `partner_ids`. On v19+, `cc` produces `mail.notification` rows with `res_partner_id=NULL` — Odoo handles that fine, but strict client-side result models (like `mcp_server_odoo`'s `PostMessageResult.notifications[].partner_id: int`) will fail to deserialize. Prefer `partner_ids` when the recipient has a `res.partner`.
 - `partner_ids` silently de-dupes the author. `message_post(partner_ids=[author_partner_id, X])` notifies only X. To email yourself: post on a record where you are not the author, set your user's `notification_type='email'`, or fall back to `cc=<your_email>`.
-- A `res.partner` without `email` produces a `mail.notification` (often stuck on `ready` / `exception`) and a `mail.mail` that never delivers. Always check (and fill via `update_record`) `res.partner.email` before posting if you intend an email to actually go out.
+- A `res.partner` without `email` produces a `mail.notification` (often stuck on `ready` / `exception`) and a `mail.mail` that never delivers. Always check (and fill via `record_update`) `res.partner.email` before posting if you intend an email to actually go out.
 - **Inline `attachments=[(name, raw_bytes)]` does not work over XML-RPC** — Odoo's `_process_attachments_for_post` calls `base64.b64encode(content)` and crashes with `TypeError: a bytes-like object is required, not 'Binary'`. Pre-create `ir.attachment` and pass `attachment_ids=[id]` instead.
 - A note (`mt_note`) is hidden from portal/public users via `internal=True` on the subtype.
 - Followers without the right subtype subscription won't get notified, even if they follow the record. Subtype subscription = filter, not just on/off.
@@ -379,7 +379,7 @@ confirmation** — do not silently "fix" the call.
    intended audit trail.
 4. **Recipient without email.** A partner in `partner_ids` has
    `email=False`. Flag it: the `mail.mail` will not deliver. Offer to
-   set the email via `update_record` first.
+   set the email via `record_update` first.
 5. **Outlook Pro stage check.** Before any `mt_comment` post that is
    meant to send email, detect the Outlook Pro install stage (see
    "Three Outlook Pro install stages" above):

@@ -20,7 +20,7 @@ Find bad data, propose fixes, execute with confirmation. Destructive — always 
 
 1. **Dedupe contacts** — fuzzy-match on `email`, `vat`, `name + country`, `phone`; cluster; propose master + merge list
 2. **Merge partners** — use `base.partner.merge.automatic.wizard` or manual: move refs, archive losers
-3. **Normalize** — batch update via `update_records`, e.g. title-case all partner names
+3. **Normalize** — batch update via `records_update`, e.g. title-case all partner names
 4. **Enrich** — pull external data (web scrape, VIES VAT lookup, Clearbit) and fill empty fields
 5. **Archive stale** — find records with no activity in N months, set `active = False`
 

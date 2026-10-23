@@ -30,7 +30,7 @@ from ._common import (
 
 
 class QueryToolsMixin:
-    """search_records and get_record tools."""
+    """record_search and record_get tools."""
 
     def _register_query_tools(self):
         """Register query tool handlers with the MCP server."""
@@ -44,7 +44,7 @@ class QueryToolsMixin:
                 open_world_hint=True,
             ),
         )
-        async def search_records(
+        async def record_search(
             model: str,
             domain: Optional[Any] = None,
             fields: Optional[Any] = None,
@@ -70,7 +70,7 @@ class QueryToolsMixin:
                 offset: Number of records to skip
                 order: Sort order (e.g., 'name asc')
                 connection: Optional. Target a specific Odoo connection by the id
-                    from server_info's `connections` list. Hosted multi-tenant
+                    from server_info_get's `connections` list. Hosted multi-tenant
                     only; ignored when self-hosting a single connection.
 
             Returns:
@@ -79,7 +79,7 @@ class QueryToolsMixin:
             result = await self._handle_search_tool(
                 model, domain, fields, limit, offset, order, connection
             )
-            self._track_usage(_current_sub.get(), "search_records")
+            self._track_usage(_current_sub.get(), "record_search")
             return SearchResult(**result)
 
         @self.tool(
@@ -91,7 +91,7 @@ class QueryToolsMixin:
                 open_world_hint=False,
             ),
         )
-        async def get_record(
+        async def record_get(
             model: str,
             record_id: int,
             fields: Optional[List[str]] = None,
@@ -114,21 +114,21 @@ class QueryToolsMixin:
             1. To see all available fields for a model, use the resource:
                read("odoo://res.partner/fields")
             2. Then request specific fields:
-               get_record("res.partner", 1, fields=["name", "email", "phone"])
+               record_get("res.partner", 1, fields=["name", "email", "phone"])
 
             Examples:
                 # Get smart defaults (recommended)
-                get_record("res.partner", 1)
+                record_get("res.partner", 1)
 
                 # Get specific fields only
-                get_record("res.partner", 1, fields=["name", "email", "phone"])
+                record_get("res.partner", 1, fields=["name", "email", "phone"])
 
                 # Get ALL fields (use with caution)
-                get_record("res.partner", 1, fields=["__all__"])
+                record_get("res.partner", 1, fields=["__all__"])
 
             Args:
                 connection: Optional. Target a specific Odoo connection by the id
-                    from server_info's `connections` list. Hosted multi-tenant
+                    from server_info_get's `connections` list. Hosted multi-tenant
                     only; ignored when self-hosting a single connection.
 
             Returns:
@@ -136,7 +136,7 @@ class QueryToolsMixin:
                 includes metadata with field statistics.
             """
             result = await self._handle_get_record_tool(model, record_id, fields, connection)
-            self._track_usage(_current_sub.get(), "get_record")
+            self._track_usage(_current_sub.get(), "record_get")
             return result
 
     async def _handle_search_tool(
@@ -248,7 +248,7 @@ class QueryToolsMixin:
         except OdooConnectionError as e:
             raise odoo_error_as_validation(e) from e
         except Exception as e:
-            logger.error(f"Error in search_records tool: {e}")
+            logger.error(f"Error in record_search tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))
             raise ValidationError(f"Search failed: {sanitized_msg}") from e
 
@@ -337,6 +337,6 @@ class QueryToolsMixin:
         except OdooConnectionError as e:
             raise odoo_error_as_validation(e) from e
         except Exception as e:
-            logger.error(f"Error in get_record tool: {e}")
+            logger.error(f"Error in record_get tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))
             raise ValidationError(f"Failed to get record: {sanitized_msg}") from e

@@ -23,5 +23,5 @@ class TestToolHandlerTracking:
         from mcp_server_odoo.tools import OdooToolHandler
 
         handler = OdooToolHandler(app=MagicMock())
-        assert handler._track_usage("user-123", "search_records") is None
-        assert handler._track_usage("stdio", "search_records") is None
+        assert handler._track_usage("user-123", "record_search") is None
+        assert handler._track_usage("stdio", "record_search") is None

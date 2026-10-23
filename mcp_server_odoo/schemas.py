@@ -236,7 +236,7 @@ class PostMessageResult(BaseModel):
 
 
 class ExecuteMethodResult(BaseModel):
-    """Result of calling an arbitrary public ORM method via execute_method."""
+    """Result of calling an arbitrary public ORM method via method_execute."""
 
     success: bool = Field(description="Whether the method call returned without error")
     model: str = Field(description="Odoo model the method was called on")

@@ -1,4 +1,4 @@
-"""Argument checks and normalisation for execute_method.
+"""Argument checks and normalisation for method_execute.
 
 Kept apart from methods.py so the tool's orchestration stays readable.
 """
@@ -24,15 +24,15 @@ def refuse_empty_recordset(
     """
     if positional_args is not None:
         raise ValidationError(
-            f"execute_method takes no positional args. Pass record ids as "
+            f"method_execute takes no positional args. Pass record ids as "
             f"ids=[...] and the method's arguments by name in kwargs, e.g. "
-            f"execute_method(model='{model}', method='{method}', ids=[42], "
+            f"method_execute(model='{model}', method='{method}', ids=[42], "
             f"kwargs={{...}}). Nothing was called."
         )
     if kwargs and "ids" in kwargs:
         raise ValidationError(
             "Pass record ids in the ids parameter, not inside kwargs: "
-            f"execute_method(model='{model}', method='{method}', ids=[...]). "
+            f"method_execute(model='{model}', method='{method}', ids=[...]). "
             "Nothing was called."
         )
     if ids is not None and not ids:
@@ -49,7 +49,7 @@ def _normalize_kwargs(method: str, kwargs: Dict[str, Any]) -> Dict[str, Any]:
     Only `message_post` needs this. Odoo escapes a plain `str` body (it expects
     `markupsafe.Markup`, which cannot cross XML-RPC or JSON/2), so a body of
     "<p>Hi</p>" reaches the chatter -- and the customer's inbox -- as literal
-    "&lt;p&gt;Hi&lt;/p&gt;". `post_message` sets `body_is_html`; a caller
+    "&lt;p&gt;Hi&lt;/p&gt;". `message_post` sets `body_is_html`; a caller
     reaching for `message_post` here means the same thing by `body`, so set it
     too unless they said otherwise.
     """

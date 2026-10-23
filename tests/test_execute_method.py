@@ -1,4 +1,4 @@
-"""Tests for the generic execute_method tool."""
+"""Tests for the generic method_execute tool."""
 
 from unittest.mock import Mock
 
@@ -34,7 +34,7 @@ def test_classify_result(value, expected):
 
 
 class TestExecuteMethod:
-    """Test the execute_method tool handler."""
+    """Test the method_execute tool handler."""
 
     @pytest.fixture
     def mock_app(self):
@@ -181,7 +181,7 @@ class TestExecuteMethod:
         """message_post through the passthrough must not escape the body.
 
         Odoo escapes a plain str body, so "<p>Hi</p>" would reach the customer's
-        inbox as literal tags. post_message sets body_is_html; so does this.
+        inbox as literal tags. message_post sets body_is_html; so does this.
         """
         mock_connection.call_method.return_value = [99]
 

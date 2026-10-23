@@ -44,15 +44,15 @@ class TestOdooToolHandler:
     def test_tools_registered(self, handler, mock_app):
         """Test that tools are registered with FastMCP."""
         # Check that all three tools are registered
-        assert "search_records" in mock_app._tools
-        assert "get_record" in mock_app._tools
-        assert "list_models" in mock_app._tools
+        assert "record_search" in mock_app._tools
+        assert "record_get" in mock_app._tools
+        assert "model_list" in mock_app._tools
 
     @pytest.mark.asyncio
     async def test_search_records_success(
         self, handler, mock_connection, mock_access_controller, mock_app
     ):
-        """Test successful search_records operation."""
+        """Test successful record_search operation."""
         # Setup mocks
         mock_access_controller.validate_model_access.return_value = None
         mock_connection.search_count.return_value = 5
@@ -63,11 +63,11 @@ class TestOdooToolHandler:
             {"id": 3, "name": "Record 3"},
         ]
 
-        # Get the registered search_records function
-        search_records = mock_app._tools["search_records"]
+        # Get the registered record_search function
+        record_search = mock_app._tools["record_search"]
 
         # Call the tool
-        result = await search_records(
+        result = await record_search(
             model="res.partner",
             domain=[["is_company", "=", True]],
             fields=["name", "email"],
@@ -96,7 +96,7 @@ class TestOdooToolHandler:
     async def test_search_records_with_domain_operators(
         self, handler, mock_connection, mock_access_controller, mock_app
     ):
-        """Test search_records with Odoo domain operators like |, &, !."""
+        """Test record_search with Odoo domain operators like |, &, !."""
         # Setup mocks
         mock_access_controller.validate_model_access.return_value = None
         mock_connection.search_count.return_value = 10
@@ -107,8 +107,8 @@ class TestOdooToolHandler:
             {"id": 3, "name": "Partner 3", "state_id": [14, "CA"]},
         ]
 
-        # Get the registered search_records function
-        search_records = mock_app._tools["search_records"]
+        # Get the registered record_search function
+        record_search = mock_app._tools["record_search"]
 
         # Test with OR operator
         domain_with_or = [
@@ -118,7 +118,7 @@ class TestOdooToolHandler:
             ["state_id.code", "=", "CA"],
         ]
 
-        result = await search_records(
+        result = await record_search(
             model="res.partner", domain=domain_with_or, fields=["name", "state_id"], limit=10
         )
 
@@ -137,7 +137,7 @@ class TestOdooToolHandler:
     async def test_search_records_with_string_domain(
         self, handler, mock_connection, mock_access_controller, mock_app
     ):
-        """Test search_records with domain as JSON string (Claude Desktop format)."""
+        """Test record_search with domain as JSON string (Claude Desktop format)."""
         # Setup mocks
         mock_access_controller.validate_model_access.return_value = None
         mock_connection.search_count.return_value = 1
@@ -146,13 +146,13 @@ class TestOdooToolHandler:
             {"id": 15, "name": "Azure Interior", "is_company": True},
         ]
 
-        # Get the registered search_records function
-        search_records = mock_app._tools["search_records"]
+        # Get the registered record_search function
+        record_search = mock_app._tools["record_search"]
 
         # Domain as JSON string (as sent by Claude Desktop)
         domain_string = '[["is_company", "=", true], ["name", "ilike", "azure interior"]]'
 
-        result = await search_records(model="res.partner", domain=domain_string, limit=5)
+        result = await record_search(model="res.partner", domain=domain_string, limit=5)
 
         # Verify result (SearchResult is a Pydantic model)
         assert result.model == "res.partner"
@@ -171,7 +171,7 @@ class TestOdooToolHandler:
     async def test_search_records_with_python_style_domain(
         self, handler, mock_connection, mock_access_controller, mock_app
     ):
-        """Test search_records with Python-style domain string (single quotes)."""
+        """Test record_search with Python-style domain string (single quotes)."""
         # Setup mocks
         mock_access_controller.validate_model_access.return_value = None
         mock_connection.search_count.return_value = 1
@@ -180,13 +180,13 @@ class TestOdooToolHandler:
             {"id": 15, "name": "Azure Interior", "is_company": True},
         ]
 
-        # Get the registered search_records function
-        search_records = mock_app._tools["search_records"]
+        # Get the registered record_search function
+        record_search = mock_app._tools["record_search"]
 
         # Domain with single quotes (Python style)
         domain_string = "[['name', 'ilike', 'azure interior'], ['is_company', '=', True]]"
 
-        result = await search_records(model="res.partner", domain=domain_string, limit=5)
+        result = await record_search(model="res.partner", domain=domain_string, limit=5)
 
         # Verify result (SearchResult is a Pydantic model)
         assert result.model == "res.partner"
@@ -202,7 +202,7 @@ class TestOdooToolHandler:
     async def test_search_records_with_string_fields(
         self, handler, mock_connection, mock_access_controller, mock_app
     ):
-        """Test search_records with fields as JSON string."""
+        """Test record_search with fields as JSON string."""
         # Setup mocks
         mock_access_controller.validate_model_access.return_value = None
         mock_connection.search_count.return_value = 1
@@ -211,13 +211,13 @@ class TestOdooToolHandler:
             {"id": 15, "name": "Azure Interior", "is_company": True},
         ]
 
-        # Get the registered search_records function
-        search_records = mock_app._tools["search_records"]
+        # Get the registered record_search function
+        record_search = mock_app._tools["record_search"]
 
         # Fields as JSON string (as sometimes sent by Claude Desktop)
         fields_string = '["name", "is_company", "id"]'
 
-        result = await search_records(
+        result = await record_search(
             model="res.partner", domain=[["is_company", "=", True]], fields=fields_string, limit=5
         )
 
@@ -232,7 +232,7 @@ class TestOdooToolHandler:
     async def test_search_records_with_complex_domain(
         self, handler, mock_connection, mock_access_controller, mock_app
     ):
-        """Test search_records with complex nested domain operators."""
+        """Test record_search with complex nested domain operators."""
         # Setup mocks
         mock_access_controller.validate_model_access.return_value = None
         mock_connection.search_count.return_value = 5
@@ -242,8 +242,8 @@ class TestOdooToolHandler:
             {"id": 2, "name": "Company B", "is_company": True},
         ]
 
-        # Get the registered search_records function
-        search_records = mock_app._tools["search_records"]
+        # Get the registered record_search function
+        record_search = mock_app._tools["record_search"]
 
         # Complex domain with nested operators
         complex_domain = [
@@ -254,7 +254,7 @@ class TestOdooToolHandler:
             ["email", "!=", False],
         ]
 
-        await search_records(model="res.partner", domain=complex_domain, limit=5)
+        await record_search(model="res.partner", domain=complex_domain, limit=5)
 
         # Verify the domain was passed correctly
         mock_connection.search_count.assert_called_with("res.partner", complex_domain)
@@ -266,20 +266,20 @@ class TestOdooToolHandler:
     async def test_get_record_success(
         self, handler, mock_connection, mock_access_controller, mock_app
     ):
-        """Test successful get_record operation."""
+        """Test successful record_get operation."""
         # Setup mocks
         mock_access_controller.validate_model_access.return_value = None
         mock_connection.read.return_value = [
             {"id": 123, "name": "Test Partner", "email": "test@example.com"}
         ]
 
-        # Get the registered get_record function
-        get_record = mock_app._tools["get_record"]
+        # Get the registered record_get function
+        record_get = mock_app._tools["record_get"]
 
         # Call the tool
-        result = await get_record(model="res.partner", record_id=123, fields=["name", "email"])
+        result = await record_get(model="res.partner", record_id=123, fields=["name", "email"])
 
-        # Verify result — get_record returns RecordResult
+        # Verify result — record_get returns RecordResult
         assert result.record["id"] == 123
         assert result.record["name"] == "Test Partner"
         assert result.record["email"] == "test@example.com"
@@ -292,7 +292,7 @@ class TestOdooToolHandler:
     async def test_list_models_success(
         self, handler, mock_connection, mock_access_controller, mock_app
     ):
-        """Test successful list_models operation with permissions."""
+        """Test successful model_list operation with permissions."""
         # Setup mocks for get_enabled_models
         mock_access_controller.get_enabled_models.return_value = [
             {"model": "res.partner", "name": "Contact"},
@@ -331,11 +331,11 @@ class TestOdooToolHandler:
 
         mock_access_controller.get_model_permissions.side_effect = get_perms
 
-        # Get the registered list_models function
-        list_models = mock_app._tools["list_models"]
+        # Get the registered model_list function
+        model_list = mock_app._tools["model_list"]
 
         # Call the tool
-        result = await list_models()
+        result = await model_list()
 
         # Verify result structure (ModelsResult is a Pydantic model)
         assert len(result.models) == 2
@@ -357,17 +357,17 @@ class TestOdooToolHandler:
     async def test_search_records_with_defaults(
         self, handler, mock_connection, mock_access_controller, mock_app, valid_config
     ):
-        """Test search_records with default values."""
+        """Test record_search with default values."""
         # Setup mocks
         mock_connection.search_count.return_value = 0
         mock_connection.search.return_value = []
         mock_connection.read.return_value = []
 
-        # Get the registered search_records function
-        search_records = mock_app._tools["search_records"]
+        # Get the registered record_search function
+        record_search = mock_app._tools["record_search"]
 
         # Call with minimal params
-        result = await search_records(model="res.partner")
+        result = await record_search(model="res.partner")
 
         # Verify defaults were applied (SearchResult is a Pydantic model)
         assert result.limit == valid_config.default_limit
@@ -382,23 +382,23 @@ class TestOdooToolHandler:
     async def test_search_records_limit_validation(
         self, handler, mock_connection, mock_access_controller, mock_app, valid_config
     ):
-        """Test search_records limit validation."""
+        """Test record_search limit validation."""
         # Setup mocks
         mock_connection.search_count.return_value = 100
         mock_connection.search.return_value = []
         mock_connection.read.return_value = []
 
-        # Get the registered search_records function
-        search_records = mock_app._tools["search_records"]
+        # Get the registered record_search function
+        record_search = mock_app._tools["record_search"]
 
         # Test with limit exceeding max
-        result = await search_records(model="res.partner", limit=9999)
+        result = await record_search(model="res.partner", limit=9999)
 
         # Over the cap gives the cap, not the (smaller) default
         assert result.limit == valid_config.max_limit
 
         # Test with negative limit
-        result = await search_records(model="res.partner", limit=-1)
+        result = await record_search(model="res.partner", limit=-1)
 
         # Should use default limit
         assert result.limit == valid_config.default_limit

@@ -1,4 +1,4 @@
-"""Degraded-detail tests for post_message (ticket 61): a successful post
+"""Degraded-detail tests for message_post (ticket 61): a successful post
 must never be reported as a failure when follow-up enrichment reads fail."""
 
 from __future__ import annotations

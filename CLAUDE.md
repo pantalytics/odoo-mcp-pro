@@ -55,7 +55,7 @@ coordination with the admin repo):
   `app.streamable_http_app(**server.STREAMABLE_HTTP_OPTIONS)` (stateless +
   json_response), never with the SDK defaults
 - `skills.SkillCallHook` — `on_skill_call(tool_name, skill)` runs on every
-  `find_skill` / `get_skill` call (`skill` is None on no match); admin uses it
+  `skill_find` / `skill_get` call (`skill` is None on no match); admin uses it
   for analytics, since skill tools bypass `OdooToolHandler._track_usage`
 - `error_handling.as_tool_error` / `as_resource_error` — mcp 2.x shows the
   model a handler's exception text only for `ToolError` / `ResourceError`;
@@ -114,7 +114,7 @@ collection time).
 | File | Role |
 |------|------|
 | `server.py` | Factory pattern, `MCPServer` setup, stdio/HTTP runners |
-| `tools/` | MCP tools as mixins on `OdooToolHandler` (crud, query, aggregate, bulk, binary, messaging, introspection, methods); `apps.py` + `register_payment.html` are the one MCP App, `input_required.py` the 2026-07-28 form round trip |
+| `tools/` | MCP tools as mixins on `OdooToolHandler` (crud, query, aggregate, bulk, binary, messaging, introspection, methods); `apps.py` + `payment_register.html` are the one MCP App, `input_required.py` the 2026-07-28 form round trip |
 | `resources/` | MCP resources (URI-based): handler, retrieval, formatting |
 | `schemas.py` | Pydantic result models |
 | `odoo_json2_connection.py` | JSON/2 client (httpx, Odoo 19+); ORM mixin in `odoo_json2_orm.py` |

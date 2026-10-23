@@ -138,7 +138,7 @@ FastMCP (BearerAuthBackend)
     |    - Look up user_connection (sub + tenant_id)
     |    - Create/cache OdooJSON2Connection with user's API key
     |
-    | 4. Execute tool (search_records, get_record, etc.)
+    | 4. Execute tool (record_search, record_get, etc.)
     |    POST /json/2/{model}/{method}
     |    Authorization: Bearer <user_api_key>
     v

@@ -1,4 +1,4 @@
-"""The one MCP App: register_payment carries a ui:// form (ADR 0004, phase 3).
+"""The one MCP App: payment_register carries a ui:// form (ADR 0004, phase 3).
 
 Drives a real MCPServer with the real 2.x client, in-process. The resource is
 served under the Apps MIME type, the tool binds it, and the fallbacks hold:
@@ -50,7 +50,7 @@ def connection():
 @pytest.mark.asyncio
 async def test_form_resource_is_served_and_bound(connection):
     async with Client(_app(connection), extensions=APPS_CLIENT) as client:
-        tool = next(t for t in (await client.list_tools()).tools if t.name == "register_payment")
+        tool = next(t for t in (await client.list_tools()).tools if t.name == "payment_register")
         assert tool.meta["ui"]["resourceUri"] == REGISTER_PAYMENT_UI
         assert "ctx" not in tool.input_schema["properties"]
         listed = {r.uri: r.mime_type for r in (await client.list_resources()).resources}
@@ -76,7 +76,7 @@ async def test_apps_client_gets_the_dict_the_form_reads(connection):
     async with Client(
         _app(connection), extensions=APPS_CLIENT, elicitation_callback=never
     ) as client:
-        result = await client.call_tool("register_payment", CALL)
+        result = await client.call_tool("payment_register", CALL)
 
     body = result.structured_content
     assert body["result_kind"] == "action"
@@ -91,7 +91,7 @@ async def test_client_without_apps_falls_back_to_input_required(connection):
         return ElicitResult(action="accept", content={})
 
     async with Client(_app(connection), elicitation_callback=accept_defaults) as client:
-        result = await client.call_tool("register_payment", CALL)
+        result = await client.call_tool("payment_register", CALL)
 
     assert result.structured_content["result_kind"] == "completed"
     assert connection.create.call_args.args[0] == "account.payment.register"
@@ -102,7 +102,7 @@ async def test_decision_from_the_form_completes(connection):
     connection.call_method.side_effect = [PAYMENT_ACTION, {"payment": 1}]
     async with Client(_app(connection), extensions=APPS_CLIENT) as client:
         result = await client.call_tool(
-            "register_payment", {**CALL, "decision": {"journal_id": 7, "amount": 100.0}}
+            "payment_register", {**CALL, "decision": {"journal_id": 7, "amount": 100.0}}
         )
 
     body = result.structured_content

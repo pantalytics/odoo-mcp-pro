@@ -27,7 +27,7 @@ from ._common import (
 
 
 class BinaryToolsMixin:
-    """set_binary_field tool."""
+    """binary_field_set tool."""
 
     def _register_binary_tools(self):
         """Register binary field tool handlers with the MCP server."""
@@ -43,7 +43,7 @@ class BinaryToolsMixin:
                 open_world_hint=True,
             ),
         )
-        async def set_binary_field(
+        async def binary_field_set(
             model: str,
             record_id: int,
             field_name: str,
@@ -68,14 +68,14 @@ class BinaryToolsMixin:
             For BULK import of files/documents into Odoo, use the Documents app
             (`documents.document`) — users can drop files into a Documents folder
             directly through the Odoo UI or a share-link, and you can then query
-            the resulting records via search_records.
+            the resulting records via record_search.
 
             For res.partner avatars: pass field_name='image_1920'. The avatar_*
             fields are computed from image_1920 and auto-resize. If you pass
             'avatar_1920' this tool auto-redirects to 'image_1920' and warns.
 
             For attaching PDFs/documents to a specific record (e.g. a bonnetje
-            on a sale.order), use create_record on ir.attachment with
+            on a sale.order), use record_create on ir.attachment with
             {name, datas, res_model, res_id} instead.
 
             Args:
@@ -84,7 +84,7 @@ class BinaryToolsMixin:
                 field_name: Binary or Image field name on that model
                 source: http(s) URL the server will fetch. Max 25 MB.
                 connection: Optional. Target a specific Odoo connection by the id
-                    from server_info's `connections` list. Hosted multi-tenant
+                    from server_info_get's `connections` list. Hosted multi-tenant
                     only; ignored when self-hosting a single connection.
 
             Returns:
@@ -93,7 +93,7 @@ class BinaryToolsMixin:
             result = await self._handle_set_binary_field_tool(
                 model, record_id, field_name, source, connection
             )
-            self._track_usage(_current_sub.get(), "set_binary_field")
+            self._track_usage(_current_sub.get(), "binary_field_set")
             return BinaryFieldResult(**result)
 
     async def _handle_set_binary_field_tool(
@@ -104,7 +104,7 @@ class BinaryToolsMixin:
         source: str,
         connection_selector: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Handle set_binary_field tool request.
+        """Handle binary_field_set tool request.
 
         Fetches bytes from `source` (http(s) URL only — data: URIs are rejected
         so bytes never pass through the LLM), validates the target field is
@@ -233,6 +233,6 @@ class BinaryToolsMixin:
         except OdooConnectionError as e:
             raise odoo_error_as_validation(e, writes=True) from e
         except Exception as e:
-            logger.error(f"Error in set_binary_field tool: {e}")
+            logger.error(f"Error in binary_field_set tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))
             raise ValidationError(f"Failed to set binary field: {sanitized_msg}") from e

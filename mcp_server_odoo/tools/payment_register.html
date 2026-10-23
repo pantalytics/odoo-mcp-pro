@@ -156,7 +156,7 @@
       var args = { model: (toolArgs && toolArgs.model) || r.model, ids: (toolArgs && toolArgs.ids) || [], decision: decision };
       if (toolArgs && toolArgs.connection) args.connection = toolArgs.connection;
       submitting = true; submit.disabled = true; status.textContent = "Registering…";
-      request("tools/call", { name: "register_payment", arguments: args }).then(function (res) {
+      request("tools/call", { name: "payment_register", arguments: args }).then(function (res) {
         submitting = false;
         var out = res.isError ? null : structured(res);
         if (!out) { status.textContent = ""; submit.disabled = false; show(card("err", (((res.content || [])[0]) || {}).text || "The call failed.")); return; }

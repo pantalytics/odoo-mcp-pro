@@ -8,7 +8,7 @@ next to the tool result. This module ships exactly one, on purpose (ADR 0004):
 the register-payment wizard as a real form with journal, amount, date and
 memo, instead of a JSON description the model reads and re-calls with.
 
-The tool is ``register_payment``: ``execute_method`` with the method fixed to
+The tool is ``payment_register``: ``method_execute`` with the method fixed to
 ``action_register_payment`` and the form bound to it. It degrades the way the
 extension spec requires -- a client that did not negotiate Apps gets the same
 ``followup`` dict (or, on 2026-07-28 with form elicitation, the
@@ -33,7 +33,7 @@ from ._common import _current_sub
 REGISTER_PAYMENT_UI = "ui://odoo/register-payment.html"
 """The form's resource URI; the tool's ``_meta.ui.resourceUri`` points here."""
 
-_HTML = Path(__file__).with_name("register_payment.html")
+_HTML = Path(__file__).with_name("payment_register.html")
 
 
 def register_payment_html() -> str:
@@ -60,10 +60,10 @@ def odoo_apps() -> Apps:
 
 
 class RegisterPaymentToolsMixin:
-    """``register_payment``: the wizard behind ``account.move.action_register_payment``."""
+    """``payment_register``: the wizard behind ``account.move.action_register_payment``."""
 
     def _register_payment_tools(self):
-        """Register the UI-bound register_payment tool."""
+        """Register the UI-bound payment_register tool."""
 
         @self.tool(  # type: ignore[attr-defined]
             title="Register Payment (form)",
@@ -75,7 +75,7 @@ class RegisterPaymentToolsMixin:
             ),
             meta={"ui": {"resourceUri": REGISTER_PAYMENT_UI}},
         )
-        async def register_payment(
+        async def payment_register(
             model: str,
             ids: List[int],
             decision: Optional[Dict[str, Any]] = None,
@@ -85,11 +85,11 @@ class RegisterPaymentToolsMixin:
             """Register a payment on posted invoices or bills, through a form.
 
             Runs Odoo's own register-payment wizard (`account.move.
-            action_register_payment`). Prefer this over `execute_method` for
+            action_register_payment`). Prefer this over `method_execute` for
             payments: in a client that supports MCP Apps the user gets a form
             with journal, amount, date and memo right in the chat and submits
             it there; the result comes back to you as usual. Elsewhere it
-            behaves exactly like `execute_method`: call without `decision` to
+            behaves exactly like `method_execute`: call without `decision` to
             see the wizard's fields (`followup`), or pass `decision={}` to
             accept Odoo's defaults (full residual, today, default journal).
 
@@ -100,11 +100,11 @@ class RegisterPaymentToolsMixin:
                     "payment_date": "2026-09-05", "communication": "..."}, any
                     subset, or {} for Odoo's defaults. Omit to ask.
                 connection: Optional. Target a specific Odoo connection by the
-                    id from server_info's `connections` list. Hosted
+                    id from server_info_get's `connections` list. Hosted
                     multi-tenant only.
 
             Returns:
-                The same shape as `execute_method`: 'completed' once the payment
+                The same shape as `method_execute`: 'completed' once the payment
                 is registered, 'action' with `followup` while the wizard still
                 needs an answer, 'declined' when the user cancelled the form.
             """
@@ -121,7 +121,7 @@ class RegisterPaymentToolsMixin:
                 connection_selector=connection,
                 ctx=None if ctx is not None and client_supports_apps(ctx) else ctx,
             )
-            self._track_usage(_current_sub.get(), "register_payment")  # type: ignore[attr-defined]
+            self._track_usage(_current_sub.get(), "payment_register")  # type: ignore[attr-defined]
             if isinstance(result, InputRequiredResult):
                 return result
             return ExecuteMethodResult(**result)

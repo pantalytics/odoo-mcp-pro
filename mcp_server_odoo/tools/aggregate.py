@@ -1,4 +1,4 @@
-"""Grouped aggregation MCP tool: aggregate_records.
+"""Grouped aggregation MCP tool: record_aggregate.
 
 Odoo groups and sums the records itself (`read_group` /
 `formatted_read_group`), so a report over many thousands of lines comes back as
@@ -34,10 +34,10 @@ _AGGREGATE_RE = re.compile(rf"^\w+:({'|'.join(AGGREGATE_FUNCTIONS)})$")
 
 
 class AggregateToolsMixin:
-    """aggregate_records tool."""
+    """record_aggregate tool."""
 
     def _register_aggregate_tools(self):
-        """Register the aggregate_records tool with the MCP server."""
+        """Register the record_aggregate tool with the MCP server."""
 
         @self.tool(
             title="Aggregate Records (grouped totals)",
@@ -48,7 +48,7 @@ class AggregateToolsMixin:
                 open_world_hint=True,
             ),
         )
-        async def aggregate_records(
+        async def record_aggregate(
             model: str,
             groupby: Optional[List[str]] = None,
             aggregates: Optional[List[str]] = None,
@@ -74,13 +74,13 @@ class AggregateToolsMixin:
                     Functions: sum, avg, min, max, count, count_distinct,
                     bool_and, bool_or. The record count ('__count') is always
                     included.
-                domain: Odoo domain filter, same format as search_records.
+                domain: Odoo domain filter, same format as record_search.
                 order: Sort groups by a groupby or aggregate spec, e.g.
                     'price_subtotal:sum desc' for a top-N list.
                 limit: Maximum groups to return (max is the server's record limit).
                 offset: Number of groups to skip, for the next page.
                 connection: Optional. Target a specific Odoo connection by the id
-                    from server_info's `connections` list. Hosted multi-tenant
+                    from server_info_get's `connections` list. Hosted multi-tenant
                     only; ignored when self-hosting a single connection.
 
             Returns:
@@ -91,7 +91,7 @@ class AggregateToolsMixin:
             result = await self._handle_aggregate_tool(
                 model, groupby, aggregates, domain, order, limit, offset, connection
             )
-            self._track_usage(_current_sub.get(), "aggregate_records")
+            self._track_usage(_current_sub.get(), "record_aggregate")
             return AggregateResult(**result)
 
     async def _handle_aggregate_tool(
@@ -105,7 +105,7 @@ class AggregateToolsMixin:
         offset: int,
         connection_selector: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Handle aggregate_records tool request."""
+        """Handle record_aggregate tool request."""
         groupby = list(groupby or [])
         aggregates = [spec for spec in (aggregates or []) if spec != "__count"]
 
@@ -165,6 +165,6 @@ class AggregateToolsMixin:
         except OdooConnectionError as e:
             raise odoo_error_as_validation(e) from e
         except Exception as e:
-            logger.error(f"Error in aggregate_records tool: {e}")
+            logger.error(f"Error in record_aggregate tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))
             raise ValidationError(f"Aggregation failed: {sanitized_msg}") from e

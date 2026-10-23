@@ -114,16 +114,16 @@ odoo-mcp-pro is an Odoo connector that implements [MCP (Model Context Protocol)]
 
 | Tool | What it does |
 |------|-------------|
-| `search_records` | Search any model with domain filters, sorting, pagination |
-| `get_record` | Fetch a specific record by ID with smart field selection |
-| `aggregate_records` | Grouped totals computed in Odoo (`read_group`): sum, avg, count per product, month, etc. |
-| `list_models` | Discover available Odoo models |
-| `list_resource_templates` | Discover available resource URI templates |
-| `create_record` / `create_records` | Create one or multiple records |
-| `update_record` / `update_records` | Update one or multiple records |
-| `delete_record` / `delete_records` | Delete one or multiple records |
-| `import_records` | Idempotent upsert via external IDs (same as Odoo CSV import) |
-| `server_info` | Server version, connection status |
+| `record_search` | Search any model with domain filters, sorting, pagination |
+| `record_get` | Fetch a specific record by ID with smart field selection |
+| `record_aggregate` | Grouped totals computed in Odoo (`read_group`): sum, avg, count per product, month, etc. |
+| `model_list` | Discover available Odoo models |
+| `resource_template_list` | Discover available resource URI templates |
+| `record_create` / `records_create` | Create one or multiple records |
+| `record_update` / `records_update` | Update one or multiple records |
+| `record_delete` / `records_delete` | Delete one or multiple records |
+| `record_import` | Idempotent upsert via external IDs (same as Odoo CSV import) |
+| `server_info_get` | Server version, connection status |
 
 **Supports Odoo 14-20** -- uses the JSON/2 API for Odoo 19+ and XML-RPC for older versions. The right protocol is selected automatically.
 

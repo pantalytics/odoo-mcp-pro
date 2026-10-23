@@ -1,4 +1,4 @@
-"""Chatter messaging MCP tool: post_message."""
+"""Chatter messaging MCP tool: message_post."""
 
 from __future__ import annotations
 
@@ -69,12 +69,12 @@ def _is_response_encoding_error(exc: Exception) -> bool:
 
 
 class MessagingToolsMixin:
-    """post_message tool and recordset-method helper."""
+    """message_post tool and recordset-method helper."""
 
     def _register_messaging_tools(self):
         """Register messaging tool handlers with the MCP server."""
 
-        # --- Chatter: post_message ---
+        # --- Chatter: message_post ---
 
         @self.tool(
             title="Post Chatter Message (Send Message / Log Note)",
@@ -85,7 +85,7 @@ class MessagingToolsMixin:
                 open_world_hint=True,
             ),
         )
-        async def post_message(
+        async def message_post(
             model: str,
             record_id: int,
             body: str,
@@ -117,7 +117,7 @@ class MessagingToolsMixin:
                     top of subscribed followers. NB: setting this on a note (mt_note)
                     still creates mail.notification + mail.mail for these partners.
                 attachment_ids: ir.attachment ids to link to the message. Pre-create
-                    via create_record on ir.attachment with {name, datas, res_model,
+                    via record_create on ir.attachment with {name, datas, res_model,
                     res_id} — this is required because inline byte transport over
                     XML-RPC fails.
                 subtype_xmlid: 'mail.mt_comment' (default — sends email to followers)
@@ -125,7 +125,7 @@ class MessagingToolsMixin:
                 cc: Comma-separated extra emails to notify (Odoo v19+ only).
                     On older Odoos this raises a clear error.
                 connection: Optional. Target a specific Odoo connection by the id
-                    from server_info's `connections` list. Hosted multi-tenant
+                    from server_info_get's `connections` list. Hosted multi-tenant
                     only; ignored when self-hosting a single connection.
 
             Returns:
@@ -144,7 +144,7 @@ class MessagingToolsMixin:
                 cc=cc,
                 connection_selector=connection,
             )
-            self._track_usage(_current_sub.get(), "post_message")
+            self._track_usage(_current_sub.get(), "message_post")
             return PostMessageResult(**result)
 
     async def _call_record_method(
@@ -187,7 +187,7 @@ class MessagingToolsMixin:
             )
         except Exception:
             logger.warning(
-                "post_message: could not read the chatter of %s:%s before posting",
+                "message_post: could not read the chatter of %s:%s before posting",
                 model,
                 record_id,
                 exc_info=True,
@@ -212,7 +212,7 @@ class MessagingToolsMixin:
         the meantime is never claimed as ours.
         """
         logger.warning(
-            "post_message: Odoo ran message_post on %s:%s but could not encode "
+            "message_post: Odoo ran message_post on %s:%s but could not encode "
             "the result (%s); looking the message up in the chatter",
             model,
             record_id,
@@ -242,7 +242,7 @@ class MessagingToolsMixin:
         if not (isinstance(ids, list) and ids and isinstance(ids[0], int)):
             raise unconfirmed from error
         logger.info(
-            "post_message: recovered mail.message %s on %s:%s from the chatter",
+            "message_post: recovered mail.message %s on %s:%s from the chatter",
             ids[0],
             model,
             record_id,
@@ -261,7 +261,7 @@ class MessagingToolsMixin:
         cc: Optional[str] = None,
         connection_selector: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Handle post_message tool request."""
+        """Handle message_post tool request."""
         try:
             connection, access_controller, sub = await self._get_user_context(
                 connection_selector, writes=True
@@ -279,7 +279,7 @@ class MessagingToolsMixin:
                 body, body_repaired = _repair_escaped_body(body)
                 if body_repaired:
                     logger.warning(
-                        "post_message: body arrived HTML-escaped on %s %s; unescaped it "
+                        "message_post: body arrived HTML-escaped on %s %s; unescaped it "
                         "before posting so the recipient does not receive literal tags",
                         model,
                         record_id,
@@ -390,7 +390,7 @@ class MessagingToolsMixin:
                         outlook_msg_id = None
                 except Exception:
                     logger.error(
-                        "post_message: mail.message %s was posted to %s:%s but reading "
+                        "message_post: mail.message %s was posted to %s:%s but reading "
                         "the message back failed; returning success with degraded detail",
                         message_id,
                         model,
@@ -427,7 +427,7 @@ class MessagingToolsMixin:
                         )
                 except Exception:
                     logger.error(
-                        "post_message: mail.message %s was posted to %s:%s but reading "
+                        "message_post: mail.message %s was posted to %s:%s but reading "
                         "the notification fan-out failed; returning success with "
                         "degraded detail",
                         message_id,
@@ -485,6 +485,6 @@ class MessagingToolsMixin:
         except OdooConnectionError as e:
             raise odoo_error_as_validation(e, writes=True) from e
         except Exception as e:
-            logger.error(f"Error in post_message tool: {e}")
+            logger.error(f"Error in message_post tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))
             raise ValidationError(f"Failed to post message: {sanitized_msg}") from e

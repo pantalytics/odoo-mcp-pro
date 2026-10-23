@@ -105,8 +105,8 @@ async def test_two_tenants_do_not_block_each_other():
     handler_a, app_a = _make_handler(conn_a)
     handler_b, app_b = _make_handler(conn_b)
 
-    search_a = app_a._tools["search_records"]
-    search_b = app_b._tools["search_records"]
+    search_a = app_a._tools["record_search"]
+    search_b = app_b._tools["record_search"]
 
     start = time.monotonic()
     await asyncio.gather(
@@ -131,7 +131,7 @@ async def test_event_loop_stays_responsive_during_blocking_call():
     """
     conn = _slow_connection()
     handler, app = _make_handler(conn)
-    search = app._tools["search_records"]
+    search = app._tools["record_search"]
 
     ticks = 0
 
@@ -181,7 +181,7 @@ async def test_same_connection_calls_are_serialized():
     conn.read.side_effect = lambda model, ids, fields=None: [{"id": 1}]
 
     handler, app = _make_handler(conn)
-    search = app._tools["search_records"]
+    search = app._tools["record_search"]
 
     await asyncio.gather(
         search(model="res.partner", domain=[], fields=["name"], limit=10),

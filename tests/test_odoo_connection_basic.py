@@ -68,7 +68,7 @@ class TestOdooConnectionInit:
         assert conn.timeout == 60
 
     def test_init_exposes_base_url(self, test_config):
-        """OdooConnection mirrors OdooJSON2Connection._base_url so server_info
+        """OdooConnection mirrors OdooJSON2Connection._base_url so server_info_get
         and other callers can read the connected URL uniformly across both
         connection types."""
         conn = OdooConnection(test_config)

@@ -393,7 +393,7 @@ class TestAccessCheckTimeouts:
 
         # A missing model is named as such, not reported as "Access denied"
         conn.execute_kw.side_effect = OdooConnectionError("Model doesn't exist")
-        with pytest.raises(OdooExecutionError, match="'sale.ordr' does not exist.*list_models"):
+        with pytest.raises(OdooExecutionError, match="'sale.ordr' does not exist.*model_list"):
             OdooConnectionOrmMixin.check_access_rights(conn, "sale.ordr", "read")
 
     def test_json2_check_access_rights_transport_error_is_not_a_denial(self):

@@ -41,18 +41,18 @@ class TestOdooToolHandlerErrors:
     async def test_search_records_access_denied(
         self, handler, mock_connection, mock_access_controller, mock_app
     ):
-        """Test search_records with access denied."""
+        """Test record_search with access denied."""
         # Setup mocks
         mock_access_controller.validate_model_access.side_effect = AccessControlError(
             "Access denied"
         )
 
-        # Get the registered search_records function
-        search_records = mock_app._tools["search_records"]
+        # Get the registered record_search function
+        record_search = mock_app._tools["record_search"]
 
         # Call the tool and expect error
         with pytest.raises(ToolError) as exc_info:
-            await search_records(model="res.partner", domain=[], fields=None, limit=10)
+            await record_search(model="res.partner", domain=[], fields=None, limit=10)
 
         assert "Access denied" in str(exc_info.value)
 
@@ -62,16 +62,16 @@ class TestOdooToolHandlerErrors:
     async def test_search_records_not_authenticated(
         self, handler, mock_connection, mock_access_controller, mock_app
     ):
-        """Test search_records when not authenticated."""
+        """Test record_search when not authenticated."""
         # Setup mocks
         mock_connection.is_authenticated = False
 
-        # Get the registered search_records function
-        search_records = mock_app._tools["search_records"]
+        # Get the registered record_search function
+        record_search = mock_app._tools["record_search"]
 
         # Call the tool and expect error
         with pytest.raises(ToolError) as exc_info:
-            await search_records(model="res.partner")
+            await record_search(model="res.partner")
 
         assert "Not authenticated" in str(exc_info.value)
 
@@ -81,16 +81,16 @@ class TestOdooToolHandlerErrors:
     async def test_search_records_connection_error(
         self, handler, mock_connection, mock_access_controller, mock_app
     ):
-        """Test search_records with connection error."""
+        """Test record_search with connection error."""
         # Setup mocks
         mock_connection.search_count.side_effect = OdooConnectionError("Connection lost")
 
-        # Get the registered search_records function
-        search_records = mock_app._tools["search_records"]
+        # Get the registered record_search function
+        record_search = mock_app._tools["record_search"]
 
         # Call the tool and expect error
         with pytest.raises(ToolError) as exc_info:
-            await search_records(model="res.partner")
+            await record_search(model="res.partner")
 
         assert "Connection error" in str(exc_info.value)
 
@@ -100,19 +100,19 @@ class TestOdooToolHandlerErrors:
     async def test_search_records_with_invalid_json_domain(
         self, handler, mock_connection, mock_access_controller, mock_app
     ):
-        """Test search_records with invalid JSON string domain."""
+        """Test record_search with invalid JSON string domain."""
         # Setup mocks
         mock_access_controller.validate_model_access.return_value = None
 
-        # Get the registered search_records function
-        search_records = mock_app._tools["search_records"]
+        # Get the registered record_search function
+        record_search = mock_app._tools["record_search"]
 
         # Invalid JSON string
         invalid_domain = '[["is_company", "=", true'  # Missing closing brackets
 
         # Should raise ValidationError
         with pytest.raises(ToolError) as exc_info:
-            await search_records(model="res.partner", domain=invalid_domain, limit=5)
+            await record_search(model="res.partner", domain=invalid_domain, limit=5)
 
         # Not re-wrapped as "Search failed: ...": the caller sees what to send
         assert "Invalid domain" in str(exc_info.value)
@@ -125,16 +125,16 @@ class TestOdooToolHandlerErrors:
     async def test_get_record_not_found(
         self, handler, mock_connection, mock_access_controller, mock_app
     ):
-        """Test get_record when record doesn't exist."""
+        """Test record_get when record doesn't exist."""
         # Setup mocks
         mock_connection.read.return_value = []
 
-        # Get the registered get_record function
-        get_record = mock_app._tools["get_record"]
+        # Get the registered record_get function
+        record_get = mock_app._tools["record_get"]
 
         # Call the tool and expect error
         with pytest.raises(ToolError) as exc_info:
-            await get_record(model="res.partner", record_id=999)
+            await record_get(model="res.partner", record_id=999)
 
         assert "Record not found" in str(exc_info.value)
 
@@ -144,18 +144,18 @@ class TestOdooToolHandlerErrors:
     async def test_get_record_access_denied(
         self, handler, mock_connection, mock_access_controller, mock_app
     ):
-        """Test get_record with access denied."""
+        """Test record_get with access denied."""
         # Setup mocks
         mock_access_controller.validate_model_access.side_effect = AccessControlError(
             "Access denied"
         )
 
-        # Get the registered get_record function
-        get_record = mock_app._tools["get_record"]
+        # Get the registered record_get function
+        record_get = mock_app._tools["record_get"]
 
         # Call the tool and expect error
         with pytest.raises(ToolError) as exc_info:
-            await get_record(model="res.partner", record_id=1)
+            await record_get(model="res.partner", record_id=1)
 
         assert "Access denied" in str(exc_info.value)
 
@@ -165,16 +165,16 @@ class TestOdooToolHandlerErrors:
     async def test_get_record_not_authenticated(
         self, handler, mock_connection, mock_access_controller, mock_app
     ):
-        """Test get_record when not authenticated."""
+        """Test record_get when not authenticated."""
         # Setup mocks
         mock_connection.is_authenticated = False
 
-        # Get the registered get_record function
-        get_record = mock_app._tools["get_record"]
+        # Get the registered record_get function
+        record_get = mock_app._tools["record_get"]
 
         # Call the tool and expect error
         with pytest.raises(ToolError) as exc_info:
-            await get_record(model="res.partner", record_id=1)
+            await record_get(model="res.partner", record_id=1)
 
         assert "Not authenticated" in str(exc_info.value)
 
@@ -184,16 +184,16 @@ class TestOdooToolHandlerErrors:
     async def test_get_record_connection_error(
         self, handler, mock_connection, mock_access_controller, mock_app
     ):
-        """Test get_record with connection error."""
+        """Test record_get with connection error."""
         # Setup mocks
         mock_connection.read.side_effect = OdooConnectionError("Connection lost")
 
-        # Get the registered get_record function
-        get_record = mock_app._tools["get_record"]
+        # Get the registered record_get function
+        record_get = mock_app._tools["record_get"]
 
         # Call the tool and expect error
         with pytest.raises(ToolError) as exc_info:
-            await get_record(model="res.partner", record_id=1)
+            await record_get(model="res.partner", record_id=1)
 
         assert "Connection error" in str(exc_info.value)
 
@@ -203,7 +203,7 @@ class TestOdooToolHandlerErrors:
     async def test_list_models_with_permission_failures(
         self, handler, mock_connection, mock_access_controller, mock_app
     ):
-        """Test list_models when some models fail to get permissions."""
+        """Test model_list when some models fail to get permissions."""
         # Setup mocks for get_enabled_models
         mock_access_controller.get_enabled_models.return_value = [
             {"model": "res.partner", "name": "Contact"},
@@ -231,11 +231,11 @@ class TestOdooToolHandlerErrors:
 
         mock_access_controller.get_model_permissions.side_effect = get_perms
 
-        # Get the registered list_models function
-        list_models = mock_app._tools["list_models"]
+        # Get the registered model_list function
+        model_list = mock_app._tools["model_list"]
 
         # Call the tool - should not fail even if some models can't get permissions
-        result = await list_models()
+        result = await model_list()
 
         # Verify result structure (ModelsResult is a Pydantic model)
         assert len(result.models) == 2
@@ -251,16 +251,16 @@ class TestOdooToolHandlerErrors:
     async def test_list_models_error(
         self, handler, mock_connection, mock_access_controller, mock_app
     ):
-        """Test list_models with error."""
+        """Test model_list with error."""
         # Setup mocks
         mock_access_controller.get_enabled_models.side_effect = Exception("API error")
 
-        # Get the registered list_models function
-        list_models = mock_app._tools["list_models"]
+        # Get the registered model_list function
+        model_list = mock_app._tools["model_list"]
 
         # Call the tool and expect error
         with pytest.raises(ToolError) as exc_info:
-            await list_models()
+            await model_list()
 
         assert "Failed to list models" in str(exc_info.value)
 

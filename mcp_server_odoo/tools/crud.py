@@ -28,7 +28,7 @@ from ._common import (
 
 
 class CrudToolsMixin:
-    """create_record, update_record and delete_record tools."""
+    """record_create, record_update and record_delete tools."""
 
     def _register_crud_tools(self):
         """Register CRUD tool handlers with the MCP server."""
@@ -42,7 +42,7 @@ class CrudToolsMixin:
                 open_world_hint=True,
             ),
         )
-        async def create_record(
+        async def record_create(
             model: str,
             values: Dict[str, Any],
             connection: Optional[str] = None,
@@ -53,14 +53,14 @@ class CrudToolsMixin:
                 model: The Odoo model name (e.g., 'res.partner')
                 values: Field values for the new record
                 connection: Optional. Target a specific Odoo connection by the id
-                    from server_info's `connections` list. Hosted multi-tenant
+                    from server_info_get's `connections` list. Hosted multi-tenant
                     only; ignored when self-hosting a single connection.
 
             Returns:
                 Created record details with ID, URL, and confirmation.
             """
             result = await self._handle_create_record_tool(model, values, connection)
-            self._track_usage(_current_sub.get(), "create_record")
+            self._track_usage(_current_sub.get(), "record_create")
             return CreateResult(**result)
 
         @self.tool(
@@ -72,7 +72,7 @@ class CrudToolsMixin:
                 open_world_hint=True,
             ),
         )
-        async def update_record(
+        async def record_update(
             model: str,
             record_id: int,
             values: Dict[str, Any],
@@ -85,14 +85,14 @@ class CrudToolsMixin:
                 record_id: The record ID to update
                 values: Field values to update
                 connection: Optional. Target a specific Odoo connection by the id
-                    from server_info's `connections` list. Hosted multi-tenant
+                    from server_info_get's `connections` list. Hosted multi-tenant
                     only; ignored when self-hosting a single connection.
 
             Returns:
                 Updated record details with confirmation.
             """
             result = await self._handle_update_record_tool(model, record_id, values, connection)
-            self._track_usage(_current_sub.get(), "update_record")
+            self._track_usage(_current_sub.get(), "record_update")
             return UpdateResult(**result)
 
         @self.tool(
@@ -104,7 +104,7 @@ class CrudToolsMixin:
                 open_world_hint=False,
             ),
         )
-        async def delete_record(
+        async def record_delete(
             model: str,
             record_id: int,
             connection: Optional[str] = None,
@@ -115,14 +115,14 @@ class CrudToolsMixin:
                 model: The Odoo model name (e.g., 'res.partner')
                 record_id: The record ID to delete
                 connection: Optional. Target a specific Odoo connection by the id
-                    from server_info's `connections` list. Hosted multi-tenant
+                    from server_info_get's `connections` list. Hosted multi-tenant
                     only; ignored when self-hosting a single connection.
 
             Returns:
                 Deletion confirmation with the deleted record's name and ID.
             """
             result = await self._handle_delete_record_tool(model, record_id, connection)
-            self._track_usage(_current_sub.get(), "delete_record")
+            self._track_usage(_current_sub.get(), "record_delete")
             return DeleteResult(**result)
 
     async def _handle_create_record_tool(
@@ -152,7 +152,7 @@ class CrudToolsMixin:
                 record_id = await run_blocking(connection, connection.create, model, values)
 
                 # Return only essential fields to minimize context usage
-                # Users can use get_record if they need more fields
+                # Users can use record_get if they need more fields
                 essential_fields = ["id", "name", "display_name"]
 
                 # Filter to fields that actually exist on this model
@@ -201,7 +201,7 @@ class CrudToolsMixin:
         except OdooConnectionError as e:
             raise odoo_error_as_validation(e, writes=True) from e
         except Exception as e:
-            logger.error(f"Error in create_record tool: {e}")
+            logger.error(f"Error in record_create tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))
             raise ValidationError(f"Failed to create record: {sanitized_msg}") from e
 
@@ -242,7 +242,7 @@ class CrudToolsMixin:
                 )
 
                 # Return only essential fields to minimize context usage
-                # Users can use get_record if they need more fields
+                # Users can use record_get if they need more fields
                 essential_fields = ["id", "name", "display_name"]
 
                 # Filter to fields that actually exist on this model
@@ -293,7 +293,7 @@ class CrudToolsMixin:
         except OdooConnectionError as e:
             raise odoo_error_as_validation(e, writes=True) from e
         except Exception as e:
-            logger.error(f"Error in update_record tool: {e}")
+            logger.error(f"Error in record_update tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))
             raise ValidationError(f"Failed to update record: {sanitized_msg}") from e
 
@@ -356,6 +356,6 @@ class CrudToolsMixin:
         except OdooConnectionError as e:
             raise odoo_error_as_validation(e, writes=True) from e
         except Exception as e:
-            logger.error(f"Error in delete_record tool: {e}")
+            logger.error(f"Error in record_delete tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))
             raise ValidationError(f"Failed to delete record: {sanitized_msg}") from e

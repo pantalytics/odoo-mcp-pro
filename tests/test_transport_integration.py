@@ -161,8 +161,8 @@ class TestTransportIntegration:
                 await client.list_resources()
                 # Resources might be empty, that's ok for transport testing
 
-                # Test a basic tool call - list_models should work with proper auth
-                result = await client.call_tool("list_models", {})
+                # Test a basic tool call - model_list should work with proper auth
+                result = await client.call_tool("model_list", {})
                 assert result is not None, "Tool call should return a result"
                 # The result should be a proper MCP response
                 assert hasattr(result, "content"), "Tool result should have content"
@@ -295,8 +295,8 @@ class TestTransportIntegration:
             # Send initialized notification
             await tester._send_request("notifications/initialized", {})
 
-            # Test list_models tool call
-            params = {"name": "list_models", "arguments": {}}
+            # Test model_list tool call
+            params = {"name": "model_list", "arguments": {}}
             response = await tester._send_request("tools/call", params, tester._next_id())
             assert response is not None, "No response to tool call"
             # Note: The tool call might fail due to auth, but the transport should work
