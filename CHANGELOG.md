@@ -11,6 +11,8 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+## [3.1.5] - 2026-10-23
+
 ### Fixed
 - Parallel tool calls on Odoo 14-18 (XML-RPC) no longer fail with
   `Connection error: Operation failed: Request-sent` or the generic
