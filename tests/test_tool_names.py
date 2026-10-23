@@ -13,6 +13,7 @@ VERBS = {
     "create",
     "delete",
     "execute",
+    "export",
     "find",
     "get",
     "import",

@@ -93,6 +93,7 @@ Ask yourself: what is the user trying to do?
 ### Totals and reports
 - Use `record_aggregate` for sums, averages and counts per group (Odoo `read_group`), e.g. revenue per product per month. Do not page through records to add them up.
 - Group dates with a granularity: `"invoice_date:month"`. Sort a top-N with `order="price_subtotal:sum desc"`.
+- Use `record_export` when the user wants many rows in a spreadsheet or file, or when you must check thousands of rows one by one. It returns compact CSV (Odoo's Export feature) with paths like `"order_id/partner_id/name"`. Write the CSV to a file if the user wants a file.
 
 ### Relationships
 - Many2one fields return `[id, "display_name"]` or `false`.

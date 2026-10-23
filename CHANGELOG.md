@@ -11,6 +11,16 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-10-23
+
+### Added
+- `record_export` tool: compact CSV export of many records through Odoo's own
+  `export_data` (the Export dialog). The header comes once, relation paths such
+  as `order_id/partner_id/city` work, and Odoo's export permission applies. A
+  page holds up to the server's record limit, with `has_more` for paging.
+  External id paths are refused, because Odoo creates missing external ids
+  during export (#185).
+
 ## [4.0.0] - 2026-10-23
 
 ### Changed (breaking)

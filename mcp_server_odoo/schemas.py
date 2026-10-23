@@ -45,6 +45,20 @@ class AggregateResult(BaseModel):
     has_more: bool = Field(description="True when more groups follow; raise offset to read them")
 
 
+# --- Export Records ---
+
+
+class ExportResult(BaseModel):
+    """Result of a compact CSV export."""
+
+    model: str = Field(description="Odoo model name that was exported")
+    csv: str = Field(description="CSV text: a header line, then one line per row")
+    records: int = Field(description="Records exported in this page")
+    limit: int = Field(description="Maximum records per page")
+    offset: int = Field(description="Number of records skipped")
+    has_more: bool = Field(description="True when more records follow; raise offset to read them")
+
+
 # --- Get Record ---
 
 
