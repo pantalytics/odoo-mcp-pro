@@ -27,6 +27,7 @@ from .apps import RegisterPaymentToolsMixin
 from .binary import BinaryToolsMixin
 from .bulk import BulkToolsMixin
 from .crud import CrudToolsMixin
+from .export import ExportToolsMixin
 from .formatting import FormattingMixin
 from .introspection import IntrospectionToolsMixin
 from .messaging import MessagingToolsMixin
@@ -38,6 +39,7 @@ class OdooToolHandler(
     FormattingMixin,
     QueryToolsMixin,
     AggregateToolsMixin,
+    ExportToolsMixin,
     IntrospectionToolsMixin,
     CrudToolsMixin,
     BulkToolsMixin,
@@ -130,6 +132,7 @@ class OdooToolHandler(
         """
         self._register_query_tools()
         self._register_aggregate_tools()
+        self._register_export_tools()
         self._register_introspection_tools()
         self._register_crud_tools()
         self._register_bulk_tools()
