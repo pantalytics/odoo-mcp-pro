@@ -52,11 +52,8 @@ class ExportResult(BaseModel):
     """Result of a compact CSV export."""
 
     model: str = Field(description="Odoo model name that was exported")
-    fields: List[str] = Field(description="Exported field paths, in column order")
     csv: str = Field(description="CSV text: a header line, then one line per row")
     records: int = Field(description="Records exported in this page")
-    rows: int = Field(description="CSV rows after the header; one2many paths add rows")
-    total: int = Field(description="Records that match the domain")
     limit: int = Field(description="Maximum records per page")
     offset: int = Field(description="Number of records skipped")
     has_more: bool = Field(description="True when more records follow; raise offset to read them")

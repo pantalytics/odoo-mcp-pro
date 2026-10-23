@@ -29,9 +29,6 @@ from ._common import (
     validate_access,
 )
 
-# Odoo also accepts 'partner_id:id' for 'partner_id/id'.
-_COLON_ID_RE = re.compile(r"([^/]):id")
-
 
 def rows_to_csv(header: List[str], rows: List[List[Any]]) -> str:
     """Write rows as CSV with the cell rules of Odoo's CSV export.
@@ -83,7 +80,7 @@ class ExportToolsMixin:
             Use this for a large list of rows (thousands of order lines,
             journal items, stock quants) that the user wants in a spreadsheet
             or file, or that you must check row by row. The header comes once,
-            so a page holds far more rows than search_records. For totals per
+            so each row is much smaller than in search_records. For totals per
             group, use aggregate_records instead. Write the csv text to a file
             when the user wants a file.
 
@@ -110,9 +107,9 @@ class ExportToolsMixin:
                 `csv` with a header line and one line per row. Values are in
                 Odoo's export format: selection labels, display names, dates as
                 YYYY-MM-DD, datetimes in UTC. A one2many subfield path (e.g.
-                'order_line/product_id') adds one row per line, so `rows` can
-                be more than `records`. `total` and `has_more` tell you whether
-                to page on.
+                'order_line/product_id') adds one row per line, so the csv can
+                hold more rows than `records`. `has_more` tells you whether to
+                page on.
             """
             result = await self._handle_export_tool(
                 model, fields, domain, order, limit, offset, connection
@@ -138,7 +135,8 @@ class ExportToolsMixin:
         for path in fields:
             if not path.strip():
                 raise ValidationError(f"Invalid field path: {path!r}")
-            if "id" in _COLON_ID_RE.sub(r"\1/id", path).split("/"):
+            # Odoo reads 'partner_id:id' as 'partner_id/id'.
+            if "id" in re.split("[/:]", path):
                 raise ValidationError(
                     f"Field path {path!r} exports an external id, and Odoo creates "
                     "missing external ids during export. Use '.id' for the database "
@@ -160,18 +158,18 @@ class ExportToolsMixin:
                 if not connection.is_authenticated:
                     raise ValidationError("Not authenticated with Odoo")
 
-                total = await run_blocking(
-                    connection, connection.search_count, model, parsed_domain
-                )
                 record_ids = await run_blocking(
                     connection,
                     connection.search,
                     model,
                     parsed_domain,
-                    limit=limit,
+                    # One extra id tells us whether another page exists.
+                    limit=limit + 1,
                     offset=offset,
                     order=order or "id",
                 )
+                has_more = len(record_ids) > limit
+                record_ids = record_ids[:limit]
                 rows: List[List[Any]] = []
                 if record_ids:
                     exported = await run_blocking(
@@ -180,20 +178,17 @@ class ExportToolsMixin:
                         model,
                         "export_data",
                         ids=record_ids,
-                        fields_to_export=list(fields),
+                        fields_to_export=fields,
                     )
                     rows = exported["datas"]
 
                 return {
                     "model": model,
-                    "fields": list(fields),
-                    "csv": rows_to_csv(list(fields), rows),
+                    "csv": rows_to_csv(fields, rows),
                     "records": len(record_ids),
-                    "rows": len(rows),
-                    "total": total,
                     "limit": limit,
                     "offset": offset,
-                    "has_more": offset + len(record_ids) < total,
+                    "has_more": has_more,
                 }
 
         except ValidationError:

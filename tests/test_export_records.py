@@ -33,7 +33,6 @@ def _parse(text):
 class TestExportRecordsTool:
     @pytest.mark.asyncio
     async def test_exports_csv_through_export_data(self, handler, mock_connection, mock_app):
-        mock_connection.search_count.return_value = 2
         mock_connection.search.return_value = [7, 9]
         mock_connection.call_method.return_value = {"datas": _rows([7, 9])}
 
@@ -44,7 +43,7 @@ class TestExportRecordsTool:
         )
 
         mock_connection.search.assert_called_once_with(
-            "sale.order.line", [["state", "=", "sale"]], limit=500, offset=0, order="id"
+            "sale.order.line", [["state", "=", "sale"]], limit=501, offset=0, order="id"
         )
         mock_connection.call_method.assert_called_once_with(
             "sale.order.line", "export_data", ids=[7, 9], fields_to_export=FIELDS
@@ -54,13 +53,12 @@ class TestExportRecordsTool:
             ["S00007", "Product 7", "7.0"],
             ["S00009", "Product 9", "9.0"],
         ]
-        assert (result.records, result.rows, result.total) == (2, 2, 2)
+        assert result.records == 2
         assert result.has_more is False
 
     @pytest.mark.asyncio
     async def test_pages_a_large_dataset(self, handler, mock_connection, mock_app):
-        mock_connection.search_count.return_value = 20_000
-        mock_connection.search.return_value = list(range(1001, 1501))
+        mock_connection.search.return_value = list(range(1001, 1502))
         mock_connection.call_method.return_value = {"datas": _rows(range(1001, 1501))}
 
         result = await mock_app._tools["export_records"](
@@ -68,14 +66,15 @@ class TestExportRecordsTool:
         )
 
         _, kwargs = mock_connection.search.call_args
-        assert kwargs == {"limit": 500, "offset": 1000, "order": "date desc, id"}
+        assert kwargs == {"limit": 501, "offset": 1000, "order": "date desc, id"}
+        _, kwargs = mock_connection.call_method.call_args
+        assert kwargs["ids"] == list(range(1001, 1501))
         assert result.records == 500
         assert len(_parse(result.csv)) == 501
         assert result.has_more is True
 
     @pytest.mark.asyncio
     async def test_one2many_path_adds_rows(self, handler, mock_connection, mock_app):
-        mock_connection.search_count.return_value = 1
         mock_connection.search.return_value = [3]
         mock_connection.call_method.return_value = {"datas": [["S00003", "Desk"], ["", "Chair"]]}
 
@@ -83,11 +82,11 @@ class TestExportRecordsTool:
             model="sale.order", fields=["name", "order_line/product_id"]
         )
 
-        assert (result.records, result.rows) == (1, 2)
+        assert result.records == 1
+        assert len(_parse(result.csv)) == 3
 
     @pytest.mark.asyncio
     async def test_no_match_returns_header_only(self, handler, mock_connection, mock_app):
-        mock_connection.search_count.return_value = 0
         mock_connection.search.return_value = []
 
         result = await mock_app._tools["export_records"](model="sale.order", fields=["name"])
@@ -119,7 +118,6 @@ class TestExportRecordsTool:
 
     @pytest.mark.asyncio
     async def test_database_id_path_is_allowed(self, handler, mock_connection, mock_app):
-        mock_connection.search_count.return_value = 1
         mock_connection.search.return_value = [5]
         mock_connection.call_method.return_value = {"datas": [["5", "12"]]}
 
@@ -138,7 +136,6 @@ class TestExportRecordsTool:
 
     @pytest.mark.asyncio
     async def test_odoo_export_permission_error_surfaces(self, handler, mock_connection, mock_app):
-        mock_connection.search_count.return_value = 1
         mock_connection.search.return_value = [1]
         mock_connection.call_method.side_effect = OdooExecutionError(
             "UserError: You don't have the rights to export data.", error_type="UserError"
