@@ -126,7 +126,7 @@ class TestAggregateRecordsTool:
     async def test_access_denied(self, handler, mock_access_controller, mock_app):
         mock_access_controller.validate_model_access.side_effect = AccessControlError("no read")
 
-        with pytest.raises(ToolError, match="Access denied"):
+        with pytest.raises(ToolError, match="AccessError"):
             await mock_app._tools["aggregate_records"](model="account.move.line")
 
 

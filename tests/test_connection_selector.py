@@ -163,6 +163,7 @@ class TestSelectorForwarding:
         self, handler, mock_app, mock_connection, mock_access_controller
     ):
         ctx = _patch_user_context(handler, mock_connection, mock_access_controller)
+        mock_connection.search.return_value = [1, 2]
         mock_connection.unlink.return_value = True
 
         await mock_app._tools["delete_records"](

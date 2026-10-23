@@ -3,7 +3,7 @@
   "name": "io.github.pantalytics/odoo-mcp-pro",
   "title": "Odoo MCP Pro",
   "description": "Connect AI to Odoo ERP 14-20: search, create, update and manage records in natural language.",
-  "version": "3.1.3",
+  "version": "3.1.4",
   "websiteUrl": "https://pantalytics.com/en/apps/odoo-mcp-server",
   "repository": {
     "url": "https://github.com/pantalytics/odoo-mcp-pro",

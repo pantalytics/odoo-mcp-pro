@@ -64,7 +64,7 @@ class RetrievalMixin:
                     await validate_access(connection, access_controller, model, "read")
                 except AccessControlError as e:
                     logger.warning(f"Access denied for {model}.read: {e}")
-                    raise PermissionError(f"Access denied: {e}", context=context) from e
+                    raise PermissionError(f"AccessError: {e}", context=context) from e
 
                 # Ensure we're connected
                 if not connection.is_authenticated:
@@ -166,7 +166,7 @@ class RetrievalMixin:
                 await validate_access(connection, access_controller, model, "read")
             except AccessControlError as e:
                 logger.warning(f"Access denied for {model}.read: {e}")
-                raise PermissionError(f"Access denied: {e}") from e
+                raise PermissionError(f"AccessError: {e}") from e
 
             # Ensure we're connected
             if not connection.is_authenticated:
@@ -257,7 +257,7 @@ class RetrievalMixin:
                 await validate_access(connection, access_controller, model, "read")
             except AccessControlError as e:
                 logger.warning(f"Access denied for {model}.read: {e}")
-                raise PermissionError(f"Access denied: {e}") from e
+                raise PermissionError(f"AccessError: {e}") from e
 
             # Ensure we're connected
             if not connection.is_authenticated:
@@ -307,7 +307,7 @@ class RetrievalMixin:
                 await validate_access(connection, access_controller, model, "read")
             except AccessControlError as e:
                 logger.warning(f"Access denied for {model}.read: {e}")
-                raise PermissionError(f"Access denied: {e}") from e
+                raise PermissionError(f"AccessError: {e}") from e
 
             # Ensure we're connected
             if not connection.is_authenticated:

@@ -394,8 +394,8 @@ class TestOdooToolHandler:
         # Test with limit exceeding max
         result = await search_records(model="res.partner", limit=9999)
 
-        # Should use default limit since 9999 > max_limit (SearchResult is a Pydantic model)
-        assert result.limit == valid_config.default_limit
+        # Over the cap gives the cap, not the (smaller) default
+        assert result.limit == valid_config.max_limit
 
         # Test with negative limit
         result = await search_records(model="res.partner", limit=-1)

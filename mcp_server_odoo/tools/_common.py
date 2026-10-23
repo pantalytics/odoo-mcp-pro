@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import ast
 import asyncio
 import contextvars
 import json
@@ -92,14 +93,14 @@ def parse_domain(domain: Any) -> list:
     try:
         parsed = json.loads(domain)
     except json.JSONDecodeError:
-        # Python-style domain: single quotes and True/False
+        # Python-style domain: single quotes and True/False. Parsed as a
+        # literal, so a value like "O'Brien" or "True Value Inc" survives.
         try:
-            json_domain = domain.replace("'", '"')
-            json_domain = json_domain.replace("True", "true").replace("False", "false")
-            parsed = json.loads(json_domain)
-        except json.JSONDecodeError as e:
+            parsed = ast.literal_eval(domain)
+        except (ValueError, SyntaxError) as e:
             raise ValidationError(
-                f"Invalid domain parameter. Expected JSON array, got: {domain[:100]}..."
+                f"Invalid domain: {domain[:100]}. Expected a list of conditions, "
+                f'e.g. [["is_company", "=", true], ["name", "ilike", "acme"]].'
             ) from e
 
     if not isinstance(parsed, list):
@@ -107,15 +108,26 @@ def parse_domain(domain: Any) -> list:
     return parsed
 
 
-def odoo_error_as_validation(exc: OdooConnectionError) -> ValidationError:
+def odoo_error_as_validation(exc: OdooConnectionError, *, writes: bool = False) -> ValidationError:
     """Turn a connection-layer failure into the right user-facing error.
 
     An OdooExecutionError is a fault Odoo returned (bad field, missing method,
     denied permission), so surface its own message. A bare OdooConnectionError
     is a real transport failure and keeps the "Connection error" label.
+
+    For a write (`writes=True`), a transport failure says nothing about
+    whether Odoo applied it: a timeout, a 502 or a dropped socket can all come
+    after the commit. "Connection error" reads as "retry", which posts or pays
+    twice, so a write says the outcome is unknown instead. A refused
+    connection gets the same cautious wording; checking first costs one read.
     """
     if isinstance(exc, OdooExecutionError):
         return ValidationError(str(exc))
+    if writes:
+        return ValidationError(
+            f"Outcome unknown: {exc}. Odoo may have applied the change. Read the "
+            f"record to check before retrying."
+        )
     return ValidationError(f"Connection error: {exc}")
 
 

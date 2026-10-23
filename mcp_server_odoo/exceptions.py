@@ -39,6 +39,20 @@ class OdooExecutionError(OdooConnectionError):
     that partly committed it is unsafe. A bare OdooConnectionError means the
     transport failed (the request may never have reached Odoo) and is the
     only kind a caller may retry.
+
+    The message reads like Odoo's own: ``ValidationError: <Odoo's text>``,
+    with the exception class Odoo raised (``error_type``) on both transports,
+    so the caller can tell a business rule (change the data) from a bad call
+    (change the call).
     """
 
-    pass
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        error_type: str | None = None,
+        status_code: int | None = None,
+    ):
+        super().__init__(message)
+        self.error_type = error_type
+        self.status_code = status_code

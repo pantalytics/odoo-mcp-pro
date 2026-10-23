@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from ..connection_protocol import OdooConnectionProtocol
 
@@ -32,7 +32,14 @@ from ..connection_protocol import OdooConnectionProtocol
 #     elicitation spec: no nested objects or arrays of objects). ---
 
 
-class BackorderDecision(BaseModel):
+class _Decision(BaseModel):
+    """Base for the decision schemas. Unknown keys are refused, never dropped:
+    a dropped `amount_to_pay` pays the full residual and reports success."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class BackorderDecision(_Decision):
     """Follow-up for stock.backorder.confirmation."""
 
     create_backorder: bool = Field(
@@ -43,7 +50,7 @@ class BackorderDecision(BaseModel):
     )
 
 
-class RegisterPaymentDecision(BaseModel):
+class RegisterPaymentDecision(_Decision):
     """Follow-up for account.payment.register. All optional: omit to take
     Odoo's computed defaults (full residual, today, default journal)."""
 
@@ -61,14 +68,14 @@ class RegisterPaymentDecision(BaseModel):
     )
 
 
-class CancelOrderDecision(BaseModel):
+class CancelOrderDecision(_Decision):
     """Follow-up for sale.order.cancel. No fields: providing a decision (even an
     empty {}) confirms the cancellation. On Odoo 17/18, cancelling a confirmed
     sales order opens this confirmation wizard; on 19 action_cancel cancels
     directly with no wizard, so this handler only ever runs on 17/18."""
 
 
-class ReverseMovesDecision(BaseModel):
+class ReverseMovesDecision(_Decision):
     """Follow-up for account.move.reversal (the credit-note / reversal of a
     posted move). All optional: omit to take Odoo's defaults."""
 

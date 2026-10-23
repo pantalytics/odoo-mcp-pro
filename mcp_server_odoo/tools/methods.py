@@ -21,6 +21,7 @@ from mcp.types import InputRequiredResult, ToolAnnotations
 from ..access_control import AccessControlError
 from ..error_handling import ValidationError
 from ..error_sanitizer import ErrorSanitizer
+from ..exceptions import OdooExecutionError
 from ..logging_config import perf_logger
 from ..odoo_connection import OdooConnectionError
 from ..schemas import ExecuteMethodResult
@@ -32,6 +33,8 @@ from ._common import (
     validate_access,
 )
 from .input_required import answered_decision, ask_decision, client_can_answer
+from .messaging import _is_response_encoding_error
+from .method_args import _normalize_kwargs, refuse_empty_recordset
 from .wizards import WizardHandler, followup_descriptor, get_handler
 
 _ACTION_SHAPE_KEYS = ("view_mode", "views", "target", "res_id", "domain")
@@ -87,21 +90,6 @@ def _is_wizard(action: Dict[str, Any]) -> bool:
     return type_val == "ir.actions.act_window" and action.get("target") == "new"
 
 
-def _normalize_kwargs(method: str, kwargs: Dict[str, Any]) -> Dict[str, Any]:
-    """Make a passthrough call behave like the dedicated tool would.
-
-    Only `message_post` needs this. Odoo escapes a plain `str` body (it expects
-    `markupsafe.Markup`, which cannot cross XML-RPC or JSON/2), so a body of
-    "<p>Hi</p>" reaches the chatter -- and the customer's inbox -- as literal
-    "&lt;p&gt;Hi&lt;/p&gt;". `post_message` sets `body_is_html`; a caller
-    reaching for `message_post` here means the same thing by `body`, so set it
-    too unless they said otherwise.
-    """
-    if method != "message_post" or "body" not in kwargs:
-        return kwargs
-    return {"body_is_html": True, **kwargs}
-
-
 class MethodsToolsMixin:
     """execute_method tool."""
 
@@ -126,6 +114,7 @@ class MethodsToolsMixin:
             kwargs: Optional[Dict[str, Any]] = None,
             decision: Optional[Dict[str, Any]] = None,
             connection: Optional[str] = None,
+            args: Optional[List[Any]] = None,
             ctx: Optional[Context] = None,  # injected by the SDK, never by the model
         ) -> Union[ExecuteMethodResult, InputRequiredResult]:
             """Call a public method on an Odoo model or recordset.
@@ -157,6 +146,7 @@ class MethodsToolsMixin:
                 ids: Record ids to call the method on (the recordset). Omit for
                     a model-level (`@api.model`) method.
                 kwargs: Keyword arguments for the method, if it takes any.
+                    Arguments go here by name, e.g. {"vals": {...}} for write.
                 decision: Answer for a follow-up wizard, e.g.
                     {"create_backorder": true} or {"journal_id": 7}. OMIT it on
                     the first call to discover the fields via `followup`; pass it
@@ -168,6 +158,9 @@ class MethodsToolsMixin:
                 connection: Optional. Target a specific Odoo connection by the id
                     from server_info's `connections` list. Hosted multi-tenant
                     only; ignored when self-hosting a single connection.
+                args: Not supported; always refused. Unlike Odoo's execute_kw
+                    there are no positional arguments: record ids go in `ids`,
+                    everything else in `kwargs`.
 
             Returns:
                 The raw return value, classified as a plain value, record ids, an
@@ -182,6 +175,7 @@ class MethodsToolsMixin:
                 decision=decision,
                 connection_selector=connection,
                 ctx=ctx,
+                positional_args=args,
             )
             self._track_usage(_current_sub.get(), "execute_method")
             if isinstance(result, InputRequiredResult):
@@ -197,9 +191,11 @@ class MethodsToolsMixin:
         decision: Optional[Dict[str, Any]] = None,
         connection_selector: Optional[str] = None,
         ctx: Optional[Context] = None,
+        positional_args: Optional[List[Any]] = None,
     ) -> Union[Dict[str, Any], InputRequiredResult]:
         """Handle execute_method tool request."""
         try:
+            refuse_empty_recordset(model, method, ids, kwargs, positional_args)
             if decision is None:
                 # A retry of the form we asked for (input_required) carries the
                 # answer here; it is the `decision` the caller would have passed.
@@ -245,9 +241,21 @@ class MethodsToolsMixin:
                     raise ValidationError("Not authenticated with Odoo")
 
                 call_kwargs = _normalize_kwargs(method, kwargs or {})
-                value = await run_blocking(
-                    connection, connection.call_method, model, method, ids=ids, **call_kwargs
-                )
+                try:
+                    value = await run_blocking(
+                        connection, connection.call_method, model, method, ids=ids, **call_kwargs
+                    )
+                except OdooExecutionError as e:
+                    # Odoo encodes the return value after the method ran. A
+                    # "Connection error" here invites a retry: a second post or
+                    # payment (same failure post_message recovers from).
+                    if not _is_response_encoding_error(e):
+                        raise
+                    raise ValidationError(
+                        f"{model}.{method} ran in Odoo, but its return value could "
+                        f"not be sent back. Do not call it again; read the "
+                        f"record to check its new state."
+                    ) from e
 
                 kind = _classify_result(value)
 
@@ -332,9 +340,9 @@ class MethodsToolsMixin:
         except ValidationError:
             raise
         except AccessControlError as e:
-            raise ValidationError(f"Access denied: {e}") from e
+            raise ValidationError(f"AccessError: {e}") from e
         except OdooConnectionError as e:
-            raise odoo_error_as_validation(e) from e
+            raise odoo_error_as_validation(e, writes=True) from e
         except Exception as e:
             logger.error(f"Error in execute_method tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))
@@ -372,6 +380,13 @@ class MethodsToolsMixin:
         data: Optional[Dict[str, Any]] = None
 
         if decision is not None:
+            unknown = sorted(set(decision) - set(handler.schema.model_fields))
+            if unknown:
+                allowed = ", ".join(handler.schema.model_fields) or "none, pass decision={}"
+                raise ValidationError(
+                    f"Unknown decision field(s) for {handler.res_model}: "
+                    f"{', '.join(unknown)}. Allowed: {allowed}. Nothing was changed."
+                )
             try:
                 data = handler.schema(**decision).model_dump()
             except Exception as e:

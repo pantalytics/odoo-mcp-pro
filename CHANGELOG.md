@@ -11,6 +11,8 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+## [3.1.4] - 2026-10-19
+
 ### Added
 - `aggregate_records` tool: grouped totals computed by Odoo (`read_group` on
   Odoo 14-18, `formatted_read_group` on 19+). A report over thousands of lines
@@ -21,6 +23,48 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
   standard vs custom with a three-year ROI rule, scope and change management).
 - `create_fastmcp_app(on_skill_call=...)`: an optional hook told which skill
   `find_skill` and `get_skill` served, so a host can count skill usage.
+
+### Changed
+- Errors from Odoo read the way Odoo says them, `<ExceptionClass>: <message>`
+  (`ValidationError: ...`, `AccessError: ...`, `NotFound: ...`), on JSON/2 and
+  XML-RPC alike, replacing our own prefixes ("Invalid request:", "Not found:",
+  "Operation failed:", "Access denied:"). The class is on
+  `OdooExecutionError.error_type`. ADR 0003 amended accordingly.
+
+### Fixed
+- Error messages keep what Odoo said. The sanitizer still strips paths, code
+  line numbers and tracebacks, but no longer swaps Odoo's text for a generic
+  sentence ("Validation error: Please check your input", "Operation failed: {}"),
+  no longer cuts "line 3" out of "required on line 3", keeps short messages, and
+  reduces an XML-RPC traceback to its final `ExceptionType: message`.
+- A transport failure during a write (timeout, 502, dropped socket) says the
+  outcome is unknown and to check the record, instead of "Connection error",
+  which invited a second post or payment.
+- `execute_method` says the method ran when Odoo could not encode its return
+  value, instead of reporting a failure; refuses `ids` inside `kwargs`.
+- Wizard decisions refuse unknown fields instead of dropping them (a dropped
+  `amount_to_pay` paid the full residual and reported success).
+- `import_records` returns Odoo's warnings (e.g. several matches for a value),
+  keeps the field on each error, and says when Odoo rolled back the whole batch.
+- `delete_records` and `delete_record` check the ids exist first; Odoo's unlink
+  answers true for an id that is not there, and so does its read.
+- A misspelled model on Odoo 14-18 is named as such, not reported as "Access
+  denied". On Odoo 19+ a transport failure during the access check is no
+  longer cached as "Access denied" for five minutes.
+- `search_records` no longer wraps its own validation errors as "Search failed:
+  Invalid search criteria format"; a limit over the cap gives the cap, not the
+  default; Python-style domains parse as literals, so "O'Brien" and
+  "True Value Inc" survive.
+- `list_models` raises when the model list cannot be read, instead of returning
+  an empty list.
+- `execute_method` refuses a call that would run on no records: positional
+  `args` (the SDK used to drop them silently, so the method ran on an empty
+  recordset and `write` returned `true`) and `ids=[]`. The error says where the
+  ids go.
+- `import_records` and the server instructions now explain what `lang` does to a
+  translatable field when English (en_US) is not active in Odoo: Odoo writes the
+  value as the base text too, so every language without its own translation shows
+  it. To set one language only, use `update_field_translations`.
 
 ### Security
 - `set_binary_field` no longer fetches from private, loopback, link-local or

@@ -285,7 +285,7 @@ class TestSearchResource:
         with pytest.raises(MCPPermissionError) as exc_info:
             await resource_handler._handle_search("sale.order", None, None, None, None, None)
 
-        assert "Access denied" in str(exc_info.value)
+        assert "AccessError" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_search_connection_error(

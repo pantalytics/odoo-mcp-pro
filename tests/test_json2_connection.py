@@ -103,14 +103,42 @@ class TestOdooJSON2Call:
 
     def test_call_404_raises(self, connected_json2):
         conn, mock_client = connected_json2
-        mock_client.post.return_value = _error_response(404, {"message": "Model not found"})
-        with pytest.raises(OdooExecutionError, match="Not found"):
-            conn._call("res.partner", "search", domain=[])
+        # Odoo 19's own body for an unknown model (addons/rpc json2.py)
+        mock_client.post.return_value = _error_response(
+            404,
+            {
+                "name": "werkzeug.exceptions.NotFound",
+                "message": "the model 'res.partnr' does not exist",
+            },
+        )
+        with pytest.raises(
+            OdooExecutionError, match="^NotFound: The model 'res.partnr' does not exist$"
+        ) as exc_info:
+            conn._call("res.partnr", "search", domain=[])
+        assert exc_info.value.error_type == "NotFound"
+        assert exc_info.value.status_code == 404
 
     def test_call_422_raises(self, connected_json2):
         conn, mock_client = connected_json2
+        # A business rule, not a malformed request: Odoo sends UserError and
+        # its subclasses as 422, so the name matters more than the status
+        mock_client.post.return_value = _error_response(
+            422,
+            {
+                "name": "odoo.exceptions.ValidationError",
+                "message": "The VAT number is not valid",
+            },
+        )
+        with pytest.raises(
+            OdooExecutionError, match="^ValidationError: The VAT number is not valid$"
+        ) as exc_info:
+            conn._call("res.partner", "write", ids=[1], vals={"vat": "x"})
+        assert exc_info.value.error_type == "ValidationError"
+
+    def test_call_422_without_name_falls_back_on_status(self, connected_json2):
+        conn, mock_client = connected_json2
         mock_client.post.return_value = _error_response(422, {"message": "Invalid domain"})
-        with pytest.raises(OdooExecutionError, match="Invalid request"):
+        with pytest.raises(OdooExecutionError, match="^UserError: Invalid domain$"):
             conn._call("res.partner", "search", domain=[])
 
     def test_call_500_opaque_body_is_connection_error(self, connected_json2):
@@ -126,9 +154,9 @@ class TestOdooJSON2Call:
         conn, mock_client = connected_json2
         # Odoo's own JSON/2 fault envelope: a server-side application error.
         mock_client.post.return_value = _error_response(
-            500, {"name": "IntegrityError", "message": "duplicate key value"}
+            500, {"name": "psycopg2.errors.UniqueViolation", "message": "duplicate key value"}
         )
-        with pytest.raises(OdooExecutionError, match="Server error"):
+        with pytest.raises(OdooExecutionError, match="^UniqueViolation: Duplicate key value$"):
             conn._call("res.partner", "search", domain=[])
 
     def test_call_502_gateway_is_connection_error(self, connected_json2):

@@ -1,6 +1,7 @@
 # ADR 0003: One error contract for failed tool calls
 
-- Status: Accepted
+- Status: Accepted, amended 2026-10-19 (see the end: Odoo's own exception
+  names replace the custom taxonomy)
 - Date: 2026-09-01
 - Deciders: Rutger
 - Scope: `error_sanitizer.py`, `error_handling.py`, `tools/*.py`, both
@@ -183,3 +184,55 @@ reads finally agree, and the existing PostHog dashboards keep working.
 | 5 | Fingerprint on `kind` in the failure corpus | admin | small |
 
 Phase 1 alone removes the reported symptom and is worth shipping on its own.
+
+## Amendment 2026-10-19: use the names MCP and Odoo already define
+
+Decided by Rutger after the error audit for Element X (ticket #237, PR #178):
+follow the official MCP SDK and Odoo error conventions as closely as
+possible, instead of a taxonomy of our own. This replaces sections 1-3 and
+phases 2-3 above. Sections 4 (redact, never rewrite) and "explicitly not
+doing" stand.
+
+**MCP side: the spec already has the split.** The tools spec (Error Handling)
+separates protocol errors (unknown tool, malformed request: JSON-RPC error,
+`-32602`) from tool execution errors (API failures, input validation,
+business logic: a result with `isError: true` the model can act on). The SDK
+does both: an unknown tool or arguments that fail the input schema are
+handled by the SDK itself, and a `ToolError` becomes `isError: true` with our
+text. `as_tool_error` turns every handler failure into a `ToolError`, so
+nothing reaches the client as a bare "Error executing tool X".
+
+**Odoo side: the kind is the exception class Odoo raised.** Odoo already
+names every failure: `UserError`, `ValidationError`, `AccessError`,
+`MissingError`, `AccessDenied` (`odoo.exceptions`), werkzeug's `NotFound` and
+`UnprocessableEntity` for an unknown model, method or argument on JSON/2, and
+plain Python (`TypeError`, `ValueError`) for a bad call. The message reads
+the way Odoo says it, `<ExceptionClass>: <Odoo's message>`, on both
+transports, and the class is on `OdooExecutionError.error_type`:
+
+| Transport | Where the class comes from |
+|-----------|----------------------------|
+| JSON/2 (19+) | the envelope's `name` (`odoo.exceptions.ValidationError` -> `ValidationError`); without one, the status (403 AccessError, 404 NotFound, 422 UserError) |
+| XML-RPC (14-18) | the fault code (2 UserError and its subclasses, 3 AccessDenied, 4 AccessError); code 1 is a traceback whose last line names the class |
+
+A custom kind such as `business_rule` would be one more vocabulary for the
+model to learn, a lossy one (`ValidationError` and `UserError` both became
+`business_rule`), and ours alone. Odoo's names are documented, appear in
+every Odoo forum answer the model was trained on, and are what the user sees
+in Odoo's own dialog.
+
+**What stays ours** (no Odoo class exists for it): pre-flight checks before
+Odoo is called (plain sentences that say how to fix the call), `AccessError:`
+for a refusal by our access check, `Authentication failed:` on 401 (the admin
+layer's connect checks match on it), `Connection error:` for a transport
+failure on a read, and `Outcome unknown: ... check before retrying` for one on
+a write, which replaces the `retry` line of the envelope where it matters.
+
+| # | Change | Status |
+|---|--------|--------|
+| 1 | Keep Odoo's text, stop "Connection error" on business errors | done (PR #178) |
+| 2 | Odoo's exception class on both transports, `error_type` attribute | done (PR #178) |
+| 3 | Custom envelope and taxonomy | dropped for the above |
+| 4 | Admin quota and connect errors | open |
+| 5 | Fingerprint failures on `error_type` | open |
+
