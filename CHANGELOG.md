@@ -11,6 +11,13 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+### Fixed
+- Parallel tool calls on Odoo 14-18 (XML-RPC) no longer fail with
+  `Connection error: Operation failed: Request-sent` or the generic
+  "An error occurred while processing your request". The pooled proxies share
+  one HTTP connection, and the transport now lets one request use it at a
+  time (#163).
+
 ## [3.1.4] - 2026-10-19
 
 ### Added
@@ -73,13 +80,6 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
   read its own network and hand the bytes back as an attachment. Self-hosters
   with a file server on their LAN can opt out with
   `ODOO_MCP_ALLOW_PRIVATE_FETCH=true`. Reported by kta1kri.
-
-### Fixed
-- Parallel tool calls on Odoo 14-18 (XML-RPC) no longer fail with
-  `Connection error: Operation failed: Request-sent` or the generic
-  "An error occurred while processing your request". The pooled proxies share
-  one HTTP connection, and the transport now lets one request use it at a
-  time (#163).
 
 ## [3.1.3] - 2026-10-05
 
