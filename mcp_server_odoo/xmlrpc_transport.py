@@ -6,6 +6,7 @@ the connect for the kernel TCP timeout, ~130s on Linux. Any code path
 that probes a user-supplied Odoo URL must use one of these transports.
 """
 
+import threading
 import xmlrpc.client
 from urllib.parse import urlparse
 
@@ -14,11 +15,22 @@ DEFAULT_XMLRPC_TIMEOUT = 30
 
 
 class TimeoutTransport(xmlrpc.client.Transport):
-    """HTTP transport that applies a socket timeout."""
+    """HTTP transport that applies a socket timeout and serializes requests."""
 
     def __init__(self, timeout: float):
         super().__init__()
         self._timeout = timeout
+        self._lock = threading.Lock()
+
+    def request(self, host, handler, request_body, verbose=False):
+        # The transport caches one http.client connection, and
+        # ConnectionPool gives the same transport to every proxy. Two threads
+        # on that socket at once raise CannotSendRequest('Request-sent') or
+        # ResponseNotReady('Idle'). An asyncio lock in the caller does not
+        # prevent this: a cancelled task releases it while its worker thread
+        # is still mid-request.
+        with self._lock:
+            return super().request(host, handler, request_body, verbose)
 
     def make_connection(self, host):
         # The socket does not exist yet at this point; setting
