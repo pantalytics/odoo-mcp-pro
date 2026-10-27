@@ -16,7 +16,8 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
   work again. A client that keeps the tool list it read when the connector was
   added, as ChatGPT does until the connector is refreshed, kept calling them
   and got "Unknown tool" every time. Each old name runs the tool that replaced
-  it. The tool list still shows only the new names.
+  it, and the result carries a one-line note with the new name. The tool list
+  still shows only the new names.
 - When Odoo refuses a search, read, aggregate or export over a field name it
   does not know, the error now names every unknown field in the call at once,
   with the closest real names ("did you mean product_uom_id?") and how to list

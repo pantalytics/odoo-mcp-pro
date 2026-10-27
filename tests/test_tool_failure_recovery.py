@@ -63,6 +63,16 @@ class TestLegacyToolNames:
 
         assert not result.is_error
         connection.read.assert_called_once_with("res.partner", [7], ["name"])
+        assert "Acme" in result.content[0].text
+        assert "now called record_search" in result.content[-1].text
+
+    @pytest.mark.asyncio
+    async def test_new_name_gets_no_rename_note(self):
+        app, _ = _real_app()
+
+        result = await app.call_tool("record_search", {"model": "res.partner", "fields": ["name"]})
+
+        assert not any("now called" in block.text for block in result.content)
 
     @pytest.mark.asyncio
     async def test_old_names_stay_out_of_the_tool_list(self):
