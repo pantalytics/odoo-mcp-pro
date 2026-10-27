@@ -56,3 +56,8 @@ class OdooExecutionError(OdooConnectionError):
         super().__init__(message)
         self.error_type = error_type
         self.status_code = status_code
+
+
+# ``error_type`` of an OdooExecutionError for a request that a firewall or
+# proxy in front of Odoo refused (an opaque 403); Odoo itself never saw it.
+BLOCKED = "Blocked"

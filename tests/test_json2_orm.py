@@ -13,6 +13,7 @@ import os
 import pytest
 
 from mcp_server_odoo.config import OdooConfig
+from mcp_server_odoo.exceptions import BLOCKED, OdooExecutionError
 from mcp_server_odoo.odoo_json2_connection import OdooJSON2Connection
 from tests.helpers.json2_fixtures import (  # noqa: F401
     _error_response,
@@ -218,13 +219,24 @@ class TestOdooJSON2ORM:
         assert result is True
 
     def test_check_access_rights_returns_false_on_403(self, connected_json2):
-        """403 means access denied."""
+        """Odoo's own 403 (with its envelope) means access denied."""
         conn, mock_client = connected_json2
-        mock_client.post.return_value = _error_response(403)
+        mock_client.post.return_value = _error_response(
+            403, {"name": "odoo.exceptions.AccessError", "message": "No access"}
+        )
 
         result = conn.check_access_rights("some.model", "read")
 
         assert result is False
+
+    def test_check_access_rights_raises_when_a_proxy_blocks(self, connected_json2):
+        """An opaque 403 (nginx allow-list) is not a rights answer: raise it."""
+        conn, mock_client = connected_json2
+        mock_client.post.return_value = _error_response(403, text="<html>403 Forbidden</html>")
+
+        with pytest.raises(OdooExecutionError, match="^Blocked: ") as exc_info:
+            conn.check_access_rights("some.model", "read")
+        assert exc_info.value.error_type == BLOCKED
 
 
 # ---------------------------------------------------------------------------

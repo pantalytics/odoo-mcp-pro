@@ -101,6 +101,17 @@ class TestOdooJSON2Call:
         with pytest.raises(OdooExecutionError, match="Access denied"):
             conn._call("res.partner", "search", domain=[])
 
+    def test_call_opaque_403_is_blocked_not_access_error(self, connected_json2):
+        """nginx's 403 page is a firewall, not Odoo saying "no rights"."""
+        conn, mock_client = connected_json2
+        mock_client.post.return_value = _error_response(
+            403, text="<html><head><title>403 Forbidden</title></head></html>"
+        )
+        with pytest.raises(OdooExecutionError, match="^Blocked: a firewall") as exc_info:
+            conn._call("res.partner", "search", domain=[])
+        assert exc_info.value.error_type == "Blocked"
+        assert exc_info.value.status_code == 403
+
     def test_call_404_raises(self, connected_json2):
         conn, mock_client = connected_json2
         # Odoo 19's own body for an unknown model (addons/rpc json2.py)
