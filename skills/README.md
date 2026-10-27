@@ -67,6 +67,7 @@ odoo_modules_any: [sale_management, crm]
 | Skill | For |
 |---|---|
 | `import-pro` | Full consultant-led data migration workflow (companion to Import Pro module) |
+| `connector-pro-prepare` | Prepare Odoo for a Connector Pro sync: VAT, OSS, product categories, with the admin (companion to the Connector Pro module) |
 | `odoo-advisor` | Pick the right Odoo app/model for a business process |
 | `odoo-consultant` | Run an implementation: phases, SPoC, standard vs custom with an ROI rule, change management |
 
