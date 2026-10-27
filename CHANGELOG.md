@@ -11,6 +11,8 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+## [4.1.2] - 2026-10-27
+
 ### Fixed
 - A 403 that a firewall or proxy in front of Odoo sends (an nginx IP
   allow-list, a WAF) now reads "Blocked: a firewall or proxy in front of Odoo
