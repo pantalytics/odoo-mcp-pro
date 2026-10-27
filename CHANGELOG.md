@@ -11,6 +11,13 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+## [4.1.1] - 2026-10-27
+
+### Fixed
+- `record_import` returns Odoo's own row errors when `load()` rolls the batch
+  back. It used to fail with "object of type 'bool' has no len()", because
+  Odoo answers `ids: False` then.
+
 ## [4.1.0] - 2026-10-23
 
 ### Added
