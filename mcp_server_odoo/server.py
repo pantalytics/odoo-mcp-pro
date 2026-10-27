@@ -33,6 +33,7 @@ from .odoo_knowledge import SERVER_INSTRUCTIONS
 from .performance import PerformanceManager
 from .resources import register_resources
 from .skills import SkillCallHook, register_skills
+from .tool_aliases import LEGACY_TOOL_NAMES, accept_legacy_tool_names
 from .tools import register_tools
 from .tools.apps import odoo_apps
 from .version_detect import detect_api_version
@@ -92,6 +93,8 @@ def create_fastmcp_app(
     )
     # Skill resources — markdown workflow guides, no DB connection needed
     register_skills(app, on_call=on_skill_call)
+    # A client with a tool list from before 4.0.0 still calls the old names.
+    accept_legacy_tool_names(app, LEGACY_TOOL_NAMES)
     return app
 
 

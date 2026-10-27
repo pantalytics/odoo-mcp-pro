@@ -8,8 +8,7 @@
 
 from __future__ import annotations
 
-import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from mcp.types import ToolAnnotations
 
@@ -24,9 +23,11 @@ from ._common import (
     logger,
     odoo_error_as_validation,
     parse_domain,
+    parse_fields,
     run_blocking,
     validate_access,
 )
+from .field_hints import domain_field_names, unknown_fields_hint
 
 
 class QueryToolsMixin:
@@ -94,7 +95,7 @@ class QueryToolsMixin:
         async def record_get(
             model: str,
             record_id: int,
-            fields: Optional[List[str]] = None,
+            fields: Optional[Union[List[str], str]] = None,
             connection: Optional[str] = None,
         ) -> RecordResult:
             """Get a specific record by ID with smart field selection.
@@ -150,6 +151,9 @@ class QueryToolsMixin:
         connection_selector: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Handle search tool request."""
+        connection = None
+        parsed_domain: Any = None
+        parsed_fields: Any = None
         try:
             connection, access_controller, sub = await self._get_user_context(connection_selector)
             with perf_logger.track_operation("tool_search", model=model):
@@ -161,21 +165,8 @@ class QueryToolsMixin:
                     raise ValidationError("Not authenticated with Odoo")
 
                 parsed_domain = parse_domain(domain)
-
-                # Handle fields parameter - can be string or list
-                parsed_fields = fields
-                if fields is not None and isinstance(fields, str):
-                    # Parse string to list
-                    try:
-                        parsed_fields = json.loads(fields)
-                        if not isinstance(parsed_fields, list):
-                            raise ValidationError(
-                                f"Fields must be a list, got {type(parsed_fields).__name__}"
-                            )
-                    except json.JSONDecodeError as e:
-                        raise ValidationError(
-                            f"Invalid fields parameter. Expected JSON array, got: {fields[:100]}..."
-                        ) from e
+                # A list, a JSON array string or "name, email".
+                parsed_fields = parse_fields(fields)
 
                 # Set defaults. Over the cap means "as many as you allow", so
                 # give the cap; the result's `limit` says what was used.
@@ -246,7 +237,11 @@ class QueryToolsMixin:
         except AccessControlError as e:
             raise ValidationError(f"AccessError: {e}") from e
         except OdooConnectionError as e:
-            raise odoo_error_as_validation(e) from e
+            names = domain_field_names(parsed_domain)
+            if isinstance(parsed_fields, list) and parsed_fields != ["__all__"]:
+                names += [n for n in parsed_fields if isinstance(n, str)]
+            hint = await unknown_fields_hint(connection, model, e, names)
+            raise (hint or odoo_error_as_validation(e)) from e
         except Exception as e:
             logger.error(f"Error in record_search tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))
@@ -256,10 +251,12 @@ class QueryToolsMixin:
         self,
         model: str,
         record_id: int,
-        fields: Optional[List[str]],
+        fields: Optional[Union[List[str], str]],
         connection_selector: Optional[str] = None,
     ) -> RecordResult:
         """Handle get record tool request."""
+        connection = None
+        fields = parse_fields(fields)
         try:
             connection, access_controller, sub = await self._get_user_context(connection_selector)
             with perf_logger.track_operation("tool_get_record", model=model):
@@ -335,7 +332,9 @@ class QueryToolsMixin:
         except AccessControlError as e:
             raise ValidationError(f"AccessError: {e}") from e
         except OdooConnectionError as e:
-            raise odoo_error_as_validation(e) from e
+            names = [n for n in fields or [] if isinstance(n, str) and n != "__all__"]
+            hint = await unknown_fields_hint(connection, model, e, names)
+            raise (hint or odoo_error_as_validation(e)) from e
         except Exception as e:
             logger.error(f"Error in record_get tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))

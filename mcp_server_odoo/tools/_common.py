@@ -108,6 +108,31 @@ def parse_domain(domain: Any) -> list:
     return parsed
 
 
+def parse_fields(fields: Any) -> Any:
+    """Accept a field list as a list, a JSON array string or "a, b, c".
+
+    None stays None (smart defaults). A bare name is a one-field list.
+    """
+    if fields is None or not isinstance(fields, str):
+        return fields
+    text = fields.strip()
+    if text.startswith("["):
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            try:
+                parsed = ast.literal_eval(text)
+            except (ValueError, SyntaxError) as e:
+                raise ValidationError(
+                    f"Invalid fields parameter. Expected a list of field names, got: {fields[:100]}"
+                ) from e
+        if not isinstance(parsed, list):
+            raise ValidationError(f"Fields must be a list, got {type(parsed).__name__}")
+        return parsed
+    names = [name.strip().strip("'\"") for name in text.split(",")]
+    return [name for name in names if name] or None
+
+
 def odoo_error_as_validation(exc: OdooConnectionError, *, writes: bool = False) -> ValidationError:
     """Turn a connection-layer failure into the right user-facing error.
 
