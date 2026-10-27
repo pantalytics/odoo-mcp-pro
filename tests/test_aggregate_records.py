@@ -112,8 +112,6 @@ class TestAggregateRecordsTool:
             ({"aggregates": ["line_ids:array_agg"]}, "Invalid aggregate"),
             ({"groupby": ["a", "b", "c", "d"]}, "at most 3"),
             ({"groupby": [""]}, "Invalid groupby"),
-            ({"limit": 501}, "between 1 and 500"),
-            ({"limit": 0}, "between 1 and 500"),
             ({"offset": -1}, "offset"),
         ],
     )
@@ -121,6 +119,18 @@ class TestAggregateRecordsTool:
         with pytest.raises(ToolError, match=message):
             await mock_app._tools["record_aggregate"](model="sale.order", **kwargs)
         mock_connection.read_group.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("asked, used", [(5000, 500), (0, 100), (-1, 100)])
+    async def test_limit_is_clamped_like_record_search(
+        self, handler, mock_connection, mock_app, asked, used
+    ):
+        mock_connection.read_group.return_value = []
+
+        result = await mock_app._tools["record_aggregate"](model="sale.order", limit=asked)
+
+        assert mock_connection.read_group.call_args.kwargs["limit"] == used + 1
+        assert result.limit == used
 
     @pytest.mark.asyncio
     async def test_access_denied(self, handler, mock_access_controller, mock_app):

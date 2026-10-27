@@ -28,6 +28,7 @@ from ._common import (
     run_blocking,
     validate_access,
 )
+from .field_hints import domain_field_names, unknown_fields_hint
 
 
 def rows_to_csv(header: List[str], rows: List[List[Any]]) -> str:
@@ -89,15 +90,15 @@ class ExportToolsMixin:
                 fields: Columns to export. Use '/' to follow a relation, as in
                     Odoo's Export dialog: ['order_id/name', 'product_id/default_code',
                     'order_id/partner_shipping_id/city', 'product_uom_qty'].
-                    A relation without a subfield gives its display name. Use
-                    '.id' for the database id. External id paths ('id',
-                    'partner_id/id') are refused: Odoo creates missing external
-                    ids during export, which writes to the database.
+                    A relation without a subfield gives its display name.
+                    'id' (or '.id') is the database id, 'partner_id/id' the
+                    partner's. External ids are not exported: Odoo creates
+                    missing ones during export, which writes to the database.
                 domain: Odoo domain filter, same format as record_search.
                 order: Sort order, e.g. 'date_order desc, id'. Default 'id',
                     so pages do not overlap.
                 limit: Records per page. Default and maximum: the server's
-                    record limit.
+                    record limit; a larger value gives the maximum.
                 offset: Number of records to skip, for the next page.
                 connection: Optional. Target a specific Odoo connection by the id
                     from server_info_get's `connections` list. Hosted multi-tenant
@@ -132,23 +133,28 @@ class ExportToolsMixin:
             raise ValidationError(
                 "fields must name at least one column, e.g. ['name', 'partner_id/name']."
             )
+        paths = []
         for path in fields:
             if not path.strip():
                 raise ValidationError(f"Invalid field path: {path!r}")
-            # Odoo reads 'partner_id:id' as 'partner_id/id'.
-            if "id" in re.split("[/:]", path):
+            # 'partner_id:id' is Odoo's own external id syntax: refused.
+            if "id" in re.split(":", path)[1:]:
                 raise ValidationError(
                     f"Field path {path!r} exports an external id, and Odoo creates "
                     "missing external ids during export. Use '.id' for the database "
                     "id, or 'name' for the display name."
                 )
-        if limit is None:
+            # 'id' and 'partner_id/id' mean the database id here, the same id
+            # record_search returns. To Odoo they are external ids, which
+            # export would create, so they go to Odoo as '.id'.
+            paths.append("/".join(".id" if part == "id" else part for part in path.split("/")))
+        if limit is None or limit <= 0:
             limit = self.config.max_limit
-        if limit <= 0 or limit > self.config.max_limit:
-            raise ValidationError(f"limit must be between 1 and {self.config.max_limit}")
+        limit = min(limit, self.config.max_limit)
         if offset < 0:
             raise ValidationError("offset must not be negative")
         parsed_domain = parse_domain(domain)
+        connection = None
 
         try:
             connection, access_controller, sub = await self._get_user_context(connection_selector)
@@ -178,7 +184,7 @@ class ExportToolsMixin:
                         model,
                         "export_data",
                         ids=record_ids,
-                        fields_to_export=fields,
+                        fields_to_export=paths,
                     )
                     rows = exported["datas"]
 
@@ -196,7 +202,11 @@ class ExportToolsMixin:
         except AccessControlError as e:
             raise ValidationError(f"AccessError: {e}") from e
         except OdooConnectionError as e:
-            raise odoo_error_as_validation(e) from e
+            names = domain_field_names(parsed_domain) + [
+                path.split("/", 1)[0] for path in paths if not path.startswith(".")
+            ]
+            hint = await unknown_fields_hint(connection, model, e, names)
+            raise (hint or odoo_error_as_validation(e)) from e
         except Exception as e:
             logger.error(f"Error in record_export tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))

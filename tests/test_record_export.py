@@ -101,12 +101,8 @@ class TestExportRecordsTool:
         [
             ({"fields": []}, "at least one column"),
             ({"fields": [" "]}, "Invalid field path"),
-            ({"fields": ["id", "name"]}, "external id"),
-            ({"fields": ["partner_id/id"]}, "external id"),
             ({"fields": ["partner_id:id"]}, "external id"),
-            ({"fields": ["tag_ids/id"]}, "external id"),
-            ({"fields": ["name"], "limit": 501}, "between 1 and 500"),
-            ({"fields": ["name"], "limit": 0}, "between 1 and 500"),
+            ({"fields": ["tag_ids:id"]}, "external id"),
             ({"fields": ["name"], "offset": -1}, "offset"),
         ],
     )
@@ -126,6 +122,31 @@ class TestExportRecordsTool:
         )
 
         assert _parse(result.csv)[1] == ["5", "12"]
+
+    @pytest.mark.asyncio
+    async def test_id_paths_export_the_database_id(self, handler, mock_connection, mock_app):
+        mock_connection.search.return_value = [5]
+        mock_connection.call_method.return_value = {"datas": [["5", "12", "S00005"]]}
+
+        result = await mock_app._tools["record_export"](
+            model="sale.order", fields=["id", "partner_id/id", "name"]
+        )
+
+        _, kwargs = mock_connection.call_method.call_args
+        assert kwargs["fields_to_export"] == [".id", "partner_id/.id", "name"]
+        assert _parse(result.csv) == [["id", "partner_id/id", "name"], ["5", "12", "S00005"]]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("asked", [501, 10000, 0])
+    async def test_limit_is_clamped_to_the_cap(self, handler, mock_connection, mock_app, asked):
+        mock_connection.search.return_value = []
+
+        result = await mock_app._tools["record_export"](
+            model="sale.order", fields=["name"], limit=asked
+        )
+
+        assert mock_connection.search.call_args.kwargs["limit"] == 501
+        assert result.limit == 500
 
     @pytest.mark.asyncio
     async def test_access_denied(self, handler, mock_access_controller, mock_app):

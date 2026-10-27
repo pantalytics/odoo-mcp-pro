@@ -26,11 +26,39 @@ from ._common import (
     run_blocking,
     validate_access,
 )
+from .field_hints import domain_field_names, unknown_fields_hint
 
 MAX_GROUPBY = 3
 # array_agg / recordset are left out: they return id lists, not compact totals.
 AGGREGATE_FUNCTIONS = ("sum", "avg", "min", "max", "count", "count_distinct", "bool_and", "bool_or")
 _AGGREGATE_RE = re.compile(rf"^\w+:({'|'.join(AGGREGATE_FUNCTIONS)})$")
+
+
+def normalize_order(
+    order: Optional[str], groupby: List[str], aggregates: List[str]
+) -> Optional[str]:
+    """Rewrite order terms Odoo would refuse into the spec they can only mean.
+
+    Odoo sorts groups only by a groupby or aggregate spec. A bare field that
+    names exactly one of them ('amount_total desc' with 'amount_total:sum',
+    'date' with 'date:month') becomes that spec, and 'count' becomes
+    '__count'. Any other term is left for Odoo to judge.
+    """
+    if not order:
+        return order
+    specs = list(groupby) + list(aggregates) + ["__count"]
+    terms = []
+    for term in order.split(","):
+        key, *direction = term.split()
+        if key not in specs:
+            if key == "count":
+                key = "__count"
+            else:
+                matches = [spec for spec in specs if spec.split(":", 1)[0] == key]
+                if len(matches) == 1:
+                    key = matches[0]
+        terms.append(" ".join([key, *direction]))
+    return ", ".join(terms)
 
 
 class AggregateToolsMixin:
@@ -77,7 +105,8 @@ class AggregateToolsMixin:
                 domain: Odoo domain filter, same format as record_search.
                 order: Sort groups by a groupby or aggregate spec, e.g.
                     'price_subtotal:sum desc' for a top-N list.
-                limit: Maximum groups to return (max is the server's record limit).
+                limit: Maximum groups to return. Above the server's record limit
+                    you get the limit; `limit` in the result says which.
                 offset: Number of groups to skip, for the next page.
                 connection: Optional. Target a specific Odoo connection by the id
                     from server_info_get's `connections` list. Hosted multi-tenant
@@ -123,11 +152,16 @@ class AggregateToolsMixin:
                     f"Invalid aggregate {spec!r}. Use 'field:function' with one of: "
                     f"{', '.join(AGGREGATE_FUNCTIONS)}."
                 )
-        if limit <= 0 or limit > self.config.max_limit:
-            raise ValidationError(f"limit must be between 1 and {self.config.max_limit}")
+        # Same as record_search: no limit means the default, over the cap
+        # means the cap. The result's `limit` says what was used.
+        if limit <= 0:
+            limit = self.config.default_limit
+        limit = min(limit, self.config.max_limit)
         if offset < 0:
             raise ValidationError("offset must not be negative")
         parsed_domain = parse_domain(domain)
+        order = normalize_order(order, groupby, aggregates)
+        connection = None
 
         try:
             connection, access_controller, sub = await self._get_user_context(connection_selector)
@@ -163,7 +197,11 @@ class AggregateToolsMixin:
         except AccessControlError as e:
             raise ValidationError(f"AccessError: {e}") from e
         except OdooConnectionError as e:
-            raise odoo_error_as_validation(e) from e
+            names = domain_field_names(parsed_domain) + [
+                spec.split(":", 1)[0] for spec in groupby + aggregates
+            ]
+            hint = await unknown_fields_hint(connection, model, e, names)
+            raise (hint or odoo_error_as_validation(e)) from e
         except Exception as e:
             logger.error(f"Error in record_aggregate tool: {e}")
             sanitized_msg = ErrorSanitizer.sanitize_message(str(e))

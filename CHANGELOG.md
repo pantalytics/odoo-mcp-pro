@@ -11,6 +11,27 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+### Fixed
+- The tool names from before 4.0.0 (`search_records`, `execute_method`, ...)
+  work again. A client that keeps the tool list it read when the connector was
+  added, as ChatGPT does until the connector is refreshed, kept calling them
+  and got "Unknown tool" every time. Each old name runs the tool that replaced
+  it. The tool list still shows only the new names.
+- When Odoo refuses a search, read, aggregate or export over a field name it
+  does not know, the error now names every unknown field in the call at once,
+  with the closest real names ("did you mean product_uom_id?") and how to list
+  the model's fields. Odoo itself stops at the first bad name, so a call with
+  three guessed names took three failed calls to fix.
+- `record_get` takes `fields` as a string too, like `record_search`: a JSON
+  array, or names separated by commas. Both tools accept `"name, email"`.
+- `record_aggregate` sorts by a bare field name when it names one groupby or
+  aggregate (`amount_total desc` with `amount_total:sum`), and `count` means
+  `__count`. Odoo refused those.
+- `record_aggregate` and `record_export` treat a `limit` above the server's
+  record limit as the limit, as `record_search` does, instead of failing.
+- `record_export` exports `id` and `partner_id/id` as database ids. They used
+  to be refused as external ids; `partner_id:id` still is.
+
 ## [4.1.2] - 2026-10-27
 
 ### Fixed
