@@ -20,6 +20,7 @@ from curl_cffi.requests.errors import RequestsError
 from .config import OdooConfig
 from .error_sanitizer import ErrorSanitizer
 from .exceptions import (  # noqa: F401
+    BLOCKED,
     OdooConnectionError,
     OdooExecutionError,
     OdooTimeoutError,
@@ -159,6 +160,18 @@ class OdooJSON2Connection(Json2OrmMixin):
         # does, "<ExceptionClass>: <message>" -- ValidationError, AccessError,
         # MissingError, UserError, or werkzeug's NotFound / UnprocessableEntity
         # for an unknown model, method or argument. See OdooExecutionError.
+        if status == 403 and error_type is None:
+            # A 403 without Odoo's envelope came from something in front of
+            # Odoo (nginx, a WAF), usually an IP allow-list. Reading it as an
+            # AccessError told the model it lacked rights it actually has.
+            # Never retried: the same request gets the same answer.
+            raise OdooExecutionError(
+                "Blocked: a firewall or proxy in front of Odoo refused the request "
+                "(HTTP 403) before it reached Odoo. If it only lets known IP "
+                "addresses through, add the address this MCP server connects from.",
+                error_type=BLOCKED,
+                status_code=status,
+            )
         if status == 401:
             # Kept as-is: the admin layer's connect checks match on these words
             raise OdooExecutionError(

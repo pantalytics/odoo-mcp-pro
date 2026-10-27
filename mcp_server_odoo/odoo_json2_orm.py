@@ -12,7 +12,7 @@ Transport code (HTTP client, _call, error parsing) lives in
 import logging
 from typing import Any, Dict, List, Optional, Union
 
-from .exceptions import OdooConnectionError, OdooExecutionError, OdooTimeoutError
+from .exceptions import BLOCKED, OdooConnectionError, OdooExecutionError, OdooTimeoutError
 
 logger = logging.getLogger(__name__)
 
@@ -281,6 +281,10 @@ class Json2OrmMixin:
             # nothing about rights. Returning False here was cached for five
             # minutes as "Access denied" on every call to the model.
             if not isinstance(e, OdooExecutionError):
+                raise
+            # A firewall's 403 says nothing about rights either, and the model
+            # needs its message, not "Operation not allowed".
+            if e.error_type == BLOCKED:
                 raise
             return False
 
