@@ -11,6 +11,8 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+## [4.1.3] - 2026-10-28
+
 ### Fixed
 - The tool names from before 4.0.0 (`search_records`, `execute_method`, ...)
   work again. A client that keeps the tool list it read when the connector was
