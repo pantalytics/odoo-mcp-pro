@@ -189,8 +189,18 @@ class DeleteResult(BaseModel):
 class PostMessageNotification(BaseModel):
     """One mail.notification row created by a chatter post."""
 
-    partner_id: int = Field(description="res.partner id of the recipient")
-    partner_name: str = Field(description="Display name of the recipient")
+    partner_id: Optional[int] = Field(
+        default=None,
+        description=(
+            "res.partner id of the recipient. None for a cc address that is no "
+            "contact in Odoo: its row carries the address in `email` instead."
+        ),
+    )
+    partner_name: str = Field(default="", description="Display name of the recipient")
+    email: Optional[str] = Field(
+        default=None,
+        description="The address a cc recipient without a contact was mailed at (Odoo 19+)",
+    )
     type: str = Field(description="notification_type — 'inbox' or 'email'")
     status: str = Field(description="notification_status — 'sent', 'exception', 'ready', etc.")
     failure_reason: Optional[str] = Field(

@@ -401,18 +401,24 @@ class MessagingToolsMixin:
 
                 # Read notifications fan-out
                 notifications: List[Dict[str, Any]] = []
+                notif_fields = [
+                    "res_partner_id",
+                    "notification_type",
+                    "notification_status",
+                    "failure_reason",
+                ]
+                # A cc address gets a row with no contact, only the address
+                # (#205). The column exists from Odoo 19, which is also the
+                # only series that takes `cc`, so it is asked for only then.
+                if cc:
+                    notif_fields.append("mail_email_address")
                 try:
                     notif_rows = await run_blocking(
                         connection,
                         connection.search_read,
                         "mail.notification",
                         [("mail_message_id", "=", message_id)],
-                        [
-                            "res_partner_id",
-                            "notification_type",
-                            "notification_status",
-                            "failure_reason",
-                        ],
+                        notif_fields,
                     )
                     for n in notif_rows:
                         p = n.get("res_partner_id") or [None, ""]
@@ -420,6 +426,7 @@ class MessagingToolsMixin:
                             {
                                 "partner_id": p[0] if isinstance(p, list) else None,
                                 "partner_name": p[1] if isinstance(p, list) and len(p) > 1 else "",
+                                "email": n.get("mail_email_address") or None,
                                 "type": n.get("notification_type") or "",
                                 "status": n.get("notification_status") or "",
                                 "failure_reason": n.get("failure_reason") or None,
