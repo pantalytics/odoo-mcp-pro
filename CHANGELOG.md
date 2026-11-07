@@ -11,6 +11,15 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+## [4.1.4] - 2026-11-07
+
+### Fixed
+- `message_post` with `cc` reported a validation error although the mail went
+  out (#205). Odoo 19 gives a cc address that is no contact a delivery row
+  without a partner, and the result required one, so an AI that trusted the
+  error could send the mail twice. That row now has `partner_id: null` and the
+  address in `email`.
+
 ## [4.1.3] - 2026-10-28
 
 ### Fixed
