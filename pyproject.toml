@@ -48,7 +48,7 @@ Changelog = "https://github.com/ivnvxd/mcp-server-odoo/releases"
 [project.optional-dependencies]
 dev = [
     "pytest>=9.1.0",
-    "pytest-asyncio>=1.4.0",
+    "pytest-asyncio>=1.4.1.post1",
     "pytest-cov>=7.1.0",
     "ty>=0.0.90",
     # Upper bound on purpose: ruff 0.16 widens the default rule set and starts
