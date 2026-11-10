@@ -19,6 +19,8 @@ from ..logging_config import perf_logger
 from ..odoo_connection import OdooConnectionError
 from ..schemas import FieldSelectionMetadata, RecordResult, SearchResult
 from ._common import (
+    DomainArg,
+    FieldsArg,
     _current_sub,
     logger,
     odoo_error_as_validation,
@@ -47,8 +49,8 @@ class QueryToolsMixin:
         )
         async def record_search(
             model: str,
-            domain: Optional[Any] = None,
-            fields: Optional[Any] = None,
+            domain: DomainArg = None,
+            fields: FieldsArg = None,
             limit: int = 100,
             offset: int = 0,
             order: Optional[str] = None,
@@ -58,15 +60,11 @@ class QueryToolsMixin:
 
             Args:
                 model: The Odoo model name (e.g., 'res.partner')
-                domain: Odoo domain filter - can be:
-                    - A list: [['is_company', '=', True]]
-                    - A JSON string: "[['is_company', '=', true]]"
-                    - None: returns all records (default)
-                fields: Field selection options - can be:
-                    - None (default): Returns smart selection of common fields
-                    - A list: ["field1", "field2", ...] - Returns only specified fields
-                    - A JSON string: '["field1", "field2"]' - Parsed to list
-                    - ["__all__"] or '["__all__"]': Returns ALL fields (warning: may cause serialization errors)
+                domain: Odoo domain filter as JSON text, e.g.
+                    '[["is_company", "=", true]]'. Omit for all records.
+                fields: Field names, e.g. ["field1", "field2"]. Omit for a smart
+                    selection of common fields. ["__all__"] returns ALL fields
+                    (warning: may cause serialization errors).
                 limit: Maximum number of records to return
                 offset: Number of records to skip
                 order: Sort order (e.g., 'name asc')
@@ -95,7 +93,7 @@ class QueryToolsMixin:
         async def record_get(
             model: str,
             record_id: int,
-            fields: Optional[Union[List[str], str]] = None,
+            fields: FieldsArg = None,
             connection: Optional[str] = None,
         ) -> RecordResult:
             """Get a specific record by ID with smart field selection.

@@ -11,6 +11,14 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+### Fixed
+- Microsoft Copilot Studio agents can filter again. `domain` on `record_search`,
+  `record_aggregate` and `record_export` had no type in the tool schema, and
+  Copilot Studio drops an input it cannot give one Power Fx type, so its agents
+  searched without a filter (odoo-mcp-pro-admin#661). `domain` is now JSON text
+  and `fields` an array of strings, without a null default. Every Odoo operator
+  still works, and a client that sends a real list is still accepted.
+
 ## [4.1.4] - 2026-11-07
 
 ### Fixed

@@ -19,6 +19,7 @@ from ..logging_config import perf_logger
 from ..odoo_connection import OdooConnectionError
 from ..schemas import AggregateResult
 from ._common import (
+    DomainArg,
     _current_sub,
     logger,
     odoo_error_as_validation,
@@ -80,7 +81,7 @@ class AggregateToolsMixin:
             model: str,
             groupby: Optional[List[str]] = None,
             aggregates: Optional[List[str]] = None,
-            domain: Optional[Any] = None,
+            domain: DomainArg = None,
             order: Optional[str] = None,
             limit: int = 100,
             offset: int = 0,
