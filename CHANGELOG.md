@@ -11,6 +11,8 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+## [4.1.5] - 2026-11-10
+
 ### Fixed
 - Microsoft Copilot Studio agents can filter again. `domain` on `record_search`,
   `record_aggregate` and `record_export` had no type in the tool schema, and
