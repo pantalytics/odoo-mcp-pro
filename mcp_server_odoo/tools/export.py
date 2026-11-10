@@ -21,6 +21,7 @@ from ..logging_config import perf_logger
 from ..odoo_connection import OdooConnectionError
 from ..schemas import ExportResult
 from ._common import (
+    DomainArg,
     _current_sub,
     logger,
     odoo_error_as_validation,
@@ -70,7 +71,7 @@ class ExportToolsMixin:
         async def record_export(
             model: str,
             fields: List[str],
-            domain: Optional[Any] = None,
+            domain: DomainArg = None,
             order: Optional[str] = None,
             limit: Optional[int] = None,
             offset: int = 0,

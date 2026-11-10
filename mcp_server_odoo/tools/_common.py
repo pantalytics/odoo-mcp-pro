@@ -13,8 +13,10 @@ import asyncio
 import contextvars
 import json
 import re
-from typing import Any, Callable, TypeVar
+from typing import Annotated, Any, Callable, Optional, TypeVar
 from weakref import WeakKeyDictionary
+
+from pydantic import Field, WithJsonSchema
 
 from ..error_handling import ValidationError
 from ..exceptions import OdooConnectionError, OdooExecutionError
@@ -30,6 +32,48 @@ _AVATAR_FIELD_RE = re.compile(r"^avatar_(128|256|512|1024|1920)$")
 
 # ContextVar to pass the current user's sub from _get_user_context to the wrapper
 _current_sub: contextvars.ContextVar[str] = contextvars.ContextVar("_current_sub", default="stdio")
+
+# Tool inputs with one concrete type in the advertised schema.
+#
+# An untyped input (`Any`, schema `{}`) or a union makes Microsoft Copilot
+# Studio drop or truncate it: it maps every input to one Power Fx type
+# (learn.microsoft.com/microsoft-copilot-studio/mcp-troubleshooting). Its
+# agents then searched without a domain (odoo-mcp-pro-admin#661). The schema
+# below is what clients see; validation still takes Any, so a client that
+# sends a real list keeps working, and parse_domain / parse_fields read both.
+# Optional by leaving `required`, not by `"default": null`, which contradicts
+# the one type.
+_NO_NULL_DEFAULT = Field(json_schema_extra=lambda schema: schema.pop("default", None))
+DomainArg = Annotated[
+    Optional[Any],
+    WithJsonSchema(
+        {
+            "type": "string",
+            "description": (
+                "Odoo domain as JSON text: a list of conditions, e.g. "
+                '[["is_company", "=", true], ["name", "ilike", "acme"]]. '
+                "Any Odoo operator works, and '|', '&' and '!' go in the list "
+                'as strings: ["|", ["state", "=", "sale"], ["state", "=", "done"]]. '
+                "Omit for all records."
+            ),
+        }
+    ),
+    _NO_NULL_DEFAULT,
+]
+FieldsArg = Annotated[
+    Optional[Any],
+    WithJsonSchema(
+        {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": (
+                'Field names, e.g. ["name", "email"]. ["__all__"] returns every '
+                "field. Omit for a smart selection of common fields."
+            ),
+        }
+    ),
+    _NO_NULL_DEFAULT,
+]
 
 T = TypeVar("T")
 
