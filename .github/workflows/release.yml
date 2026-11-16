@@ -1,11 +1,16 @@
 name: GitHub release
 
-# Every version tag gets a GitHub release with its CHANGELOG section as notes.
-# A release created with GITHUB_TOKEN does not trigger other workflows, so
-# publish.yml (PyPI) stays manual.
+# Every version gets a tag and a GitHub release with its CHANGELOG section as
+# notes. A merge to main that raises the version in pyproject.toml creates
+# both, on the commit that changed the version; a pushed tag works as before.
+#
+# A tag or release created with GITHUB_TOKEN does not trigger other workflows,
+# so the MCP Registry publish is started here by workflow_dispatch (which is
+# allowed), and publish.yml (PyPI) stays manual.
 
 on:
   push:
+    branches: [main]
     tags: ['v*']
   workflow_dispatch:
     inputs:
@@ -15,17 +20,39 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+
+    - name: Pick the tag
+      id: tag
+      env:
+        INPUT_TAG: ${{ inputs.tag }}
+      run: |
+        if [ -n "$INPUT_TAG" ]; then
+          echo "tag=$INPUT_TAG" >> "$GITHUB_OUTPUT"
+        elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+          echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+        else
+          VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml | head -1)
+          [ -n "$VERSION" ] || { echo "no version in pyproject.toml" >&2; exit 1; }
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          # The commit that last changed pyproject.toml is the release commit.
+          echo "target=$(git log -1 --format=%H -- pyproject.toml)" >> "$GITHUB_OUTPUT"
+        fi
 
     - name: Create release from CHANGELOG
+      id: release
       env:
         GH_TOKEN: ${{ github.token }}
-        TAG: ${{ inputs.tag || github.ref_name }}
+        TAG: ${{ steps.tag.outputs.tag }}
+        TARGET: ${{ steps.tag.outputs.target }}
       run: |
         if gh release view "$TAG" >/dev/null 2>&1; then
           echo "Release $TAG already exists"; exit 0
@@ -39,4 +66,15 @@ jobs:
         if [ ! -s notes.md ]; then
           echo "See CHANGELOG.md" > notes.md
         fi
-        gh release create "$TAG" --verify-tag --title "$TAG" --notes-file notes.md
+        if [ -n "$TARGET" ]; then
+          gh release create "$TAG" --target "$TARGET" --title "$TAG" --notes-file notes.md
+          echo "created_tag=true" >> "$GITHUB_OUTPUT"
+        else
+          gh release create "$TAG" --verify-tag --title "$TAG" --notes-file notes.md
+        fi
+
+    - name: Publish to the MCP Registry
+      if: steps.release.outputs.created_tag == 'true'
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: gh workflow run mcp-registry.yml --ref main
