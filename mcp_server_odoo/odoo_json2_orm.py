@@ -172,17 +172,23 @@ class Json2OrmMixin:
         logger.info(f"Created {model} record with ID {record_id}")
         return record_id
 
-    def create_bulk(self, model: str, vals_list: List[Dict[str, Any]]) -> List[int]:
+    def create_bulk(
+        self,
+        model: str,
+        vals_list: List[Dict[str, Any]],
+        context: Optional[Dict[str, Any]] = None,
+    ) -> List[int]:
         """Create multiple records in a single call.
 
         Args:
             model: Odoo model name
             vals_list: List of dicts, each containing field values for one record
+            context: Optional Odoo context, e.g. the company to create in
 
         Returns:
             List of IDs of the created records
         """
-        result = self._call(model, "create", vals_list=vals_list)
+        result = self._call(model, "create", vals_list=vals_list, context=context)
         self._fields_cache.pop(model, None)
         if not isinstance(result, list):
             result = [result]
@@ -219,18 +225,25 @@ class Json2OrmMixin:
         )
         return result
 
-    def write(self, model: str, ids: List[int], values: Dict[str, Any]) -> bool:
+    def write(
+        self,
+        model: str,
+        ids: List[int],
+        values: Dict[str, Any],
+        context: Optional[Dict[str, Any]] = None,
+    ) -> bool:
         """Update existing records.
 
         Args:
             model: Odoo model name
             ids: Record IDs to update
             values: Field values to update
+            context: Optional Odoo context, e.g. the company to write in
 
         Returns:
             True if successful
         """
-        result = self._call(model, "write", ids=ids, vals=values)
+        result = self._call(model, "write", ids=ids, vals=values, context=context)
         logger.info(f"Updated {len(ids)} {model} record(s)")
         return result
 

@@ -11,6 +11,39 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+## [4.2.0] - 2026-11-16
+
+### Fixed
+- On an Odoo with several companies, a record created for another company
+  than the user's default stored its company-specific values on the default
+  company and took defaults from every company. Measured on Odoo 18, 19 and
+  20: a product for company B with a cost price kept that cost on company A,
+  and got the sale taxes of both companies. `record_create` and
+  `records_create` now run in the company the values name, the same as
+  switching company in Odoo. `records_create` takes one company per call and
+  says so when the rows mix companies. The create result shows the record's
+  `company_id`.
+- Updating a company-specific value (such as the cost price, also through
+  `product.template` or a variant's related account) with `record_update` or
+  `records_update` changed the default company's value, not the record's.
+  Such an update now runs in the record's own company. It is refused for
+  records of several companies, or of a company the user is not in. Any
+  other update runs as before.
+- A `company_id` that is not a company's id (a string, or the `[id, name]`
+  pair a read returns) is refused with a clear message instead of creating
+  the record in the default company.
+- `server_info_get` listed at most 10 companies, and for a settings manager
+  also companies they cannot create in. It now lists the user's own
+  companies, all of them.
+
+### Added
+- Server instructions on working with several companies: searches cover every
+  company the user may access, set `company_id` only on records that belong
+  to one company, and how to read or set a company-specific value of another
+  company with `method_execute`.
+- `record_import` accepts `allowed_company_ids` in its context, to import
+  into one company.
+
 ## [4.1.5] - 2026-11-10
 
 ### Fixed

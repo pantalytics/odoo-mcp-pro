@@ -313,12 +313,18 @@ class OdooConnectionOrmMixin:
             logger.error(f"Failed to create {model} record: {e}")
             raise
 
-    def create_bulk(self, model: str, vals_list: List[Dict[str, Any]]) -> List[int]:
+    def create_bulk(
+        self,
+        model: str,
+        vals_list: List[Dict[str, Any]],
+        context: Optional[Dict[str, Any]] = None,
+    ) -> List[int]:
         """Create multiple records in a single call.
 
         Args:
             model: Odoo model name
             vals_list: List of dicts, each containing field values for one record
+            context: Optional Odoo context, e.g. the company to create in
 
         Returns:
             List of IDs of the created records
@@ -328,7 +334,8 @@ class OdooConnectionOrmMixin:
         """
         try:
             with self._performance_manager.monitor.track_operation(f"create_bulk_{model}"):
-                result = self.execute_kw(model, "create", [vals_list], {})
+                kw = {"context": context} if context else {}
+                result = self.execute_kw(model, "create", [vals_list], kw)
                 self._performance_manager.invalidate_record_cache(model)
                 if not isinstance(result, list):
                     result = [result]
@@ -383,8 +390,14 @@ class OdooConnectionOrmMixin:
             logger.error(f"Failed to load records into {model}: {e}")
             raise
 
-    def write(self, model: str, ids: List[int], values: Dict[str, Any]) -> bool:
-        """Update existing records.
+    def write(
+        self,
+        model: str,
+        ids: List[int],
+        values: Dict[str, Any],
+        context: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Update existing records (`context`: e.g. the company to write in).
 
         Args:
             model: The Odoo model name
@@ -399,7 +412,9 @@ class OdooConnectionOrmMixin:
         """
         try:
             with self._performance_manager.monitor.track_operation(f"write_{model}"):
-                result = self.execute_kw(model, "write", [ids, values], {})
+                result = self.execute_kw(
+                    model, "write", [ids, values], {"context": context} if context else {}
+                )
                 # Invalidate cache for updated records
                 for record_id in ids:
                     self._performance_manager.invalidate_record_cache(model, record_id)

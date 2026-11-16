@@ -53,3 +53,20 @@ class TestServerInfo:
 
         assert result.connected is True
         assert result.error is None
+
+    @pytest.mark.asyncio
+    async def test_lists_only_the_users_companies(self, handler, mock_connection, mock_app):
+        """A settings manager reads every res.company but may only create in
+        their own, so only those are listed."""
+        mock_connection.database = "test_db"
+        mock_connection.uid = 5
+        mock_connection.read.side_effect = lambda model, ids, fields: (
+            [{"id": 5, "company_ids": [1, 2]}]
+            if model == "res.users"
+            else [{"id": i, "name": f"C{i}"} for i in ids]
+        )
+
+        result = await mock_app._tools["server_info_get"]()
+
+        assert [c["id"] for c in result.companies] == [1, 2]
+        mock_connection.read.assert_any_call("res.company", [1, 2], ["id", "name"])

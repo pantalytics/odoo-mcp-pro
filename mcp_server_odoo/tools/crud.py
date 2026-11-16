@@ -13,6 +13,7 @@ from typing import Any, Dict, Optional
 from mcp.types import ToolAnnotations
 
 from ..access_control import AccessControlError
+from ..companies import company_context, write_company_context
 from ..error_handling import NotFoundError, ValidationError
 from ..error_sanitizer import ErrorSanitizer
 from ..logging_config import perf_logger
@@ -148,12 +149,15 @@ class CrudToolsMixin:
                 if not values:
                     raise ValidationError("No values provided for record creation")
 
-                # Create the record
-                record_id = await run_blocking(connection, connection.create, model, values)
+                # Create the record, in the company the values name (companies.py)
+                record_id = await run_blocking(
+                    connection, connection.create, model, values, context=company_context(values)
+                )
 
                 # Return only essential fields to minimize context usage
-                # Users can use record_get if they need more fields
-                essential_fields = ["id", "name", "display_name"]
+                # Users can use record_get if they need more fields. company_id
+                # says which company the record landed in.
+                essential_fields = ["id", "name", "display_name", "company_id"]
 
                 # Filter to fields that actually exist on this model
                 try:
@@ -236,9 +240,10 @@ class CrudToolsMixin:
                 if not existing:
                     raise NotFoundError(f"Record not found: {model} with ID {record_id}")
 
-                # Update the record
+                # Update the record, in its own company for company-specific values
+                context = await write_company_context(connection, model, [record_id], values)
                 success = await run_blocking(
-                    connection, connection.write, model, [record_id], values
+                    connection, connection.write, model, [record_id], values, context=context
                 )
 
                 # Return only essential fields to minimize context usage

@@ -398,7 +398,7 @@ class ServerInfoResult(BaseModel):
     runtime_id: str = Field(description="Server runtime identifier")
     companies: List[Dict[str, Any]] = Field(
         default_factory=list,
-        description="Available companies in the Odoo instance (id and name). Use company_id in search domains to filter by company.",
+        description="The companies this user may access (id and name). Searches cover all of them; filter on company_id for one. On create, set company_id to choose the company.",
     )
     connections: Optional[List[Dict[str, Any]]] = Field(
         default=None,
