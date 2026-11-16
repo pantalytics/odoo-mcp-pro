@@ -11,6 +11,18 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+## [4.3.0] - 2026-11-16
+
+### Changed
+- The `connector-pro-prepare` skill is replaced by `connector-pro`, which is a
+  few lines long (#216). It checks that Connector Pro is installed in this
+  Odoo, calls `connectors()` on `pan.connector.sync`, and then makes the calls
+  the module hands back, starting with `status()`. What to call lives in the
+  module now, so a change to Connector Pro no longer waits for a release here.
+  `skill_find` picks it for a question about a sync, a connector, Shopify,
+  Exact Online or Picqer, or orders that didn't come in.
+  `skill_get("connector-pro-prepare")` now returns nothing.
+
 ## [4.2.0] - 2026-11-16
 
 ### Fixed
