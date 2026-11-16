@@ -122,12 +122,17 @@ class IntrospectionToolsMixin:
             companies = []
             if is_connected:
                 try:
+                    # The user's own companies: a settings manager can read
+                    # every company but create only in these.
+                    user = await run_blocking(
+                        connection, connection.read, "res.users", [connection.uid], ["company_ids"]
+                    )
                     companies = await run_blocking(
                         connection,
-                        connection.search_read,
+                        connection.read,
                         "res.company",
-                        [],
-                        fields=["id", "name"],
+                        user[0]["company_ids"],
+                        ["id", "name"],
                     )
                 except Exception:
                     pass

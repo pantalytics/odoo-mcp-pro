@@ -13,7 +13,7 @@ from typing import Any, Dict, Optional
 from mcp.types import ToolAnnotations
 
 from ..access_control import AccessControlError
-from ..companies import company_context
+from ..companies import company_context, write_company_context
 from ..error_handling import NotFoundError, ValidationError
 from ..error_sanitizer import ErrorSanitizer
 from ..logging_config import perf_logger
@@ -150,10 +150,8 @@ class CrudToolsMixin:
                     raise ValidationError("No values provided for record creation")
 
                 # Create the record, in the company the values name (companies.py)
-                context = company_context(values)
-                extra = {"context": context} if context else {}
                 record_id = await run_blocking(
-                    connection, connection.create, model, values, **extra
+                    connection, connection.create, model, values, context=company_context(values)
                 )
 
                 # Return only essential fields to minimize context usage
@@ -242,9 +240,10 @@ class CrudToolsMixin:
                 if not existing:
                     raise NotFoundError(f"Record not found: {model} with ID {record_id}")
 
-                # Update the record
+                # Update the record, in its own company for company-specific values
+                context = await write_company_context(connection, model, [record_id], values)
                 success = await run_blocking(
-                    connection, connection.write, model, [record_id], values
+                    connection, connection.write, model, [record_id], values, context=context
                 )
 
                 # Return only essential fields to minimize context usage

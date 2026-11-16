@@ -225,18 +225,25 @@ class Json2OrmMixin:
         )
         return result
 
-    def write(self, model: str, ids: List[int], values: Dict[str, Any]) -> bool:
+    def write(
+        self,
+        model: str,
+        ids: List[int],
+        values: Dict[str, Any],
+        context: Optional[Dict[str, Any]] = None,
+    ) -> bool:
         """Update existing records.
 
         Args:
             model: Odoo model name
             ids: Record IDs to update
             values: Field values to update
+            context: Optional Odoo context, e.g. the company to write in
 
         Returns:
             True if successful
         """
-        result = self._call(model, "write", ids=ids, vals=values)
+        result = self._call(model, "write", ids=ids, vals=values, context=context)
         logger.info(f"Updated {len(ids)} {model} record(s)")
         return result
 

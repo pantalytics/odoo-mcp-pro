@@ -21,12 +21,24 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
   switching company in Odoo. `records_create` takes one company per call and
   says so when the rows mix companies. The create result shows the record's
   `company_id`.
-- `server_info_get` listed at most 10 companies. It lists all of them now.
+- Updating a company-specific value (such as the cost price) with
+  `record_update` or `records_update` changed the default company's value,
+  not the record's. It now runs in the record's own company; records of
+  different companies in one call are refused.
+- A `company_id` that is not a company's id (a string, or the `[id, name]`
+  pair a read returns) is refused with a clear message instead of creating
+  the record in the default company.
+- `server_info_get` listed at most 10 companies, and for a settings manager
+  also companies they cannot create in. It now lists the user's own
+  companies, all of them.
 
 ### Added
 - Server instructions on working with several companies: searches cover every
-  company the user may access, set `company_id` on create, and pass
-  `allowed_company_ids` in the context for `method_execute`.
+  company the user may access, set `company_id` only on records that belong
+  to one company, and how to read or set a company-specific value of another
+  company with `method_execute`.
+- `record_import` accepts `allowed_company_ids` in its context, to import
+  into one company.
 
 ## [4.1.5] - 2026-11-10
 

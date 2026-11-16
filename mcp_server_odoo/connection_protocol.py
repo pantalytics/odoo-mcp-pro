@@ -101,7 +101,13 @@ class OdooConnectionProtocol(Protocol):
         context: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]: ...
 
-    def write(self, model: str, ids: List[int], values: Dict[str, Any]) -> bool: ...
+    def write(
+        self,
+        model: str,
+        ids: List[int],
+        values: Dict[str, Any],
+        context: Optional[Dict[str, Any]] = None,
+    ) -> bool: ...
 
     def unlink(self, model: str, ids: List[int]) -> bool: ...
 

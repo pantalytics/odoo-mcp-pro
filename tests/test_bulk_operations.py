@@ -54,6 +54,7 @@ class TestBulkCreate:
         mock_connection.create_bulk.assert_called_once_with(
             "res.partner",
             [{"name": "Alice"}, {"name": "Bob"}, {"name": "Charlie"}],
+            context=None,
         )
 
     @pytest.mark.asyncio
@@ -115,7 +116,7 @@ class TestBulkUpdate:
         assert result["updated_ids"] == [1, 2, 3]
         assert result["count"] == 3
         mock_connection.write.assert_called_once_with(
-            "res.partner", [1, 2, 3], {"is_company": True}
+            "res.partner", [1, 2, 3], {"is_company": True}, context=None
         )
 
     @pytest.mark.asyncio

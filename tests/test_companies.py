@@ -77,7 +77,7 @@ async def test_record_create_runs_in_named_company(handler, connection):
 async def test_record_create_without_company_sends_no_context(handler, connection):
     await handler._handle_create_record_tool("res.partner", {"name": "X"})
 
-    connection.create.assert_called_once_with("res.partner", {"name": "X"})
+    connection.create.assert_called_once_with("res.partner", {"name": "X"}, context=None)
 
 
 @pytest.mark.asyncio
@@ -128,8 +128,78 @@ def test_xmlrpc_create_bulk_without_context_sends_none():
     conn.execute_kw.assert_called_once_with("res.partner", "create", [[{"name": "A"}]], {})
 
 
-@pytest.mark.parametrize("value", ["2", [2, "Two"], True, None])
-def test_only_a_plain_company_id_picks_the_company(value):
-    # A display pair or a string is not a create value Odoo takes; leave it to
-    # Odoo to refuse rather than guess.
+@pytest.mark.parametrize("value", [None, False, 0])
+def test_no_company_leaves_the_context_alone(value):
     assert company_context({"company_id": value}) is None
+
+
+@pytest.mark.parametrize("value", ["2", [2, "Two"], True, 2.0])
+def test_a_company_id_that_is_no_id_is_refused(value):
+    # A display pair copied from record_get, or a string: refuse it rather
+    # than create in the wrong company without a word.
+    with pytest.raises(ValidationError, match="company_id must be a company's id"):
+        company_context({"company_id": value})
+
+
+def test_bulk_explicit_false_with_a_company_is_refused():
+    with pytest.raises(ValidationError):
+        bulk_company_context([{"company_id": False}, {"company_id": 2}])
+
+
+# -- updates: company-specific values go to the record's own company --------
+
+FIELDS = {
+    "company_id": {"type": "many2one"},
+    "standard_price": {"type": "float", "company_dependent": True},
+    "name": {"type": "char"},
+}
+
+
+def _update_connection(companies):
+    conn = Mock()
+    conn.is_authenticated = True
+    conn.fields_get.return_value = FIELDS
+    conn.read.side_effect = lambda model, ids, fields: [
+        {"id": i, "company_id": [c, "C"] if c else False, "name": "X"}
+        for i, c in zip(ids, companies, strict=True)
+    ]
+    return conn
+
+
+def _handler_for(conn):
+    app = MagicMock()
+    app.tool = MagicMock(return_value=lambda f: f)
+    return OdooToolHandler(app=app, connection=conn, access_controller=Mock())
+
+
+@pytest.mark.asyncio
+async def test_update_of_a_company_value_runs_in_the_records_company():
+    conn = _update_connection([2])
+    await _handler_for(conn)._handle_update_record_tool("product.product", 7, {"standard_price": 5})
+    conn.write.assert_called_once_with(
+        "product.product", [7], {"standard_price": 5}, context=COMPANY_2
+    )
+
+
+@pytest.mark.asyncio
+async def test_update_of_plain_fields_sends_no_context():
+    conn = _update_connection([2])
+    await _handler_for(conn)._handle_update_record_tool("product.product", 7, {"name": "Y"})
+    conn.write.assert_called_once_with("product.product", [7], {"name": "Y"}, context=None)
+
+
+@pytest.mark.asyncio
+async def test_update_of_a_shared_record_keeps_the_current_company():
+    conn = _update_connection([None])
+    await _handler_for(conn)._handle_update_record_tool("product.product", 7, {"standard_price": 5})
+    conn.write.assert_called_once_with("product.product", [7], {"standard_price": 5}, context=None)
+
+
+@pytest.mark.asyncio
+async def test_bulk_update_of_company_values_across_companies_is_refused():
+    conn = _update_connection([2, 3])
+    with pytest.raises(ValidationError, match="different companies"):
+        await _handler_for(conn)._handle_update_records_tool(
+            "product.product", [7, 8], {"standard_price": 5}
+        )
+    conn.write.assert_not_called()

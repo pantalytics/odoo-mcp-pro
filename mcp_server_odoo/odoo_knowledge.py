@@ -103,8 +103,9 @@ Ask yourself: what is the user trying to do?
 ### Several companies
 - One database can hold several companies (`res.company`, listed by `server_info_get`). Most business records have a `company_id`; an empty `company_id` means shared by all.
 - Searches cover every company the user may access. Filter with `[["company_id", "=", id]]` when the user means one company, and say which company each result belongs to.
-- On create, set `company_id` when there is more than one company. The server then creates the record in that company, so company-specific values (cost price, accounts) and defaults (taxes) belong to it too. Without it, the record lands in the user's default company. The result shows the `company_id` it got.
-- `records_create` takes one company per call.
+- On create, set `company_id` when the record belongs to one company. The server then creates it in that company, so company-specific values (cost price, accounts) and defaults (taxes) belong to it too. Leave it empty for contacts and products all companies share. Without it, Odoo uses the model's default: shared for contacts and products, the user's default company for documents such as invoices and orders. The result shows the `company_id` it got.
+- `record_update` sets company-specific values (such as the cost price) in the record's own company. On a shared record they go to the user's default company; for another company use `method_execute` with `method="write"` and `kwargs={"vals": {...}, "context": {"allowed_company_ids": [id]}}`. Reading such values the same way: `method="read"` with that context.
+- `records_create` takes one company per call. For `record_import`, pass `context={"allowed_company_ids": [id]}`.
 - For `method_execute` on records of one company, pass `kwargs={"context": {"allowed_company_ids": [id]}}` so wizards and defaults use that company.
 
 ### Dates and times

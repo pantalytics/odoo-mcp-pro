@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 from mcp.types import ToolAnnotations
 
 from ..access_control import AccessControlError
-from ..companies import bulk_company_context
+from ..companies import bulk_company_context, write_company_context
 from ..error_handling import ValidationError
 from ..error_sanitizer import ErrorSanitizer
 from ..logging_config import perf_logger
@@ -175,6 +175,7 @@ class BulkToolsMixin:
                     [["__import__.partner_acme", "Acme Corp", "True"]]
                 context: Optional context dict. Useful flags:
                     - tracking_disable: True — suppress mail/activity notifications
+                    - allowed_company_ids: [id] — import into that company
                     - defer_fields_computation: True — batch computed field updates
                     - lang: 'nl_BE' — write translatable fields in that language.
                       If English (en_US) is not active in Odoo, Odoo also writes
@@ -218,10 +219,12 @@ class BulkToolsMixin:
                         f"Bulk create limited to {MAX_BULK_SIZE} records, got {len(vals_list)}"
                     )
 
-                context = bulk_company_context(vals_list)
-                extra = {"context": context} if context else {}
                 created_ids = await run_blocking(
-                    connection, connection.create_bulk, model, vals_list, **extra
+                    connection,
+                    connection.create_bulk,
+                    model,
+                    vals_list,
+                    context=bulk_company_context(vals_list),
                 )
 
                 return {
@@ -268,7 +271,10 @@ class BulkToolsMixin:
                         f"Bulk update limited to {MAX_BULK_SIZE} records, got {len(record_ids)}"
                     )
 
-                await run_blocking(connection, connection.write, model, record_ids, values)
+                context = await write_company_context(connection, model, record_ids, values)
+                await run_blocking(
+                    connection, connection.write, model, record_ids, values, context=context
+                )
 
                 return {
                     "success": True,
@@ -389,6 +395,7 @@ class BulkToolsMixin:
                 if context:
                     allowed_keys = {
                         "tracking_disable",
+                        "allowed_company_ids",
                         "defer_fields_computation",
                         "lang",
                         "tz",
