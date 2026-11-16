@@ -11,6 +11,8 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+## [4.2.0] - 2026-11-16
+
 ### Fixed
 - On an Odoo with several companies, a record created for another company
   than the user's default stored its company-specific values on the default
