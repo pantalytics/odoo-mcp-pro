@@ -12,13 +12,15 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 ## [Unreleased]
 
 ### Fixed
-- On an Odoo with several companies, a record created with a `company_id`
-  took its defaults (journal, warehouse, taxes, sequence) from the user's
-  default company, because the call never named a current company.
-  `record_create` and `records_create` now run in the company the values name,
-  the same as switching company in Odoo. `records_create` takes one company
-  per call and says so when the rows mix companies. The create result shows
-  the record's `company_id`.
+- On an Odoo with several companies, a record created for another company
+  than the user's default stored its company-specific values on the default
+  company and took defaults from every company. Measured on Odoo 18, 19 and
+  20: a product for company B with a cost price kept that cost on company A,
+  and got the sale taxes of both companies. `record_create` and
+  `records_create` now run in the company the values name, the same as
+  switching company in Odoo. `records_create` takes one company per call and
+  says so when the rows mix companies. The create result shows the record's
+  `company_id`.
 - `server_info_get` listed at most 10 companies. It lists all of them now.
 
 ### Added

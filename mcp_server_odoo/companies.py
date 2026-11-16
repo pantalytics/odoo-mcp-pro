@@ -1,11 +1,13 @@
 """Which company a create runs in, on a multi-company Odoo.
 
-Odoo fills the defaults of a new record (journal, warehouse, taxes, sequence)
-from the current company, `env.company`. A call without `allowed_company_ids`
-in its context runs in the user's default company, whatever `company_id` the
-values name, so an invoice for one company could pick up another company's
-journal. When the values name a company, that company becomes the current one
-for the call, which is what the company switcher does in Odoo's own UI.
+A call without `allowed_company_ids` in its context runs with every company
+the user may access switched on, and the user's default company as the
+current one. A create that names another `company_id` then stores its
+company-dependent values (cost price, accounts) on the default company and
+takes defaults from all companies at once (a product got the sale taxes of
+every company). Measured on Odoo 18, 19 and 20. When the values name a
+company, that company becomes the only one switched on for the call, which is
+what the company switcher does in Odoo's own UI.
 
 Reads need nothing: without `allowed_company_ids` Odoo lets a call see the
 records of every company the user may access.

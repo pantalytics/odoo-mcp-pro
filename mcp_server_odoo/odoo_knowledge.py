@@ -103,7 +103,7 @@ Ask yourself: what is the user trying to do?
 ### Several companies
 - One database can hold several companies (`res.company`, listed by `server_info_get`). Most business records have a `company_id`; an empty `company_id` means shared by all.
 - Searches cover every company the user may access. Filter with `[["company_id", "=", id]]` when the user means one company, and say which company each result belongs to.
-- On create, set `company_id` when there is more than one company. The server then creates the record in that company, so defaults like the journal, warehouse and taxes come from it too. Without it, the record lands in the user's default company. The result shows the `company_id` it got.
+- On create, set `company_id` when there is more than one company. The server then creates the record in that company, so company-specific values (cost price, accounts) and defaults (taxes) belong to it too. Without it, the record lands in the user's default company. The result shows the `company_id` it got.
 - `records_create` takes one company per call.
 - For `method_execute` on records of one company, pass `kwargs={"context": {"allowed_company_ids": [id]}}` so wizards and defaults use that company.
 
