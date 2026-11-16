@@ -70,7 +70,7 @@ for v in "${VERSIONS[@]}"; do
   out=$(MCP_LIVE_MULTI_COMPANY=1 ODOO_URL="http://127.0.0.1:$port" ODOO_DB="$db" ODOO_API_KEY="$key" \
     ODOO_USER=admin ODOO_PASSWORD=admin python -m pytest tests/test_companies_live.py -q -rs \
     -p no:cacheprovider 2>&1) || status=1
-  echo "$out" | grep -E "passed|failed|skipped|^(FAILED|ERROR|SKIPPED)" || true
+  echo "$out" | grep -E "passed|failed|skipped|^(FAILED|ERROR|SKIPPED)" || echo "$out" | tail -5
   if echo "$out" | grep -q "skipped"; then echo "Odoo $v: a test was skipped" >&2; status=1; fi
 done
 exit $status

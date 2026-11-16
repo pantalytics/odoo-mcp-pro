@@ -148,21 +148,51 @@ def test_bulk_explicit_false_with_a_company_is_refused():
 
 # -- updates: company-specific values go to the record's own company --------
 
+# The shapes Odoo 19's fields_get returns (checked on a live database).
 FIELDS = {
-    "company_id": {"type": "many2one", "store": True},
-    "standard_price": {"type": "float", "store": True, "company_dependent": True},
-    "name": {"type": "char", "store": True},
+    "product.product": {
+        "company_id": {"type": "many2one", "store": True},
+        "standard_price": {"type": "float", "store": True, "company_dependent": True},
+        "name": {"type": "char", "store": False, "related": "product_tmpl_id.name"},
+        "property_account_income_id": {
+            "type": "many2one",
+            "store": False,
+            "related": "product_tmpl_id.property_account_income_id",
+        },
+        "product_tmpl_id": {"type": "many2one", "store": True, "relation": "product.template"},
+    },
+    "product.template": {
+        "company_id": {"type": "many2one", "store": True},
+        "name": {"type": "char", "store": True},
+        "property_account_income_id": {"type": "many2one", "company_dependent": True},
+        "standard_price": {
+            "type": "float",
+            "store": False,
+            "depends": ["product_variant_ids.standard_price"],
+        },
+        "barcode": {"type": "char", "store": False, "depends": ["product_variant_ids.barcode"]},
+        "product_variant_ids": {"type": "one2many", "relation": "product.product"},
+    },
+    "res.country": {"name": {"type": "char", "store": True}},
 }
+FIELDS["product.product"]["barcode"] = {"type": "char", "store": True}
 
 
-def _update_connection(companies):
+def _update_connection(companies, user_companies=(2, 3)):
     conn = Mock()
     conn.is_authenticated = True
-    conn.fields_get.return_value = FIELDS
-    conn.read.side_effect = lambda model, ids, fields: [
-        {"id": i, "company_id": [c, "C"] if c else False, "name": "X"}
-        for i, c in zip(ids, companies, strict=True)
-    ]
+    conn.uid = 5
+    conn.fields_get.side_effect = lambda model, attributes=None: FIELDS[model]
+
+    def read(model, ids, fields):
+        if model == "res.users":
+            return [{"id": 5, "company_ids": list(user_companies)}]
+        return [
+            {"id": i, "company_id": [c, "C"] if c else False, "name": "X"}
+            for i, c in zip(ids, companies, strict=True)
+        ]
+
+    conn.read.side_effect = read
     return conn
 
 
@@ -172,66 +202,77 @@ def _handler_for(conn):
     return OdooToolHandler(app=app, connection=conn, access_controller=Mock())
 
 
+async def _update(conn, model, ids, values):
+    await _handler_for(conn)._handle_update_records_tool(model, ids, values)
+
+
 @pytest.mark.asyncio
-async def test_update_of_a_company_value_runs_in_the_records_company():
+@pytest.mark.parametrize(
+    "model, values",
+    [
+        ("product.product", {"standard_price": 5}),  # company-dependent itself
+        ("product.product", {"property_account_income_id": 9}),  # related to one
+        ("product.template", {"standard_price": 5}),  # inverse writes one
+    ],
+)
+async def test_a_company_value_is_written_in_the_records_company(model, values):
     conn = _update_connection([2])
-    await _handler_for(conn)._handle_update_record_tool("product.product", 7, {"standard_price": 5})
-    conn.write.assert_called_once_with(
-        "product.product", [7], {"standard_price": 5}, context=COMPANY_2
-    )
+    await _update(conn, model, [7], values)
+    conn.write.assert_called_once_with(model, [7], values, context=COMPANY_2)
 
 
 @pytest.mark.asyncio
-async def test_update_of_a_companys_record_runs_in_that_company():
-    conn = _update_connection([2])
-    await _handler_for(conn)._handle_update_record_tool("product.product", 7, {"name": "Y"})
-    conn.write.assert_called_once_with("product.product", [7], {"name": "Y"}, context=COMPANY_2)
-
-
-@pytest.mark.asyncio
-async def test_plain_update_across_companies_goes_through_without_context():
+@pytest.mark.parametrize(
+    "model, values",
+    [
+        ("product.product", {"name": "Y"}),  # related, but not company-dependent
+        ("product.template", {"barcode": "123"}),  # inverse, but not company-dependent
+        ("product.template", {"name": "Y"}),
+    ],
+)
+async def test_other_updates_run_as_before_also_across_companies(model, values):
     conn = _update_connection([2, 3])
-    await _handler_for(conn)._handle_update_records_tool("product.product", [7, 8], {"name": "Y"})
-    conn.write.assert_called_once_with("product.product", [7, 8], {"name": "Y"}, context=None)
+    await _update(conn, model, [7, 8], values)
+    conn.write.assert_called_once_with(model, [7, 8], values, context=None)
 
 
 @pytest.mark.asyncio
-async def test_computed_cost_across_companies_is_refused():
-    # product.template.standard_price is not company-dependent itself; its
-    # inverse writes the variant's cost in the current company.
+async def test_a_company_value_on_a_shared_record_keeps_the_current_company():
+    conn = _update_connection([None])
+    await _update(conn, "product.product", [7], {"standard_price": 5})
+    conn.write.assert_called_once_with("product.product", [7], {"standard_price": 5}, context=None)
+
+
+@pytest.mark.asyncio
+async def test_a_company_value_across_companies_is_refused():
     conn = _update_connection([2, 3])
-    conn.fields_get.return_value = {
-        "company_id": {"type": "many2one", "store": True},
-        "standard_price": {"type": "float", "store": False, "readonly": False},
-    }
     with pytest.raises(ValidationError, match="different companies"):
-        await _handler_for(conn)._handle_update_records_tool(
-            "product.template", [7, 8], {"standard_price": 5}
-        )
+        await _update(conn, "product.template", [7, 8], {"standard_price": 5})
+    conn.write.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_a_company_value_in_a_company_the_user_is_not_in_is_refused():
+    # A branch or a parent the user can see but is not a member of: switching
+    # to it would fail in Odoo, and writing without it hits the wrong company.
+    conn = _update_connection([4], user_companies=(2, 3))
+    with pytest.raises(ValidationError, match="which you are not in"):
+        await _update(conn, "product.product", [7], {"standard_price": 5})
     conn.write.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_update_on_a_model_without_company_reads_nothing_extra():
     conn = _update_connection([2])
-    conn.fields_get.return_value = {"name": {"type": "char", "store": True}}
-    await _handler_for(conn)._handle_update_records_tool("res.country", [7], {"name": "Y"})
+    await _update(conn, "res.country", [7], {"name": "Y"})
     conn.write.assert_called_once_with("res.country", [7], {"name": "Y"}, context=None)
     conn.read.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_update_of_a_shared_record_keeps_the_current_company():
-    conn = _update_connection([None])
+async def test_single_record_update_uses_the_same_rule():
+    conn = _update_connection([2])
     await _handler_for(conn)._handle_update_record_tool("product.product", 7, {"standard_price": 5})
-    conn.write.assert_called_once_with("product.product", [7], {"standard_price": 5}, context=None)
-
-
-@pytest.mark.asyncio
-async def test_bulk_update_of_company_values_across_companies_is_refused():
-    conn = _update_connection([2, 3])
-    with pytest.raises(ValidationError, match="different companies"):
-        await _handler_for(conn)._handle_update_records_tool(
-            "product.product", [7, 8], {"standard_price": 5}
-        )
-    conn.write.assert_not_called()
+    conn.write.assert_called_once_with(
+        "product.product", [7], {"standard_price": 5}, context=COMPANY_2
+    )

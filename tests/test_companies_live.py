@@ -214,6 +214,23 @@ async def test_updating_a_templates_cost_price_changes_the_records_company(mc):
     assert _cost(conn, variant, a, b) == 0.0
 
 
+@pytest.mark.asyncio
+async def test_a_plain_update_across_companies_goes_through(mc):
+    conn = mc["conn"]
+    ids = [(await _product(mc, company_id=c))["id"] for c in (mc["a"], mc["b"])]
+    await mc["h"]._handle_update_records_tool("product.product", ids, {"sale_ok": False})
+
+    rows = conn.read("product.product", ids, ["sale_ok"])
+    assert [r["sale_ok"] for r in rows] == [False, False]
+
+
+@pytest.mark.asyncio
+async def test_a_cost_price_across_companies_is_refused(mc):
+    ids = [(await _product(mc, company_id=c))["id"] for c in (mc["a"], mc["b"])]
+    with pytest.raises(ValidationError, match="different companies"):
+        await mc["h"]._handle_update_records_tool("product.product", ids, {"standard_price": 2.0})
+
+
 # -- read --------------------------------------------------------------------
 
 
