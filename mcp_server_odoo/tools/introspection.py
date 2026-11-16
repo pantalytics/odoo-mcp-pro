@@ -128,7 +128,6 @@ class IntrospectionToolsMixin:
                         "res.company",
                         [],
                         fields=["id", "name"],
-                        limit=10,
                     )
                 except Exception:
                     pass

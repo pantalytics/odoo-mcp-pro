@@ -313,12 +313,18 @@ class OdooConnectionOrmMixin:
             logger.error(f"Failed to create {model} record: {e}")
             raise
 
-    def create_bulk(self, model: str, vals_list: List[Dict[str, Any]]) -> List[int]:
+    def create_bulk(
+        self,
+        model: str,
+        vals_list: List[Dict[str, Any]],
+        context: Optional[Dict[str, Any]] = None,
+    ) -> List[int]:
         """Create multiple records in a single call.
 
         Args:
             model: Odoo model name
             vals_list: List of dicts, each containing field values for one record
+            context: Optional Odoo context, e.g. the company to create in
 
         Returns:
             List of IDs of the created records
@@ -328,7 +334,8 @@ class OdooConnectionOrmMixin:
         """
         try:
             with self._performance_manager.monitor.track_operation(f"create_bulk_{model}"):
-                result = self.execute_kw(model, "create", [vals_list], {})
+                kw = {"context": context} if context else {}
+                result = self.execute_kw(model, "create", [vals_list], kw)
                 self._performance_manager.invalidate_record_cache(model)
                 if not isinstance(result, list):
                     result = [result]

@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 from mcp.types import ToolAnnotations
 
 from ..access_control import AccessControlError
+from ..companies import bulk_company_context
 from ..error_handling import ValidationError
 from ..error_sanitizer import ErrorSanitizer
 from ..logging_config import perf_logger
@@ -217,8 +218,10 @@ class BulkToolsMixin:
                         f"Bulk create limited to {MAX_BULK_SIZE} records, got {len(vals_list)}"
                     )
 
+                context = bulk_company_context(vals_list)
+                extra = {"context": context} if context else {}
                 created_ids = await run_blocking(
-                    connection, connection.create_bulk, model, vals_list
+                    connection, connection.create_bulk, model, vals_list, **extra
                 )
 
                 return {

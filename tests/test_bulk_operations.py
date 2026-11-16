@@ -186,7 +186,7 @@ class TestBulkCreateJSON2Connection:
         )
 
         conn._call.assert_called_once_with(
-            "res.partner", "create", vals_list=[{"name": "A"}, {"name": "B"}]
+            "res.partner", "create", vals_list=[{"name": "A"}, {"name": "B"}], context=None
         )
         assert result == [1, 2]
 

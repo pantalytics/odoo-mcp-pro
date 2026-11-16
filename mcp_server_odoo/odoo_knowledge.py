@@ -100,6 +100,13 @@ Ask yourself: what is the user trying to do?
 - One2many/Many2many fields return list of IDs.
 - To set: `(4, id)` = link, `(3, id)` = unlink, `(6, 0, [ids])` = replace all.
 
+### Several companies
+- One database can hold several companies (`res.company`, listed by `server_info_get`). Most business records have a `company_id`; an empty `company_id` means shared by all.
+- Searches cover every company the user may access. Filter with `[["company_id", "=", id]]` when the user means one company, and say which company each result belongs to.
+- On create, set `company_id` when there is more than one company. The server then creates the record in that company, so defaults like the journal, warehouse and taxes come from it too. Without it, the record lands in the user's default company. The result shows the `company_id` it got.
+- `records_create` takes one company per call.
+- For `method_execute` on records of one company, pass `kwargs={"context": {"allowed_company_ids": [id]}}` so wizards and defaults use that company.
+
 ### Dates and times
 - Date fields: `"2026-04-11"` (string, no time).
 - Datetime fields: `"2026-04-11 14:30:00"` (UTC, no timezone).
