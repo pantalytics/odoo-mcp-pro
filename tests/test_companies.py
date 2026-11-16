@@ -106,3 +106,30 @@ def test_json2_create_bulk_sends_context():
     conn._call.assert_called_once_with(
         "res.partner", "create", vals_list=[{"name": "A"}], context=COMPANY_2
     )
+
+
+def test_xmlrpc_create_bulk_sends_context():
+    from mcp_server_odoo.odoo_connection import OdooConnection
+
+    conn = MagicMock()
+    conn.execute_kw.return_value = [1]
+    OdooConnection.create_bulk(conn, "res.partner", [{"name": "A"}], context=COMPANY_2)
+    conn.execute_kw.assert_called_once_with(
+        "res.partner", "create", [[{"name": "A"}]], {"context": COMPANY_2}
+    )
+
+
+def test_xmlrpc_create_bulk_without_context_sends_none():
+    from mcp_server_odoo.odoo_connection import OdooConnection
+
+    conn = MagicMock()
+    conn.execute_kw.return_value = [1]
+    OdooConnection.create_bulk(conn, "res.partner", [{"name": "A"}])
+    conn.execute_kw.assert_called_once_with("res.partner", "create", [[{"name": "A"}]], {})
+
+
+@pytest.mark.parametrize("value", ["2", [2, "Two"], True, None])
+def test_only_a_plain_company_id_picks_the_company(value):
+    # A display pair or a string is not a create value Odoo takes; leave it to
+    # Odoo to refuse rather than guess.
+    assert company_context({"company_id": value}) is None
