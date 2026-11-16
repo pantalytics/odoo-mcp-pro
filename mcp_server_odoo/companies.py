@@ -59,30 +59,48 @@ def bulk_company_context(vals_list: List[Dict[str, Any]]) -> Optional[Dict[str, 
     return _only(named.pop() if named else None)
 
 
+def _sets_a_company_value(fields: Dict[str, Any], values: Dict[str, Any]) -> bool:
+    """Whether the write may change a company-specific value.
+
+    Directly (a company-dependent field) or through a computed field's inverse
+    (product.template.standard_price writes the variant's company-dependent
+    cost in the current company).
+    """
+    for name in values:
+        info = fields.get(name, {})
+        if info.get("company_dependent") or (
+            info.get("store") is False and not info.get("readonly")
+        ):
+            return True
+    return False
+
+
 async def write_company_context(
     connection: Any, model: str, ids: List[int], values: Dict[str, Any]
 ) -> Optional[Dict[str, Any]]:
-    """The company an update of company-dependent values runs in.
+    """The company an update runs in: the records' own company.
 
-    Only a write that sets a company-dependent field (cost price, property
-    accounts) needs one: the records' own company. Shared records have no
-    company of their own and keep the user's current company, as in Odoo.
+    Records of one company are updated with that company switched on, as Odoo
+    does when you edit a record of that company. Shared records keep the
+    user's current company. Records of several companies are updated as they
+    are, unless the write may change a company-specific value (cost price):
+    that is set per company, so it is refused.
     """
     from .tools._common import run_blocking
 
-    fields = await run_blocking(
-        connection, connection.fields_get, model, ["type", "company_dependent"]
-    )
-    if "company_id" not in fields or not any(
-        fields.get(name, {}).get("company_dependent") for name in values
-    ):
+    # The full field list: cached by both clients, unlike a narrowed one.
+    fields = await run_blocking(connection, connection.fields_get, model)
+    if "company_id" not in fields:
         return None
     rows = await run_blocking(connection, connection.read, model, ids, ["company_id"])
     companies = {row["company_id"][0] if row.get("company_id") else None for row in rows}
+    named = companies - {None}
     if len(companies) > 1:
-        raise ValidationError(
-            "These records belong to different companies, and a company-specific "
-            "value (such as the cost price) is set per company. Update them one "
-            "company at a time."
-        )
-    return _only(companies.pop() if companies else None)
+        if _sets_a_company_value(fields, values):
+            raise ValidationError(
+                "These records belong to different companies, and a company-specific "
+                "value (such as the cost price) is set per company. Update them one "
+                "company at a time."
+            )
+        return None
+    return _only(named.pop() if named else None)

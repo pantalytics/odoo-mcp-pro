@@ -196,6 +196,24 @@ async def test_bulk_update_of_the_cost_price_changes_the_records_company(mc):
         assert _cost(conn, pid, a, b) == 0.0
 
 
+@pytest.mark.asyncio
+async def test_updating_a_templates_cost_price_changes_the_records_company(mc):
+    # The usual way to set a cost: product.template.standard_price is computed,
+    # and its inverse writes the variant's company-dependent cost.
+    conn, a, b = mc["conn"], mc["a"], mc["b"]
+    res = await mc["h"]._handle_create_record_tool(
+        "product.template", {"name": _name(), "company_id": b}
+    )
+    template = res["record"]["id"]
+    await mc["h"]._handle_update_record_tool("product.template", template, {"standard_price": 9.0})
+
+    variant = conn.read("product.template", [template], ["product_variant_ids"])[0][
+        "product_variant_ids"
+    ][0]
+    assert _cost(conn, variant, b) == 9.0
+    assert _cost(conn, variant, a, b) == 0.0
+
+
 # -- read --------------------------------------------------------------------
 
 

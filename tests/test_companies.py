@@ -149,9 +149,9 @@ def test_bulk_explicit_false_with_a_company_is_refused():
 # -- updates: company-specific values go to the record's own company --------
 
 FIELDS = {
-    "company_id": {"type": "many2one"},
-    "standard_price": {"type": "float", "company_dependent": True},
-    "name": {"type": "char"},
+    "company_id": {"type": "many2one", "store": True},
+    "standard_price": {"type": "float", "store": True, "company_dependent": True},
+    "name": {"type": "char", "store": True},
 }
 
 
@@ -182,10 +182,42 @@ async def test_update_of_a_company_value_runs_in_the_records_company():
 
 
 @pytest.mark.asyncio
-async def test_update_of_plain_fields_sends_no_context():
+async def test_update_of_a_companys_record_runs_in_that_company():
     conn = _update_connection([2])
     await _handler_for(conn)._handle_update_record_tool("product.product", 7, {"name": "Y"})
-    conn.write.assert_called_once_with("product.product", [7], {"name": "Y"}, context=None)
+    conn.write.assert_called_once_with("product.product", [7], {"name": "Y"}, context=COMPANY_2)
+
+
+@pytest.mark.asyncio
+async def test_plain_update_across_companies_goes_through_without_context():
+    conn = _update_connection([2, 3])
+    await _handler_for(conn)._handle_update_records_tool("product.product", [7, 8], {"name": "Y"})
+    conn.write.assert_called_once_with("product.product", [7, 8], {"name": "Y"}, context=None)
+
+
+@pytest.mark.asyncio
+async def test_computed_cost_across_companies_is_refused():
+    # product.template.standard_price is not company-dependent itself; its
+    # inverse writes the variant's cost in the current company.
+    conn = _update_connection([2, 3])
+    conn.fields_get.return_value = {
+        "company_id": {"type": "many2one", "store": True},
+        "standard_price": {"type": "float", "store": False, "readonly": False},
+    }
+    with pytest.raises(ValidationError, match="different companies"):
+        await _handler_for(conn)._handle_update_records_tool(
+            "product.template", [7, 8], {"standard_price": 5}
+        )
+    conn.write.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_on_a_model_without_company_reads_nothing_extra():
+    conn = _update_connection([2])
+    conn.fields_get.return_value = {"name": {"type": "char", "store": True}}
+    await _handler_for(conn)._handle_update_records_tool("res.country", [7], {"name": "Y"})
+    conn.write.assert_called_once_with("res.country", [7], {"name": "Y"}, context=None)
+    conn.read.assert_not_called()
 
 
 @pytest.mark.asyncio

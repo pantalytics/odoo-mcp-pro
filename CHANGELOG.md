@@ -21,10 +21,12 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
   switching company in Odoo. `records_create` takes one company per call and
   says so when the rows mix companies. The create result shows the record's
   `company_id`.
-- Updating a company-specific value (such as the cost price) with
-  `record_update` or `records_update` changed the default company's value,
-  not the record's. It now runs in the record's own company; records of
-  different companies in one call are refused.
+- Updating a company-specific value (such as the cost price, also through
+  `product.template`) with `record_update` or `records_update` changed the
+  default company's value, not the record's. An update of a company's records
+  now runs in that company, as editing them in Odoo does. Records of
+  different companies in one call still update together, unless the update
+  sets a company-specific value: that is refused.
 - A `company_id` that is not a company's id (a string, or the `[id, name]`
   pair a read returns) is refused with a clear message instead of creating
   the record in the default company.
