@@ -43,7 +43,7 @@ logger = get_logger(__name__)
 
 # Server version. Must match __version__ and pyproject.toml; enforced by
 # tests/test_version_consistency.py so it cannot silently drift.
-SERVER_VERSION = "4.3.0"
+SERVER_VERSION = "4.4.0"
 GIT_COMMIT = os.environ.get("GIT_COMMIT", "unknown")
 _BUILD_ORIGIN = "pnl-mcp-7f3a"  # Pantalytics provenance tag
 
@@ -55,6 +55,47 @@ _BUILD_ORIGIN = "pnl-mcp-7f3a"  # Pantalytics provenance tag
 # arguments of ``streamable_http_app()`` rather than of the server, so they live
 # here as the one place both run_http and the admin entry point read them.
 STREAMABLE_HTTP_OPTIONS: Dict[str, Any] = {"stateless_http": True, "json_response": True}
+
+
+# HTTP mode off loopback answers only to the host names listed here. Without
+# that check a web page opened anywhere inside the network can rebind its own
+# name to this server and call every tool with the configured API key.
+ALLOWED_HOSTS_ENV = "ODOO_MCP_ALLOWED_HOSTS"
+# The names the SDK already protects by itself (it allows only loopback there).
+_LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
+
+
+def http_transport_security(host: str, port: int) -> Optional[TransportSecuritySettings]:
+    """The DNS rebinding check for single-tenant HTTP mode bound to ``host``.
+
+    Loopback returns None: the SDK then switches on its own loopback-only
+    check. Any other bind address needs ODOO_MCP_ALLOWED_HOSTS, the names
+    clients reach this server by; a name without a port also matches it with
+    the bound port. Not set means no start, never an open server.
+    """
+    if host in _LOOPBACK_HOSTS:
+        return None
+    names = [n.strip() for n in os.getenv(ALLOWED_HOSTS_ENV, "").split(",") if n.strip()]
+    if not names:
+        raise ConfigurationError(
+            f"HTTP mode on {host} needs {ALLOWED_HOSTS_ENV}: the host names clients "
+            f"use to reach this server, comma separated (for example "
+            f"{ALLOWED_HOSTS_ENV}=mcp.example.lan). Without it any web page opened "
+            f"inside your network could call the tools through DNS rebinding."
+        )
+    allowed: list[str] = []
+    for name in names:
+        allowed.append(name)
+        has_port = name.rsplit(":", 1)[-1].isdigit() and (
+            name.startswith("[") or name.count(":") == 1
+        )
+        if not has_port:
+            allowed.append(f"{name}:{port}")
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=allowed,
+        allowed_origins=[f"{scheme}://{h}" for h in allowed for scheme in ("http", "https")],
+    )
 
 
 def create_fastmcp_app(
@@ -271,19 +312,15 @@ class OdooMCPServer:
             port: Port to bind to
         """
         try:
+            # Before connecting: a server that would run unprotected never starts.
+            transport_security = http_transport_security(host, port)
+
             with perf_logger.track_operation("server_startup"):
                 self._ensure_connection()
                 self._register_resources()
                 self._register_tools()
 
             logger.info(f"Starting MCP server with HTTP transport on {host}:{port}...")
-
-            # Disable DNS rebinding protection when binding to all interfaces
-            transport_security = None
-            if host == "0.0.0.0":
-                transport_security = TransportSecuritySettings(
-                    enable_dns_rebinding_protection=False
-                )
 
             asgi_app = self.app.streamable_http_app(
                 host=host,

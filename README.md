@@ -85,6 +85,7 @@ ODOO_URL=https://mycompany.odoo.com ODOO_API_KEY=your_key python -m mcp_server_o
 
 # Run (HTTP mode, for remote access from one trusted network)
 ODOO_URL=https://mycompany.odoo.com ODOO_API_KEY=your_key \
+  ODOO_MCP_ALLOWED_HOSTS=mcp.example.lan \
   python -m mcp_server_odoo --transport streamable-http --host 0.0.0.0 --port 8000
 ```
 
