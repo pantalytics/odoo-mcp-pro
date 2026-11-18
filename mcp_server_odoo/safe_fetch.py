@@ -3,7 +3,8 @@
 Every outbound HTTP call the server makes to a URL a caller chose (today: the
 `source` of `binary_field_set`) goes through here. The guard refuses hosts the
 server should never dial on a caller's behalf: loopback, RFC1918 private
-ranges, link-local (the 169.254.169.254 cloud metadata address), reserved and
+ranges, the shared 100.64.0.0/10 range, link-local (the 169.254.169.254 cloud
+metadata address), multicast, reserved, anything not globally routable and
 unspecified addresses, their IPv4-mapped IPv6 forms, `localhost` and `.local`
 names. A name is RESOLVED and every address it resolves to is checked, so a
 public name pointing at an internal IP (DNS rebinding) is refused too, and an
@@ -53,12 +54,18 @@ def is_unreachable_host(hostname: Optional[str]) -> bool:
         mapped = getattr(ip, "ipv4_mapped", None)
         if mapped is not None:
             ip = mapped
+        # The five named flags miss the shared range 100.64.0.0/10 (Alibaba's
+        # metadata at 100.100.100.200, Tailscale) and multicast; "not global"
+        # alone would let NAT64 64:ff9b::/96 through, which the flags block.
+        # Together they only ever block more than the flags did.
         return (
             ip.is_loopback
             or ip.is_private
             or ip.is_link_local
             or ip.is_reserved
             or ip.is_unspecified
+            or ip.is_multicast
+            or not ip.is_global
         )
 
     try:

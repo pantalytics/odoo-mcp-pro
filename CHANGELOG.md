@@ -11,6 +11,23 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+## [4.4.0] - 2026-11-18
+
+### Security
+- HTTP mode on a non-localhost address now needs `ODOO_MCP_ALLOWED_HOSTS`,
+  the host names clients use to reach the server. Requests with another
+  `Host`, or with a browser `Origin` from another site, are refused. Before,
+  a web page opened anywhere inside the network could rebind its own name to
+  the server and call every tool with the configured API key. **Breaking:**
+  a server started with `--host 0.0.0.0` (or any non-localhost address)
+  without the variable now stops with an error naming it. Localhost is
+  unchanged.
+- `binary_field_set` no longer fetches from the shared range 100.64.0.0/10
+  (Alibaba Cloud's metadata service at 100.100.100.200, Tailscale) or from
+  multicast addresses. Everything blocked before stays blocked.
+
+Both reported by Arnaud (kwalitai).
+
 ## [4.3.0] - 2026-11-16
 
 ### Changed

@@ -95,10 +95,11 @@ Run as a long-running HTTP service for remote access from one trusted network.
 
 ```bash
 ODOO_URL=https://your-odoo.com ODOO_API_KEY=your_api_key \
+  ODOO_MCP_ALLOWED_HOSTS=mcp.example.lan \
   python -m mcp_server_odoo --transport streamable-http --host 0.0.0.0 --port 8000
 ```
 
-**HTTP mode has no built-in authentication.** The whole server uses one Odoo API key -- anyone who reaches the endpoint gets the same access. Restrict access at the network level (firewall, VPN, reverse proxy with auth), or don't expose it publicly.
+**HTTP mode has no built-in authentication.** `ODOO_MCP_ALLOWED_HOSTS` lists the names the server answers to; it stops a web page from reaching the server through your browser, not a person on your network. The whole server uses one Odoo API key -- anyone who reaches the endpoint gets the same access. Restrict access at the network level (firewall, VPN, reverse proxy with auth), or don't expose it publicly.
 
 **Want per-user OAuth, a web admin UI, encrypted API-key storage, and multi-tenant support?** Those features live in the closed-source admin package that powers the [hosted version](https://pantalytics.com/en/apps/odoo-mcp-server) -- you can't deploy them yourself from this repo. **[Sign up at pantalytics.com →](https://pantalytics.com/en/apps/odoo-mcp-server)**
 
@@ -116,6 +117,7 @@ ODOO_URL=https://your-odoo.com ODOO_API_KEY=your_api_key \
 | `ODOO_MCP_TRANSPORT` | No | `stdio` | `stdio` or `streamable-http` |
 | `ODOO_MCP_HOST` | No | `localhost` | Bind address for HTTP mode |
 | `ODOO_MCP_PORT` | No | `8000` | Port for HTTP mode |
+| `ODOO_MCP_ALLOWED_HOSTS` | HTTP off localhost | -- | Comma-separated host names clients use to reach the server (`mcp.example.lan`, `10.0.0.5:8000`). Requests with any other `Host` are refused, which stops DNS rebinding from a web page inside your network. The server will not start on a non-localhost address without it |
 | `ODOO_MCP_LOG_LEVEL` | No | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 | `ODOO_MCP_DEFAULT_LIMIT` | No | `10` | Default search result limit |
 | `ODOO_MCP_MAX_LIMIT` | No | `100` | Maximum search result limit |

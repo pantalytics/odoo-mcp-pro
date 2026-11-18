@@ -51,12 +51,33 @@ class TestLiteralIPs:
             "fe80::1",
             "fc00::1",
             "::ffff:169.254.169.254",  # IPv4-mapped IPv6 metadata addr
+            # Shared range 100.64.0.0/10: none of the five named flags cover it
+            # (Alibaba Cloud metadata, Tailscale). Reported 2026-11-18.
+            "100.100.100.200",
+            "100.64.0.1",
+            "100.127.255.254",
+            "::ffff:100.100.100.200",
+            # NAT64 wrapping the metadata address: blocked before, must stay so.
+            "64:ff9b::a9fe:a9fe",
+            # Multicast is never a file server.
+            "224.0.0.1",
+            "239.255.255.250",
+            "ff02::1",
         ],
     )
     def test_internal_literal_ip_blocked(self, ip):
         assert is_unreachable_host(ip) is True
 
-    @pytest.mark.parametrize("ip", ["8.8.8.8", "1.1.1.1", "2606:4700:4700::1111"])
+    @pytest.mark.parametrize(
+        "ip",
+        [
+            "8.8.8.8",
+            "1.1.1.1",
+            "2606:4700:4700::1111",
+            "100.63.255.255",  # just below 100.64.0.0/10
+            "100.128.0.0",  # just above it
+        ],
+    )
     def test_public_literal_ip_allowed(self, ip):
         assert is_unreachable_host(ip) is False
 
