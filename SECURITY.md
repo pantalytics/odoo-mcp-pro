@@ -11,6 +11,13 @@ you reproduced it, and what you think the impact is.
 We confirm receipt, fix before we disclose, and credit the reporter in the changelog and release notes unless they prefer
 not to be named.
 
+## How a fix is made
+
+Every report gets a test that fails on the reported commit and passes on the
+fix, in the same pull request. The guards on the network boundary
+(`safe_fetch`, the HTTP host check) also have property tests
+(`tests/test_security_properties.py`) that look for inputs nobody listed.
+
 ## Scope
 
 - This repository (the open source server) at the latest release.
