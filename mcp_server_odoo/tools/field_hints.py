@@ -5,8 +5,12 @@ Odoo stops at the first bad name ("Invalid field 'product_uom' on model
 calls to fix, and a client without resources (ChatGPT) had no way to see the
 real names. After Odoo refuses, this checks every name the call used against
 `fields_get` (cached on the connection) and says which ones the model does not
-have, with the closest real names. It only runs on the failure path; a call
-that works costs nothing extra.
+have, with the closest real names.
+
+An explicit `fields` list on a read is checked before the call as well, so a
+wrong name (often one from an older Odoo version) never reaches Odoo: no HTTP
+500 for the client and no ERROR traceback in the Odoo log. The check uses the
+cached `fields_get`, and if that cannot be read the call goes to Odoo as usual.
 """
 
 from __future__ import annotations
@@ -33,6 +37,36 @@ def domain_field_names(domain: Any) -> List[str]:
     return names
 
 
+def _unknown_names(connection: Any, model: str, names: Iterable[str]) -> List[str]:
+    """The names in `names` that `model` does not have, in call order.
+
+    Empty when every name exists or when the field list cannot be read, so a
+    failure here never blocks a call that Odoo might accept.
+    """
+    if connection is None:
+        return []
+    wanted = [n for n in dict.fromkeys(names) if n and n not in _MAGIC_FIELDS]
+    if not wanted:
+        return []
+    try:
+        known = connection.fields_get(model)
+    except Exception:
+        return []
+    if not isinstance(known, dict) or not known:
+        return []
+    return [n for n in wanted if n not in known]
+
+
+def _describe(connection: Any, model: str, unknown: List[str]) -> str:
+    """`name (did you mean a or b?), other` for the unknown names."""
+    known = list(connection.fields_get(model))
+    parts = []
+    for name in unknown:
+        close = difflib.get_close_matches(name, known, n=3, cutoff=0.6)
+        parts.append(f"{name} (did you mean {' or '.join(close)}?)" if close else name)
+    return ", ".join(parts)
+
+
 def unknown_fields_error(
     connection: Any, model: str, exc: Exception, names: Iterable[str]
 ) -> Optional[ValidationError]:
@@ -42,27 +76,35 @@ def unknown_fields_error(
     refusal was about something else, so Odoo's own message stands), or when
     the field list cannot be read.
     """
-    if not isinstance(exc, OdooExecutionError) or connection is None:
+    if not isinstance(exc, OdooExecutionError):
         return None
-    wanted = [n for n in dict.fromkeys(names) if n and n not in _MAGIC_FIELDS]
-    if not wanted:
-        return None
-    try:
-        known = connection.fields_get(model)
-    except Exception:
-        return None
-    if not isinstance(known, dict) or not known:
-        return None
-    unknown = [n for n in wanted if n not in known]
+    unknown = _unknown_names(connection, model, names)
     if not unknown:
         return None
-    parts = []
-    for name in unknown:
-        close = difflib.get_close_matches(name, list(known), n=3, cutoff=0.6)
-        parts.append(f"{name} (did you mean {' or '.join(close)}?)" if close else name)
     return ValidationError(
-        f"{model} has no field {', '.join(parts)}. Odoo said: {exc}. "
+        f"{model} has no field {_describe(connection, model, unknown)}. Odoo said: {exc}. "
         f"To see the real field names, call method_execute with model='{model}', "
+        "method='fields_get', kwargs={'attributes': ['string', 'type']}."
+    )
+
+
+def unknown_fields_precheck(
+    connection: Any, model: str, names: Iterable[str]
+) -> Optional[ValidationError]:
+    """A ValidationError for a field list naming fields `model` does not have.
+
+    Runs before the read, so Odoo never sees the bad name: no HTTP 500 for the
+    client and no traceback at ERROR level in the Odoo log. Uses the cached
+    `fields_get`; None when every name exists or the field list cannot be read
+    (the call then goes to Odoo as before).
+    """
+    unknown = _unknown_names(connection, model, names)
+    if not unknown:
+        return None
+    return ValidationError(
+        f"{model} has no field {_describe(connection, model, unknown)}. "
+        f"Nothing was read. To see the real field names, read odoo://{model}/fields "
+        f"or call method_execute with model='{model}', "
         "method='fields_get', kwargs={'attributes': ['string', 'type']}."
     )
 
@@ -74,3 +116,19 @@ async def unknown_fields_hint(
     if connection is None or not names or not isinstance(exc, OdooExecutionError):
         return None
     return await run_blocking(connection, unknown_fields_error, connection, model, exc, names)
+
+
+async def check_requested_fields(connection: Any, model: str, fields: Any) -> None:
+    """Raise a ValidationError when an explicit `fields` list has unknown names.
+
+    `None` (smart defaults) and `["__all__"]` are not checked. Runs off the
+    event loop under the connection lock, like the other field lookups.
+    """
+    if not isinstance(fields, list) or fields == ["__all__"]:
+        return
+    names = [n for n in fields if isinstance(n, str)]
+    if not names:
+        return
+    error = await run_blocking(connection, unknown_fields_precheck, connection, model, names)
+    if error is not None:
+        raise error

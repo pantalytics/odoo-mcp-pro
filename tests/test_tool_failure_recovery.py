@@ -152,10 +152,11 @@ class TestUnknownFieldHints:
         self, handler, mock_connection, mock_app
     ):
         mock_connection.search_count.side_effect = OdooConnectionError("timed out")
+        mock_connection.fields_get.return_value = SOL_FIELDS
 
-        with pytest.raises(ToolError, match="Connection error"):
-            await mock_app._tools["record_search"](model="sale.order.line", fields=["bogus"])
-        mock_connection.fields_get.assert_not_called()
+        with pytest.raises(ToolError, match="Connection error") as err:
+            await mock_app._tools["record_search"](model="sale.order.line", fields=["name"])
+        assert "has no field" not in str(err.value)
 
     @pytest.mark.asyncio
     async def test_record_get(self, handler, mock_connection, mock_app):

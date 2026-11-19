@@ -11,6 +11,14 @@ management UI, admin dashboard, deploy infrastructure) live in the proprietary
 
 ## [Unreleased]
 
+### Fixed
+- `record_search` and `record_get` check an explicit `fields` list against the
+  model's `fields_get` before reading. A name the model does not have (often one
+  from an older Odoo version) now returns a validation error that lists the
+  unknown names, suggests close matches and points to `odoo://<model>/fields`.
+  Before, the call reached Odoo, which answered HTTP 500 and logged a traceback
+  at ERROR level. If `fields_get` cannot be read, the call goes to Odoo as before.
+
 ## [4.4.0] - 2026-11-18
 
 ### Security

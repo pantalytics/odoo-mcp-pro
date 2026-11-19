@@ -29,7 +29,7 @@ from ._common import (
     run_blocking,
     validate_access,
 )
-from .field_hints import domain_field_names, unknown_fields_hint
+from .field_hints import check_requested_fields, domain_field_names, unknown_fields_hint
 
 
 class QueryToolsMixin:
@@ -166,6 +166,9 @@ class QueryToolsMixin:
                 # A list, a JSON array string or "name, email".
                 parsed_fields = parse_fields(fields)
 
+                # Unknown field names are refused here, before Odoo sees them.
+                await check_requested_fields(connection, model, parsed_fields)
+
                 # Set defaults. Over the cap means "as many as you allow", so
                 # give the cap; the result's `limit` says what was used.
                 if limit <= 0:
@@ -264,6 +267,9 @@ class QueryToolsMixin:
                 # Ensure we're connected
                 if not connection.is_authenticated:
                     raise ValidationError("Not authenticated with Odoo")
+
+                # Unknown field names are refused here, before Odoo sees them.
+                await check_requested_fields(connection, model, fields)
 
                 # Determine which fields to fetch
                 fields_to_fetch = fields
