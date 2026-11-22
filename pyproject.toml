@@ -58,7 +58,7 @@ dev = [
     "ruff>=0.17.1,<0.18",
     "requests>=2.34.2",
     # Property tests for the network guards (tests/test_security_properties.py).
-    "hypothesis>=6.100",
+    "hypothesis>=6.168.5",
 ]
 
 [project.scripts]
